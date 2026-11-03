@@ -1,0 +1,18 @@
+<Window x:Class="SpeedBudget.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Speed Budget">
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+    <NavigationView x:Name="Nav" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left"
+                    IsSettingsVisible="True" SelectionChanged="Nav_SelectionChanged">
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Budget" Tag="Budget" Icon="Calculator" />
+            <NavigationViewItem Content="Transactions" Tag="Transactions" Icon="List" />
+            <NavigationViewItem Content="Accounts" Tag="Accounts" Icon="Library" />
+            <NavigationViewItem Content="Payments" Tag="Payments" Icon="Send" />
+        </NavigationView.MenuItems>
+        <TextBlock x:Name="PageTitle" Text="Budget" Style="{StaticResource TitleTextBlockStyle}" Margin="32" />
+    </NavigationView>
+</Window>
