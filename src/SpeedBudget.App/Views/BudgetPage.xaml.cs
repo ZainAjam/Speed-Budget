@@ -75,11 +75,19 @@ public sealed partial class BudgetPage : Page
 
     private async void Setup_Click(object sender, RoutedEventArgs e) => await RunSetupAsync();
 
+    private bool _setupOpen;
+
     private async Task RunSetupAsync()
     {
-        var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };
-        await wizard.ShowAsync();
-        if (wizard.Result is not null) await RefreshAsync();
+        if (_setupOpen) return;   // one dialog at a time
+        _setupOpen = true;
+        try
+        {
+            var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };
+            await wizard.ShowAsync();
+            if (wizard.Result is not null) await RefreshAsync();
+        }
+        finally { _setupOpen = false; }
     }
 
     private async void Empty_Click(object sender, RoutedEventArgs e)

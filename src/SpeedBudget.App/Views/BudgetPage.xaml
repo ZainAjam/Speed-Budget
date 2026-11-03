@@ -207,7 +207,7 @@
             <ScrollViewer x:Name="BudgetScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" IsTabStop="True">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
-                               Text="There are no budget items yet. Add some under Manage Budget Items." />
+                               Text="There are no budget items yet. Add some under Budget Items." />
                     <!-- The names take whatever width is left; the months sit against the right-hand edge of the page. -->
                     <Grid Margin="0,0,16,0">
                         <Grid.ColumnDefinitions>

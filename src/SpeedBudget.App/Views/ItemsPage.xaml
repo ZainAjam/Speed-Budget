@@ -15,7 +15,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.ColumnSpan="2" Spacing="4" Margin="0,0,0,16">
-            <TextBlock Text="Manage Budget Items" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Budget Items" Style="{StaticResource TitleTextBlockStyle}" />
             <TextBlock Style="{StaticResource BodyTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
                        Text="Groups hold the things you budget for and the income you expect. Drag items between groups to reorganise them. Items can have sub-items." />
             <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Error" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />

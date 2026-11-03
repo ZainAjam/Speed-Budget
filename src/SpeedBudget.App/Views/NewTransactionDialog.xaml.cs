@@ -20,7 +20,7 @@ public sealed partial class NewTransactionDialog : ContentDialog
         var groups = await AppServices.Store.GetGroupsAsync();
         if (groups.Count == 0)
         {
-            Error.Text = "Add a budget category first under Manage Budget Items.";
+            Error.Text = "Add a budget category first under Budget Items.";
             return;
         }
         var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };

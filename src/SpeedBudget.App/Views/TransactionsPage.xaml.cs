@@ -74,7 +74,7 @@ public sealed partial class TransactionsPage : Page
         var groups = await AppServices.Store.GetGroupsAsync();
         if (groups.Count == 0)
         {
-            ViewModel.Message = "Add a budget category first under Manage Budget Items.";
+            ViewModel.Message = "Add a budget category first under Budget Items.";
             return;
         }
         var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };

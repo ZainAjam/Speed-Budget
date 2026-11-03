@@ -28,19 +28,19 @@ public sealed partial class MainWindow : Window
         var budget = new NavigationViewItem { Content = "Budget", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
         var accounts = new NavigationViewItem { Content = "Accounts", Tag = "accounts", Icon = new SymbolIcon(Symbol.Library) };
         var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
-        var items = new NavigationViewItem { Content = "Manage Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
+        var items = new NavigationViewItem { Content = "Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
         Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Activity" });
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
         Nav.MenuItems.Add(new NavigationViewItemSeparator());
-        Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Settings" });
+        Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Manage" });
         Nav.MenuItems.Add(accounts);
         Nav.MenuItems.Add(payees);
         Nav.MenuItems.Add(items);
-        Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Backup and export", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
+        Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
-        // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Counterparties and Manage Budget Items.
+        // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Counterparties and Budget Items.
         var shortcuts = new[] { budget, _transactions, accounts, payees, items };
         for (var i = 0; i < shortcuts.Length; i++)
         {
@@ -63,7 +63,18 @@ public sealed partial class MainWindow : Window
     private async void RebuildAccountPages()
     {
         var selectedTag = (Nav.SelectedItem as NavigationViewItem)?.Tag as string;
-        var accounts = (await AppServices.Store.GetAccountsAsync()).Where(a => !a.IsClosed).ToList();
+        // Read on a context of its own: this runs while pages are loading and saving on the main one, which can only do one thing at a time.
+        List<AccountEntity> accounts;
+        try
+        {
+            using var reader = LocalDatabase.OpenForReading();
+            accounts = (await new BudgetStore(reader).GetAccountsAsync()).Where(a => !a.IsClosed).ToList();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not list the accounts: {ex.Message}");
+            return;
+        }
         _trackedAccounts.Clear();
         foreach (var tracked in accounts.Where(a => !a.IsOnBudget)) _trackedAccounts.Add(tracked.Id);
         UpdateWatcherStrip();

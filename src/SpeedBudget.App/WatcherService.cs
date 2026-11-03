@@ -22,6 +22,7 @@ public sealed class WatcherChip(Guid itemId, string name, string remainingText, 
 public sealed partial class WatcherService : ObservableObject
 {
     private readonly BudgetStore _reader;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue _ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
     private int _version;
 
     public ObservableCollection<WatcherChip> Chips { get; } = new();
@@ -37,6 +38,9 @@ public sealed partial class WatcherService : ObservableObject
     }
 
     /// <summary>Waits for a burst of saves to settle, then refreshes once.</summary>
+    /// <summary>Re-reads the pinned items, for changes made without saving through the main context (such as a reset).</summary>
+    public void Refresh() => _ = RefreshSoonAsync();
+
     private async Task RefreshSoonAsync()
     {
         var version = Interlocked.Increment(ref _version);
@@ -54,12 +58,16 @@ public sealed partial class WatcherService : ObservableObject
         var names = snapshot.Items.ToDictionary(i => i.Id, i => i.Name);
         var remaining = current.Items.ToDictionary(i => i.ItemId, i => i.Remaining);
 
-        Chips.Clear();
-        foreach (var id in pinned.Where(names.ContainsKey))
+        // The save that triggered this can finish on a background thread, and the chips are bound to the UI.
+        _ui.TryEnqueue(() =>
         {
-            var left = remaining.GetValueOrDefault(id);
-            Chips.Add(new WatcherChip(id, names[id], Format.Money(left), Format.Signed(left)));
-        }
-        HasChips = Chips.Count > 0;
+            Chips.Clear();
+            foreach (var id in pinned.Where(names.ContainsKey))
+            {
+                var left = remaining.GetValueOrDefault(id);
+                Chips.Add(new WatcherChip(id, names[id], Format.Money(left), Format.Signed(left)));
+            }
+            HasChips = Chips.Count > 0;
+        });
     }
 }

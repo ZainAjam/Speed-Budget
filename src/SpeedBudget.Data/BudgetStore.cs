@@ -494,6 +494,28 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>
+    /// Factory reset: deletes every account, budget item, transaction, month line, counterparty and setting, so the app
+    /// starts again from a clean slate. This cannot be undone, so callers take a backup first.
+    /// </summary>
+    public async Task ResetAllAsync(CancellationToken ct = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await db.SplitLines.ExecuteDeleteAsync(ct);
+        await db.Transactions.ExecuteDeleteAsync(ct);
+        await db.Allocations.ExecuteDeleteAsync(ct);
+        await db.Holds.ExecuteDeleteAsync(ct);
+        await db.Markers.ExecuteDeleteAsync(ct);
+        await db.Items.ExecuteDeleteAsync(ct);
+        await db.Groups.ExecuteDeleteAsync(ct);
+        await db.Accounts.ExecuteDeleteAsync(ct);
+        await db.Payees.ExecuteDeleteAsync(ct);
+        await db.Settings.ExecuteDeleteAsync(ct);
+        await db.SyncState.ExecuteDeleteAsync(ct);
+        await transaction.CommitAsync(ct);
+        db.ChangeTracker.Clear();
+    }
+
+    /// <summary>
     /// Creates what the setup wizard collected. Only adds: an account, group, item or counterparty that already exists
     /// (same name, ignoring case) is left alone, so running the wizard again never duplicates anything.
     /// </summary>

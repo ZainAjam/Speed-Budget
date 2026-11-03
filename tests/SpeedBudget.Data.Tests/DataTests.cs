@@ -570,6 +570,29 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Reset_removes_everything_so_the_app_is_empty_again()
+    {
+        await _store.ApplySetupAsync(SetupTemplates.Create("Household"));
+        var account = (await _store.GetAccountsAsync()).Single();
+        await AddTx(account, new(2027, 1, 3), -10_00, payee: "Shoprite");
+        await _store.SetSettingAsync("x", "y");
+        await _store.SetLocalSettingAsync("budgetView", "single");
+
+        await _store.ResetAllAsync();
+
+        Assert.True(await _store.IsEmptyAsync());
+        Assert.Empty(await _store.GetItemsAsync());
+        Assert.Empty(await _store.GetPayeesAsync());
+        Assert.Empty(await _store.GetTransactionsAsync());
+        Assert.Empty(await _store.GetMarkersAsync());
+        Assert.Null(await _store.GetSettingAsync("x"));
+        Assert.Null(await _store.GetLocalSettingAsync("budgetView"));
+
+        await _store.ApplySetupAsync(SetupTemplates.Create("Minimal"));   // and it can be set up again
+        Assert.False(await _store.IsEmptyAsync());
+    }
+
+    [Fact]
     public async Task Setup_skips_a_new_group_with_nothing_ticked()
     {
         var plan = new SetupPlan();

@@ -30,6 +30,39 @@ public sealed partial class SettingsPage : Page
         Status.IsOpen = true;
     }
 
+    private async void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        var confirm = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Reset the app?",
+            Content = "This deletes everything: all accounts, budget items, transactions, counterparties and settings. " +
+                      "The app starts again from a clean slate and the setup wizard runs." + Environment.NewLine + Environment.NewLine +
+                      "A backup of your data is saved first, in the backups folder, but this cannot be undone from inside the app.",
+            PrimaryButtonText = "Reset everything",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        try
+        {
+            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
+            await AppServices.Store.ResetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Report($"The reset failed: {ex.Message}", InfoBarSeverity.Error);
+            return;
+        }
+
+        FirstRunDismissed.Value = false;
+        SetupOffered.Value = false;
+        AppServices.Watcher.Refresh();
+        AppServices.RaiseAccountsChanged();
+        (App.MainWindow as MainWindow)?.NavigateTo("budget");   // the Budget screen opens the setup wizard on an empty app
+    }
+
     private async void Setup_Click(object sender, RoutedEventArgs e)
     {
         var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };

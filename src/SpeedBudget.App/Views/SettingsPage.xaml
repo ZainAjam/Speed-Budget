@@ -7,15 +7,17 @@
             <InfoBar x:Name="Status" IsOpen="False" IsClosable="True" />
 
             <StackPanel Spacing="8">
-                <TextBlock Text="Your data" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <TextBlock x:Name="DataPath" IsTextSelectionEnabled="True" TextWrapping="Wrap" Opacity="0.8" />
-                <TextBlock Text="Everything is stored in one file on this PC. Copy the folder, or keep it in OneDrive, to move your budget." Opacity="0.7" TextWrapping="Wrap" />
-            </StackPanel>
-
-            <StackPanel Spacing="8">
                 <TextBlock Text="Setup" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <Button Content="Run the setup wizard" Click="Setup_Click" />
                 <TextBlock Text="Adds accounts, budget groups and items, and common counterparties from a template. Anything you already have is left as it is." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <TextBlock Text="Backup and export" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Your data" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="DataPath" IsTextSelectionEnabled="True" TextWrapping="Wrap" Opacity="0.8" />
+                <TextBlock Text="Everything is stored in one file on this PC. Copy the folder, or keep it in OneDrive, to move your budget." Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
             <StackPanel Spacing="8">
@@ -36,6 +38,15 @@
                     <Button Content="Export everything (JSON)" Click="ExportJson_Click" />
                 </StackPanel>
                 <TextBlock Text="The CSV opens in Excel or Google Sheets. Month lines appear as NEW MONTH rows, as in the sheet." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <TextBlock Text="Reset" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Factory reset" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Button Content="Reset the app…" Click="Reset_Click" />
+                <TextBlock Text="Deletes all your accounts, budget items, transactions, counterparties and settings, so the app starts again from a clean slate and the setup wizard runs. A backup is saved first."
+                           Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
             <StackPanel Spacing="8">
