@@ -57,8 +57,7 @@ public sealed partial class WatcherService : ObservableObject
         foreach (var id in pinned.Where(names.ContainsKey))
         {
             var left = remaining.GetValueOrDefault(id);
-            Chips.Add(new WatcherChip(names[id], Format.Money(left),
-                Format.Theme(left < 0 ? "SystemFillColorCriticalBrush" : "TextFillColorPrimaryBrush")));
+            Chips.Add(new WatcherChip(names[id], Format.Money(left), Format.Signed(left)));
         }
         HasChips = Chips.Count > 0;
     }

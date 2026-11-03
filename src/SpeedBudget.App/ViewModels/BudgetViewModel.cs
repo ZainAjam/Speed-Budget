@@ -241,13 +241,9 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     public bool ShowManyMonths => !ShowSingleMonth;
 
-    /// <summary>The width of the column of item names: wider when only one month is shown.</summary>
-    public double NameColumnWidth => ShowSingleMonth ? 380 : 220;
-
     partial void OnShowSingleMonthChanged(bool value)
     {
         OnPropertyChanged(nameof(ShowManyMonths));
-        OnPropertyChanged(nameof(NameColumnWidth));
     }
 
     /// <summary>Switches between one month and many, remembering the choice for next time.</summary>

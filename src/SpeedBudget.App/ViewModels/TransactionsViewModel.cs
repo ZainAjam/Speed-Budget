@@ -33,9 +33,14 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
 public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
 
 /// <summary>One transaction in the list. Edits go straight to the entity and are saved by the owner.</summary>
-public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, int lineCount, TransactionsViewModel owner)
-    : ObservableObject
+public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, int lineCount, bool accountOnBudget,
+    bool showItemColumn, TransactionsViewModel owner) : ObservableObject
 {
+    /// <summary>Tracked accounts sit outside the budget, so their transactions have no budget item to show or edit.</summary>
+    public bool AccountOnBudget { get; } = accountOnBudget;
+
+    public bool ShowItemColumn { get; } = showItemColumn;
+    public Microsoft.UI.Xaml.GridLength ItemColumnWidth { get; } = new(showItemColumn ? 170 : 0);
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
     public int LineCount { get; } = lineCount;
@@ -257,6 +262,34 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     /// <summary>The account picker on the entry form is only needed when looking at all accounts.</summary>
     public bool ShowAccountPicker => AccountId is null;
+
+    /// <summary>A tracked account is outside the budget, so its page has no budget item column.</summary>
+    public bool ShowItemColumn => AccountId is null || (_accounts.FirstOrDefault(a => a.Id == AccountId)?.IsOnBudget ?? true);
+
+    public Microsoft.UI.Xaml.GridLength ItemColumnWidth => new(ShowItemColumn ? 170 : 0);
+
+    /// <summary>On the all-accounts page the item field follows the account chosen for the new transaction.</summary>
+    public bool ShowItemPicker => AccountId is null ? NewAccount?.IsOnBudget ?? true : ShowItemColumn;
+
+    public Microsoft.UI.Xaml.GridLength ItemFieldWidth => new(ShowItemPicker ? 210 : 0);
+
+    partial void OnNewAccountChanged(AccountOption? value)
+    {
+        if (!ShowItemPicker) NewItem = NoItem;
+        OnPropertyChanged(nameof(ShowItemPicker));
+        OnPropertyChanged(nameof(ItemFieldWidth));
+    }
+
+    /// <summary>The how-to shown above the entry form. A tracked account is outside the budget, so it needs no budget item.</summary>
+    public string CaptureGuidance => ShowItemColumn
+        ? "Fill in the fields from left to right, then press Enter or Add. Pick or add a payee, choose the budget item it counts against, and type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here."
+        : "Fill in the fields from left to right, then press Enter or Add. Pick or add a payee, and type either an outflow (money out) or an inflow (money in). This is a tracked account, outside your budget, so transactions here need no budget item. Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here.";
+
+    private void RaiseItemFieldChanged()
+    {
+        foreach (var name in new[] { nameof(ShowItemColumn), nameof(ItemColumnWidth), nameof(ShowItemPicker), nameof(ItemFieldWidth), nameof(CaptureGuidance) })
+            OnPropertyChanged(name);
+    }
     public bool CanReconcile => AccountId is not null;
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
@@ -314,6 +347,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId)
                 : EntryAccounts.FirstOrDefault(a => !a.Name.EndsWith("(closed)"));
             NewItem = NoItem;
+            RaiseItemFieldChanged();
             _loaded = true;
             await LoadRowsAsync(null);
         }
@@ -356,6 +390,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var showLines = viewedAccount is null || viewedAccount.IsOnBudget;
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
+        var accountsOnBudget = _accounts.ToDictionary(a => a.Id, a => a.IsOnBudget);
         var itemsById = ItemOptions.Where(o => o.Id is not null).ToDictionary(o => o.Id!.Value);
 
         // At equal keys a line sorts before a transaction, matching the engine: a transaction level with a line is after it.
@@ -373,7 +408,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
             if (HideReconciled && d.Transaction.IsReconciled) continue;
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
-            var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count, this);
+            var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count,
+                accountsOnBudget.GetValueOrDefault(d.Transaction.AccountId, true), ShowItemColumn, this);
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
 

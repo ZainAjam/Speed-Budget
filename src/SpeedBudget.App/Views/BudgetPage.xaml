@@ -63,7 +63,7 @@
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="100" />
                 </Grid.ColumnDefinitions>
-                <NumberBox app:Money.Format="True" AcceptsExpression="True" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
+                <NumberBox app:Money.Format="True" AcceptsExpression="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
                            Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" ToolTipService.ToolTip="You can type a sum here, such as 1200+350 or 3000/2" Visibility="{x:Bind Line.IsItem}" />
                 <TextBlock Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                            Style="{StaticResource BodyStrongTextBlockStyle}" Visibility="{x:Bind Line.IsHeader}" />
@@ -184,13 +184,18 @@
             <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                      Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="BudgetScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsTabStop="True">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
                                Text="There are no budget items yet. Add some under Manage Budget Items." />
-                    <StackPanel Orientation="Horizontal">
+                    <!-- The names take whatever width is left; the months sit against the right-hand edge of the page. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="240" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <!-- Names column -->
-                        <StackPanel Width="{x:Bind ViewModel.NameColumnWidth, Mode=OneWay}">
+                        <StackPanel Grid.Column="0">
                             <Border Height="56" />
                             <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
                                 <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />
@@ -214,14 +219,14 @@
                         </StackPanel>
 
                         <!-- One column per month -->
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource MonthTemplate}">
+                        <ItemsControl Grid.Column="1" ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource MonthTemplate}" HorizontalAlignment="Right">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
-                    </StackPanel>
+                    </Grid>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

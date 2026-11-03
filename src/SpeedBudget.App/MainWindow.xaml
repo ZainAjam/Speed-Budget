@@ -14,8 +14,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Border Padding="32,12,32,0" Visibility="{x:Bind Watcher.HasChips, Mode=OneWay}"
-                    AutomationProperties.Name="Pinned items">
+            <Border x:Name="WatcherHost" Padding="32,12,32,0" Visibility="Collapsed" AutomationProperties.Name="Pinned items">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Auto">
                     <ItemsControl ItemsSource="{x:Bind Watcher.Chips}">
                         <ItemsControl.ItemsPanel>

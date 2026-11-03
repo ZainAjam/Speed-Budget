@@ -2,14 +2,16 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Windows.System;
 using SpeedBudget.App.ViewModels;
 
 namespace SpeedBudget.App.Views;
 
 public sealed partial class BudgetPage : Page
 {
-    // Widths in the XAML: the name column, and each month's column.
-    private const double NameColumnWidth = 220;
+    // Widths in the XAML: the least the name column is given, and each month's column.
+    private const double NameColumnWidth = 240;
     private const double MonthColumnWidth = 330;
     private const double PageMargins = 64 + 20; // left and right margin, and the vertical scroll bar
 
@@ -20,6 +22,10 @@ public sealed partial class BudgetPage : Page
         InitializeComponent();
         SummaryLabelList.ItemsSource = BudgetViewModel.SummaryLabels;
         Loaded += async (_, _) => await RefreshAsync();
+
+        // Pressing anywhere that is not another control ends the edit in the budget cell being typed in. Handled
+        // events are included, since the scroll viewer and the text would otherwise swallow the press.
+        AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
     }
 
     private async Task RefreshAsync()
@@ -70,6 +76,85 @@ public sealed partial class BudgetPage : Page
     private void ManyMonths_Unchecked(object sender, RoutedEventArgs e)
     {
         if (ViewModel.ShowManyMonths) ManyButton.IsChecked = true;
+    }
+
+    // ---- Editing budgeted amounts from the keyboard ----
+
+    /// <summary>On entering a cell: remember its value for Esc, and select it so typing replaces it.</summary>
+    private void Budgeted_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not NumberBox box) return;
+        box.Tag = box.Value;
+        Money.FindTextBox(box)?.SelectAll();
+    }
+
+    /// <summary>
+    /// Enter saves and moves down to the next cell; Esc cancels the edit; Up and Down move between cells. The press is
+    /// seen before the box's own handling (which would otherwise step the number up or down on the arrow keys).
+    /// Leaving a cell is what saves it, so every route out of the cell commits what was typed.
+    /// </summary>
+    private void Budgeted_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not NumberBox box) return;
+        switch (e.Key)
+        {
+            case VirtualKey.Enter:
+                e.Handled = true;
+                if (NeighbourBox(box, down: true) is { } below) below.Focus(FocusState.Keyboard);
+                else BudgetScroll.Focus(FocusState.Programmatic);
+                break;
+            case VirtualKey.Down:
+            case VirtualKey.Up:
+                e.Handled = true;
+                if (NeighbourBox(box, down: e.Key == VirtualKey.Down) is { } next) next.Focus(FocusState.Keyboard);
+                break;
+            case VirtualKey.Escape:
+                e.Handled = true;
+                // Put the saved amount back into the field being typed in. (Setting the box's own Text does nothing when it
+                // already equals the saved text, which leaves the typed digits in place to be saved on leaving.)
+                if (box.Tag is double original && box.NumberFormatter is { } formatter && Money.FindTextBox(box) is { } input)
+                    input.Text = formatter.FormatDouble(original);
+                BudgetScroll.Focus(FocusState.Programmatic);
+                break;
+        }
+    }
+
+    /// <summary>The visible budget cell above or below this one in the same month, skipping hidden rows and headings.</summary>
+    private static NumberBox? NeighbourBox(NumberBox from, bool down)
+    {
+        DependencyObject? node = from;
+        while (node is not null and not ItemsControl) node = VisualTreeHelper.GetParent(node);
+        if (node is null) return null;
+
+        var boxes = new List<NumberBox>();
+        void Collect(DependencyObject parent)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is NumberBox box && box.ActualHeight > 0) boxes.Add(box);
+                else Collect(child);
+            }
+        }
+        Collect(node);
+
+        var index = boxes.IndexOf(from) + (down ? 1 : -1);
+        return index >= 0 && index < boxes.Count ? boxes[index] : null;
+    }
+
+    private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        // Only act while a budget cell is being edited.
+        var inCell = false;
+        for (var node = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject; node is not null; node = VisualTreeHelper.GetParent(node))
+            if (node is NumberBox) { inCell = true; break; }
+        if (!inCell) return;
+
+        // A press on another control (or on the cell itself) is handled by that control.
+        for (var node = e.OriginalSource as DependencyObject; node is not null; node = VisualTreeHelper.GetParent(node))
+            if (node is NumberBox or TextBox or ComboBox or ButtonBase or CalendarDatePicker or ListViewBase) return;
+
+        BudgetScroll.Focus(FocusState.Programmatic);
     }
 
     // ---- Dragging a budget item to another category ----

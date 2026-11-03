@@ -17,7 +17,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="{x:Bind ItemColumnWidth}" />
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="90" />
                     <ColumnDefinition Width="90" />
@@ -25,7 +25,8 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="2" Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.8" />
+                <TextBlock Grid.Column="2" Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.8"
+                           Visibility="{x:Bind ShowItemColumn}" />
                 <TextBlock Grid.Column="3" Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.8" />
                 <TextBlock Grid.Column="4" Text="{x:Bind OutflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="5" Text="{x:Bind InflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
@@ -127,14 +128,14 @@
                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                     </StackPanel>
                     <TextBlock TextWrapping="Wrap" Opacity="0.8" Style="{StaticResource CaptionTextBlockStyle}"
-                               Text="Fill in the fields from left to right, then press Enter or Add. Pick or add a payee, choose the budget item it counts against, and type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here." />
+                               Text="{x:Bind ViewModel.CaptureGuidance, Mode=OneWay}" />
                 </StackPanel>
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="140" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" MinWidth="150" />
-                        <ColumnDefinition Width="210" />
+                        <ColumnDefinition Width="{x:Bind ViewModel.ItemFieldWidth, Mode=OneWay}" />
                         <ColumnDefinition Width="*" MinWidth="120" />
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="110" />
@@ -146,7 +147,7 @@
                               SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
                     <local:PayeePicker x:Name="PayeeBox" Grid.Column="2" Header="Payee" ItemsSource="{x:Bind ViewModel.Payees}"
                                        SelectedPayee="{x:Bind ViewModel.NewPayee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" />
-                    <local:ItemPicker x:Name="NewItemBox" Grid.Column="3" Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
+                    <local:ItemPicker x:Name="NewItemBox" Grid.Column="3" Header="Budget item" Visibility="{x:Bind ViewModel.ShowItemPicker, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.ItemOptions}"
                                       SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" CreateRequested="Item_CreateRequested" />
                     <TextBox x:Name="MemoBox" Grid.Column="4" Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
                     <NumberBox x:Name="OutflowBox" app:Money.Format="True" Grid.Column="5" Header="Outflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
@@ -190,7 +191,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="100" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition Width="90" />
@@ -198,7 +199,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Date" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock Grid.Column="1" Text="Payee" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <TextBlock Grid.Column="2" Text="Budget item" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock Grid.Column="2" Text="Budget item" Style="{StaticResource CaptionTextBlockStyle}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" />
                     <TextBlock Grid.Column="3" Text="Account" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock Grid.Column="4" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock Grid.Column="5" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
@@ -226,6 +227,7 @@
                                                CreateRequested="Payee_CreateRequested" />
                             <local:ItemPicker Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
                                               SelectedItem="{x:Bind ViewModel.Selected.Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
+                                              Visibility="{x:Bind ViewModel.Selected.AccountOnBudget, Mode=OneWay, FallbackValue=Visible}"
                                               IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
                             <NumberBox app:Money.Format="True" Header="Outflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Outflow, Mode=TwoWay}"
                                        IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />

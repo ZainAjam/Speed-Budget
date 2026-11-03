@@ -36,7 +36,7 @@ public static class Money
         if (sender is NumberBox box && FindTextBox(box) is { } input) input.TextAlignment = Microsoft.UI.Xaml.TextAlignment.Right;
     }
 
-    private static TextBox? FindTextBox(DependencyObject parent)
+    internal static TextBox? FindTextBox(DependencyObject parent)
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
         {

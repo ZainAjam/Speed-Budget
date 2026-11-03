@@ -10,6 +10,8 @@ public sealed partial class MainWindow : Window
 {
     private readonly NavigationViewItem _transactions = new() { Content = "Transactions", Tag = "tx", Icon = new SymbolIcon(Symbol.List), IsExpanded = true };
 
+    private bool _onTransactions;
+
     public WatcherService Watcher => AppServices.Watcher;
 
     public MainWindow()
@@ -43,6 +45,9 @@ public sealed partial class MainWindow : Window
             Nav.KeyboardAccelerators.Add(accelerator);
         }
 
+        // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
+        Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
+
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
         Nav.SelectedItem = budget;
@@ -67,9 +72,14 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void UpdateWatcherStrip() =>
+        WatcherHost.Visibility = _onTransactions && Watcher.HasChips ? Visibility.Visible : Visibility.Collapsed;
+
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         var tag = (args.SelectedItem as NavigationViewItem)?.Tag as string;
+        _onTransactions = tag is not null && tag.StartsWith("tx");
+        UpdateWatcherStrip();
         switch (tag)
         {
             case "budget": ContentFrame.Navigate(typeof(BudgetPage)); break;
