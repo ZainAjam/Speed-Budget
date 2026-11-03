@@ -12,7 +12,7 @@
                   SelectionChanged="Accounts_SelectionChanged" />
         <CalendarDatePicker x:Name="DateBox" Header="Date" />
         <NumberBox app:Money.Format="True" x:Name="AmountBox" Header="Amount (R)" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden" />
-        <local:ItemPicker x:Name="ItemBox" Header="Budget item" Visibility="Collapsed" />
+        <local:ItemPicker x:Name="ItemBox" Header="Budget item" Visibility="Collapsed" AllowCreate="False" />
         <TextBlock x:Name="ItemHelp" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}" />
         <TextBox x:Name="MemoBox" Header="Memo" PlaceholderText="Optional" />
         <TextBlock x:Name="Error" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />

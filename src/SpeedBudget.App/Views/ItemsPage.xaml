@@ -1,6 +1,7 @@
 <Page x:Class="SpeedBudget.App.Views.ItemsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="using:SpeedBudget.App"
     xmlns:vm="using:SpeedBudget.App.ViewModels">
     <Grid Margin="32,24" ColumnSpacing="32">
         <Grid.ColumnDefinitions>
@@ -53,6 +54,8 @@
                        Text="{x:Bind ViewModel.Selected.KindText, Mode=OneWay, FallbackValue=''}" />
             <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
             <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsItemSelected, Mode=OneWay}">
+                <ComboBox Header="Icon shown in front of the name" HorizontalAlignment="Stretch" ItemsSource="{x:Bind app:Emojis.Choices}"
+                          SelectedIndex="{x:Bind ViewModel.Selected.EmojiIndex, Mode=TwoWay, FallbackValue=0}" />
                 <TextBox Header="Account number or reference" Text="{x:Bind ViewModel.Selected.AccountRef, Mode=TwoWay, FallbackValue=''}" />
                 <TextBox Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"
                          Text="{x:Bind ViewModel.Selected.Notes, Mode=TwoWay, FallbackValue=''}" />

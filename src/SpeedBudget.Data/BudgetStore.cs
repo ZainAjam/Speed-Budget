@@ -68,7 +68,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
 
         return new BudgetSnapshot(
             accounts.Select(a => new Account(a.Id, a.Name, a.IsOnBudget)).ToList(),
-            items.Select(i => new BudgetItem(i.Id, i.Name, i.Kind)).ToList(),
+            items.Select(i => new BudgetItem(i.Id, i.DisplayName, i.Kind)).ToList(),
             markers.Select(ToCore).ToList(),
             transactions.Select(t => new Core.Transaction(
                 t.Id, t.AccountId, t.Date, t.DayOrder, t.Amount,
@@ -415,6 +415,49 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var siblings = await db.Items.Where(i => i.GroupId == item.GroupId && i.ParentItemId == item.ParentItemId)
             .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).ToListAsync(ct);
         return await SwapAsync(siblings, item, up, (i, order) => i.SortOrder = order, i => i.SortOrder, ct);
+    }
+
+    /// <summary>
+    /// Moves an item (and any sub-items under it) to a group, optionally under another item, placing it before the given
+    /// sibling or last. Returns an error sentence, or null when moved.
+    /// </summary>
+    public async Task<string?> MoveItemToAsync(Guid itemId, Guid targetGroupId, Guid? targetParentId, Guid? beforeItemId, CancellationToken ct = default)
+    {
+        var all = await db.Items.ToListAsync(ct);
+        var item = all.Single(i => i.Id == itemId);
+        var group = await db.Groups.SingleAsync(g => g.Id == targetGroupId, ct);
+        if (group.Kind != item.Kind) return "Income items can only be in income groups, and expense items in expense groups.";
+
+        List<ItemEntity> DescendantsOf(Guid id) =>
+            all.Where(i => i.ParentItemId == id).SelectMany(c => new[] { c }.Concat(DescendantsOf(c.Id))).ToList();
+        var descendants = DescendantsOf(item.Id);
+        if (targetParentId is { } parent && (parent == item.Id || descendants.Any(d => d.Id == parent)))
+            return "An item can't be moved inside itself.";
+
+        var siblings = all.Where(i => i.Id != itemId && i.GroupId == targetGroupId && i.ParentItemId == targetParentId)
+            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).ToList();
+        var index = beforeItemId is { } before ? siblings.FindIndex(s => s.Id == before) : -1;
+        siblings.Insert(index < 0 ? siblings.Count : index, item);
+
+        item.GroupId = targetGroupId;
+        item.ParentItemId = targetParentId;
+        for (var n = 0; n < siblings.Count; n++) siblings[n].SortOrder = n;
+        foreach (var d in descendants) d.GroupId = targetGroupId;
+
+        await db.SaveChangesAsync(ct);
+        return null;
+    }
+
+    /// <summary>A preference of this device only, such as how the budget is laid out. It is not synced.</summary>
+    public async Task<string?> GetLocalSettingAsync(string key, CancellationToken ct = default) =>
+        (await db.SyncState.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, ct))?.Value;
+
+    public async Task SetLocalSettingAsync(string key, string value, CancellationToken ct = default)
+    {
+        var row = await db.SyncState.FirstOrDefaultAsync(s => s.Key == key, ct);
+        if (row is null) db.SyncState.Add(new SyncStateEntity { Key = key, Value = value });
+        else row.Value = value;
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<bool> MoveGroupAsync(GroupEntity group, bool up, CancellationToken ct = default)

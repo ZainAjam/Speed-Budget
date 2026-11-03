@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using SpeedBudget.App.ViewModels;
 
@@ -54,6 +55,50 @@ public sealed partial class BudgetPage : Page
     private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.GoBack();
 
     private void Forward_Click(object sender, RoutedEventArgs e) => ViewModel.GoForward();
+
+    // The two view buttons act like a pair of radio buttons: choosing one sets the view, and the chosen one can't be
+    // switched off by pressing it again. They react to the checked state, so keyboard use works the same as a click.
+    private async void SingleMonth_Checked(object sender, RoutedEventArgs e) => await ViewModel.SetSingleMonthAsync(true);
+
+    private async void ManyMonths_Checked(object sender, RoutedEventArgs e) => await ViewModel.SetSingleMonthAsync(false);
+
+    private void SingleMonth_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.ShowSingleMonth) SingleButton.IsChecked = true;
+    }
+
+    private void ManyMonths_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.ShowManyMonths) ManyButton.IsChecked = true;
+    }
+
+    // ---- Dragging a budget item to another category ----
+
+    private void Line_DragStarting(UIElement sender, DragStartingEventArgs args)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not BudgetLine { IsItem: true } line)
+        {
+            args.Cancel = true;
+            return;
+        }
+        args.Data.Properties["budgetLine"] = line;
+        args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+    }
+
+    private void Line_DragOver(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Properties.ContainsKey("budgetLine")) return;
+        e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        e.DragUIOverride.Caption = "Move here";
+    }
+
+    /// <summary>Dropped in the top half of a row: before it. In the bottom half: after it. On a heading: first in that category.</summary>
+    private async void Line_Drop(object sender, DragEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: BudgetLine target } row) return;
+        if (!e.DataView.Properties.TryGetValue("budgetLine", out var dragged) || dragged is not BudgetLine moving) return;
+        await ViewModel.MoveLineAsync(moving, target, after: e.GetPosition(row).Y > row.ActualHeight / 2);
+    }
 
     private void Chevron_Click(object sender, RoutedEventArgs e)
     {

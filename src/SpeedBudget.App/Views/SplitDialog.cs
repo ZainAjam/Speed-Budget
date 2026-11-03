@@ -66,7 +66,7 @@ public sealed class SplitDialog : ContentDialog
     {
         var item = new ItemPicker
         {
-            ItemsSource = _vm.ItemOptions, Width = 260,
+            ItemsSource = _vm.ItemOptions, Width = 260, AllowCreate = false,
             SelectedItem = _vm.ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? _vm.NoItem,
         };
         var amountBox = new NumberBox { Value = amount, Width = 120, PlaceholderText = "0.00", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };

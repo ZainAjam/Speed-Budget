@@ -173,6 +173,9 @@ namespace SpeedBudget.Data.Migrations
                     b.Property<string>("AccountRef")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Emoji")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("GroupId")
                         .HasColumnType("TEXT");
 

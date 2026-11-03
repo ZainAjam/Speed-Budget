@@ -26,7 +26,47 @@ public sealed partial class TransactionsPage : Page
         await dialog.ShowAsync();
     }
 
-    private async void Unreconcile_Click(object sender, RoutedEventArgs e) => await ViewModel.UnreconcileSelectedAsync();
+    private async void Unreconcile_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.Selected is { } row) await ConfirmUnreconcileAsync(row);
+    }
+
+    /// <summary>The padlock on a reconciled row: after confirming, the row goes back to a ticked Cleared box.</summary>
+    private async void Padlock_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is TransactionRow row) await ConfirmUnreconcileAsync(row);
+    }
+
+    private async Task ConfirmUnreconcileAsync(TransactionRow row)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Unreconcile this transaction?",
+            Content = $"{row.DateText}  {row.Payee}\r\n\r\nIt will go back to being cleared, and you will be able to change it. " +
+                      "Your account may no longer match the bank until you reconcile again.",
+            PrimaryButtonText = "Unreconcile",
+            CloseButtonText = "Keep it locked",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.UnreconcileAsync(row);
+    }
+
+    /// <summary>A budget item typed into the drop-down that doesn't exist: ask for its category, create it, and select it.</summary>
+    private async void Item_CreateRequested(object? sender, string name)
+    {
+        var groups = await AppServices.Store.GetGroupsAsync();
+        if (groups.Count == 0)
+        {
+            ViewModel.Message = "Add a budget category first under Manage Budget Items.";
+            return;
+        }
+        var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var option = await ViewModel.CreateItemAsync(dialog.GroupId, dialog.ItemName);
+        if (option is not null && sender is ItemPicker picker) picker.SelectedItem = option;
+    }
 
     /// <summary>A payee typed into the drop-down that was not in the list: save it so it is there from now on.</summary>
     private async void Payee_CreateRequested(object? sender, string name) => await ViewModel.CreatePayeeAsync(name);

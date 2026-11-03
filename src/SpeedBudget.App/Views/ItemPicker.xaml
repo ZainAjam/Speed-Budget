@@ -1,7 +1,9 @@
 <UserControl x:Class="SpeedBudget.App.Views.ItemPicker"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Spacing="4">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:SpeedBudget.App.ViewModels">
+    <!-- Spacing 8 matches the gap between a header and its box on the built-in controls, so rows of fields line up. -->
+    <StackPanel Spacing="8">
         <TextBlock x:Name="HeaderText" Visibility="Collapsed" />
         <Button x:Name="PickerButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
             <Grid ColumnSpacing="8">
@@ -13,11 +15,26 @@
                 <FontIcon Grid.Column="1" Glyph="&#xE70D;" FontSize="12" />
             </Grid>
             <Button.Flyout>
-                <Flyout Placement="Bottom" Opened="Flyout_Opened">
-                    <StackPanel Width="340" Spacing="8">
+                <Flyout x:Name="PickerFlyout" Placement="Bottom" Opened="Flyout_Opened">
+                    <StackPanel Width="400" Spacing="8">
                         <TextBox x:Name="SearchBox" PlaceholderText="Search items" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
-                        <ListView x:Name="ResultList" MaxHeight="320" SelectionMode="None" IsItemClickEnabled="True"
-                                  ItemClick="Result_ItemClick" DisplayMemberPath="Name" />
+                        <ListView x:Name="ResultList" MaxHeight="340" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Result_ItemClick">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ItemOption">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" Foreground="{x:Bind BalanceBrush}"
+                                                   Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="Hint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
+                                   Text="The figure beside each item is what is left on it this month." />
                     </StackPanel>
                 </Flyout>
             </Button.Flyout>

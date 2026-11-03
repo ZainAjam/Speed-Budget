@@ -38,6 +38,12 @@ public enum PaymentMethod { None, Eft, CashOrCard, DebitOrder, Transfer, Savings
 
 public class ItemEntity : SyncEntity
 {
+    /// <summary>An optional emoji shown in front of the item's name, such as 🛒 for groceries.</summary>
+    public string? Emoji { get; set; }
+
+    /// <summary>The name as shown to the user: the emoji, if any, then the name. Not stored.</summary>
+    public string DisplayName => string.IsNullOrEmpty(Emoji) ? Name : $"{Emoji} {Name}";
+
     public PaymentMethod PaymentMethod { get; set; }
 
     /// <summary>The heading this item is listed under on the Payments page, such as "Utilities".</summary>

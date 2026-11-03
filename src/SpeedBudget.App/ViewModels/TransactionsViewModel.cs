@@ -7,7 +7,27 @@ using SortKey = SpeedBudget.Core.SortKey;
 
 namespace SpeedBudget.App.ViewModels;
 
-public sealed record ItemOption(Guid? Id, string Name, ItemKind? Kind);
+/// <summary>
+/// A budget item as offered in a drop-down. Name is the full label (group, emoji, item). Balance is what is left on the
+/// item this month, kept up to date in place so an open list never shows a stale figure.
+/// </summary>
+public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? groupId = null, string shortName = "")
+{
+    public Guid? Id { get; } = id;
+    public string Name { get; } = name;
+    public ItemKind? Kind { get; } = kind;
+    public Guid? GroupId { get; } = groupId;
+
+    /// <summary>The item's own name, without its group or emoji, for telling whether typed text already exists.</summary>
+    public string ShortName { get; } = shortName;
+
+    /// <summary>True for the "add a new item" row at the top of a search, which is not a real item.</summary>
+    public bool IsCreateRow { get; init; }
+
+    public long? Balance { get; set; }
+    public string BalanceText => Balance is { } b ? Format.Money(b) : "";
+    public Microsoft.UI.Xaml.Media.Brush BalanceBrush => Balance is { } b ? Format.Signed(b) : Format.Theme("TextFillColorPrimaryBrush");
+}
 
 /// <summary>Id is null for "all accounts".</summary>
 public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
@@ -288,7 +308,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             ItemOptions.Add(NoItem);
             foreach (var g in groups)
                 foreach (var i in items.Where(i => i.GroupId == g.Id))
-                    ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.Name}{(i.IsArchived ? " (archived)" : "")}", i.Kind));
+                    ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name));
 
             NewAccount = AccountId is { } fixedId
                 ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId)
@@ -308,12 +328,18 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>Recalculates the balances shown at the top. The caller must hold the gate.</summary>
-    private async Task RefreshBalancesAsync()
+    private async Task RefreshBalancesAsync(IReadOnlyList<MonthSummary>? months = null)
     {
         var balances = await _store.GetBalancesAsync(AccountId);
         AvailableText = Format.Money(balances.BookBalance);
         ClearedText = Format.Money(balances.ClearedBalance);
         UnclearedText = Format.Money(balances.UnclearedTotal);
+
+        // What is left on each expense item this month, shown beside it in the item drop-down.
+        months ??= BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+        var remaining = months[^1].Items.ToDictionary(i => i.ItemId, i => i.Remaining);
+        foreach (var option in ItemOptions)
+            option.Balance = option.Id is { } id && remaining.TryGetValue(id, out var left) ? left : null;
     }
 
     /// <summary>Rebuilds the list. The caller must hold the gate.</summary>
@@ -321,8 +347,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
     {
         var details = await _store.GetTransactionsAsync(AccountId);
         var snapshot = await _store.LoadSnapshotAsync();
-        _lastMonthLabel = BudgetEngine.Calculate(snapshot)[^1].Label;
-        await RefreshBalancesAsync();
+        var months = BudgetEngine.Calculate(snapshot);
+        _lastMonthLabel = months[^1].Label;
+        await RefreshBalancesAsync(months);
 
         // Month lines are budget-wide, so they are hidden while looking at a tracked account.
         var viewedAccount = _accounts.FirstOrDefault(a => a.Id == AccountId);
@@ -490,6 +517,29 @@ public sealed partial class TransactionsViewModel : ObservableObject
         Payees.Insert(index, name);
     }
 
+    /// <summary>Creates a budget item in a category from the item drop-down, and adds it to the list.</summary>
+    public async Task<ItemOption?> CreateItemAsync(Guid groupId, string name)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var group = (await _store.GetGroupsAsync()).Single(g => g.Id == groupId);
+            var item = await _store.AddItemAsync(groupId, null, name.Trim(), group.Kind);
+            var option = new ItemOption(item.Id, $"{group.Name} › {item.DisplayName}", item.Kind, group.Id, item.Name)
+            {
+                Balance = group.Kind == ItemKind.Expense ? 0 : null,
+            };
+
+            // Place it with the rest of its category.
+            var lastInGroup = ItemOptions.Select((o, i) => (Option: o, Index: i)).LastOrDefault(x => x.Option.GroupId == groupId);
+            ItemOptions.Insert(lastInGroup.Option is null ? ItemOptions.Count : lastInGroup.Index + 1, option);
+            Message = "";
+            return option;
+        }
+        catch (Exception ex) { Message = $"Could not add the budget item: {ex.Message}"; return null; }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>Saves a payee typed into the drop-down, so it is in the list from now on.</summary>
     public async Task CreatePayeeAsync(string name)
     {
@@ -577,10 +627,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Unlocks a reconciled transaction so it can be edited again.</summary>
-    public async Task UnreconcileSelectedAsync()
+    /// <summary>Unlocks a reconciled transaction so it is simply cleared again and can be edited.</summary>
+    public async Task UnreconcileAsync(TransactionRow row)
     {
-        if (Selected is not { } row) return;
         await _gate.WaitAsync();
         try
         {

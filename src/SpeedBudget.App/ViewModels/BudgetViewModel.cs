@@ -20,9 +20,12 @@ public sealed partial class GroupState(string name) : ObservableObject
 /// One row of the budget, as labelled in the left-hand column. Every month column has a cell for each line, in the
 /// same order, so the rows line up across the page.
 /// </summary>
-public sealed partial class BudgetLine(Guid? itemId, string name, int depth, bool isArchived, GroupState? group, bool isHeader) : ObservableObject
+public sealed partial class BudgetLine(Guid? itemId, string name, int depth, bool isArchived, GroupState? group, bool isHeader,
+    Guid? groupId = null, Guid? parentItemId = null) : ObservableObject
 {
     public Guid? ItemId { get; } = itemId;
+    public Guid? GroupId { get; } = groupId;
+    public Guid? ParentItemId { get; } = parentItemId;
     public string Name { get; } = name;
     public Thickness Indent { get; } = new(depth * 20, 0, 0, 0);
     public bool IsArchived { get; } = isArchived;
@@ -131,6 +134,9 @@ public sealed partial class OutflowCell : LineCell
     }
 }
 
+/// <summary>A label in the summary block. The emphasised one is taller, to match its larger figures.</summary>
+public sealed record SummaryLabel(string Text, bool IsStrong = false);
+
 public sealed partial class SummaryCell(bool isStrong) : ObservableObject
 {
     public bool IsStrong { get; } = isStrong;
@@ -170,8 +176,7 @@ public sealed partial class MonthColumn : ObservableObject
 
         var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.CarriedOver, -m.Budgeted, m.Available };
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
-        Summary[6].Brush = Format.Theme(m.Available == 0 ? "SystemFillColorSuccessBrush"
-            : m.Available > 0 ? "SystemFillColorCautionBrush" : "SystemFillColorCriticalBrush");
+        Summary[6].Brush = Format.Signed(m.Available);
 
         var income = m.IncomeItems.ToDictionary(i => i.ItemId);
         foreach (var cell in Income) cell.Apply(income.GetValueOrDefault(cell.ItemId) ?? new IncomeItemMonth(cell.ItemId, 0, 0, 0));
@@ -196,10 +201,11 @@ public sealed partial class MonthColumn : ObservableObject
 public sealed partial class BudgetViewModel : ObservableObject
 {
     /// <summary>The labels down the left of the summary block, in the order of each month's summary cells.</summary>
-    public static readonly IReadOnlyList<string> SummaryLabels = new[]
+    public static readonly IReadOnlyList<SummaryLabel> SummaryLabels = new[]
     {
-        "Income this month", "Held for next month", "Released from last month", "Overflow from last month",
-        "Carried over", "Budgeted", "Available to budget",
+        new SummaryLabel("Income this month"), new SummaryLabel("Held for next month"), new SummaryLabel("Released from last month"),
+        new SummaryLabel("Overflow from last month"), new SummaryLabel("Carried over"), new SummaryLabel("Budgeted"),
+        new SummaryLabel("Available to budget", IsStrong: true),
     };
 
     private readonly BudgetStore _store = AppServices.Store;
@@ -208,7 +214,7 @@ public sealed partial class BudgetViewModel : ObservableObject
     private readonly List<BudgetLine> _incomeLines = new();
     private readonly List<BudgetLine> _outflowLines = new();
     private int _start;
-    private int _capacity = 1;
+    private int _fitCapacity = 1;
     private bool _firstLoad = true;
 
     public ObservableCollection<BudgetLine> IncomeLines { get; } = new();
@@ -225,7 +231,37 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
+    /// <summary>How many month columns are shown: one, or as many as fit across the page.</summary>
+    private int _capacity => ShowSingleMonth ? 1 : _fitCapacity;
+
     private int MaxStart => Math.Max(0, _months.Count - _capacity);
+
+    /// <summary>True to see one month at a time, which leaves room for longer item names.</summary>
+    [ObservableProperty] public partial bool ShowSingleMonth { get; set; }
+
+    public bool ShowManyMonths => !ShowSingleMonth;
+
+    /// <summary>The width of the column of item names: wider when only one month is shown.</summary>
+    public double NameColumnWidth => ShowSingleMonth ? 380 : 220;
+
+    partial void OnShowSingleMonthChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowManyMonths));
+        OnPropertyChanged(nameof(NameColumnWidth));
+    }
+
+    /// <summary>Switches between one month and many, remembering the choice for next time.</summary>
+    public async Task SetSingleMonthAsync(bool single)
+    {
+        if (ShowSingleMonth == single) return;
+        ShowSingleMonth = single;
+        _start = Math.Clamp(_start, 0, MaxStart);
+        RebuildColumns();
+        try { await _store.SetLocalSettingAsync(ViewModeKey, single ? "single" : "many"); }
+        catch (Exception ex) { Message = $"Could not remember the view: {ex.Message}"; }
+    }
+
+    private const string ViewModeKey = "budgetView";
 
     public async Task LoadAsync()
     {
@@ -243,17 +279,17 @@ public sealed partial class BudgetViewModel : ObservableObject
                 if (group.Kind == ItemKind.Income)
                 {
                     foreach (var (item, depth) in Flatten(inGroup))
-                        _incomeLines.Add(new BudgetLine(item.Id, item.Name, depth, item.IsArchived, null, isHeader: false));
+                        _incomeLines.Add(new BudgetLine(item.Id, item.DisplayName, depth, item.IsArchived, null, isHeader: false, item.GroupId, item.ParentItemId));
                     continue;
                 }
 
                 var state = new GroupState(group.Name);
                 state.PropertyChanged += (_, _) => ApplyVisibility();
-                var header = new BudgetLine(null, group.Name, 0, false, state, isHeader: true);
+                var header = new BudgetLine(null, group.Name, 0, false, state, isHeader: true, group.Id);
                 _outflowLines.Add(header);
                 foreach (var (item, depth) in Flatten(inGroup))
                 {
-                    _outflowLines.Add(new BudgetLine(item.Id, item.Name, depth, item.IsArchived, state, isHeader: false));
+                    _outflowLines.Add(new BudgetLine(item.Id, item.DisplayName, depth, item.IsArchived, state, isHeader: false, item.GroupId, item.ParentItemId));
                     header.GroupItemIds.Add(item.Id);
                 }
             }
@@ -264,6 +300,7 @@ public sealed partial class BudgetViewModel : ObservableObject
             foreach (var l in _outflowLines) OutflowLines.Add(l);
 
             HasItems = items.Count > 0;
+            if (_firstLoad) ShowSingleMonth = await _store.GetLocalSettingAsync(ViewModeKey) == "single";
             _months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync(), BudgetEngine.PlannedMonthCount);
 
             // Open on the latest real month, with the planned months after it, rather than on the far future.
@@ -288,9 +325,9 @@ public sealed partial class BudgetViewModel : ObservableObject
     public void SetCapacity(int capacity)
     {
         capacity = Math.Max(1, capacity);
-        if (capacity == _capacity) return;
-        _capacity = capacity;
-        if (_months.Count == 0) return;
+        if (capacity == _fitCapacity) return;
+        _fitCapacity = capacity;
+        if (_months.Count == 0 || ShowSingleMonth) return;
 
         // Keep the latest month in view when the window grows.
         _start = Math.Clamp(_start, 0, MaxStart);
@@ -407,6 +444,42 @@ public sealed partial class BudgetViewModel : ObservableObject
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Moves a budget item to where it was dropped on the budget: before or after another item (taking that item's
+    /// category and parent), or to the top of a category when dropped on its heading.
+    /// </summary>
+    public async Task MoveLineAsync(BudgetLine moving, BudgetLine target, bool after)
+    {
+        if (moving.ItemId is not { } itemId || ReferenceEquals(moving, target)) return;
+
+        Guid? groupId = target.GroupId;
+        Guid? parentId = null;
+        Guid? before = null;
+
+        if (target.IsHeader)
+        {
+            // Dropped on a category's heading: it becomes that category's first item.
+            before = _outflowLines.FirstOrDefault(l => l.IsItem && l.GroupId == groupId && l.ParentItemId is null)?.ItemId;
+        }
+        else
+        {
+            parentId = target.ParentItemId;
+            var siblings = _outflowLines.Where(l => l.IsItem && l.GroupId == groupId && l.ParentItemId == parentId).ToList();
+            var index = siblings.IndexOf(target);
+            before = after ? (index + 1 < siblings.Count ? siblings[index + 1].ItemId : null) : target.ItemId;
+        }
+        if (groupId is not { } group || before == itemId) return;
+
+        await _gate.WaitAsync();
+        string? error;
+        try { error = await _store.MoveItemToAsync(itemId, group, parentId, before); }
+        catch (Exception ex) { error = $"Could not move the item: {ex.Message}"; }
+        finally { _gate.Release(); }
+
+        Message = error ?? "";
+        await LoadAsync();
     }
 
     private Guid? PreviousMonthId(Guid monthId)

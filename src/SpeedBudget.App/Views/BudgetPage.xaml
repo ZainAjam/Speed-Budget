@@ -14,7 +14,8 @@
         </DataTemplate>
 
         <DataTemplate x:Key="OutflowNameTemplate" x:DataType="vm:BudgetLine">
-            <Grid Height="40" Padding="4,0,12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+            <Grid Height="40" Padding="4,0,12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="Transparent"
+                  CanDrag="{x:Bind IsItem}" AllowDrop="True" DragStarting="Line_DragStarting" DragOver="Line_DragOver" Drop="Line_Drop">
                 <StackPanel Orientation="Horizontal" Spacing="4" Visibility="{x:Bind IsHeader}">
                     <Button Click="Chevron_Click" Tag="{x:Bind}" Padding="6" Background="Transparent" BorderThickness="0"
                             AutomationProperties.Name="Fold or unfold this group">
@@ -27,16 +28,16 @@
             </Grid>
         </DataTemplate>
 
-        <DataTemplate x:Key="SummaryLabelTemplate" x:DataType="x:String">
-            <Grid Height="34" Padding="12,0">
-                <TextBlock Text="{x:Bind}" VerticalAlignment="Center" Opacity="0.85" />
+        <DataTemplate x:Key="SummaryLabelTemplate" x:DataType="vm:SummaryLabel">
+            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="12,0">
+                <TextBlock Text="{x:Bind Text}" VerticalAlignment="Center" Opacity="0.85" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="SummaryCellTemplate" x:DataType="vm:SummaryCell">
-            <Grid Height="34" Padding="8,0">
-                <TextBlock Text="{x:Bind Text, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center"
-                           FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" />
+            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="8,0">
+                <TextBlock Text="{x:Bind Text, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" HorizontalAlignment="Stretch" HorizontalTextAlignment="Center"
+                           VerticalAlignment="Center" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" FontSize="{x:Bind app:Glyphs.SummarySize(IsStrong)}" />
             </Grid>
         </DataTemplate>
 
@@ -62,8 +63,8 @@
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="100" />
                 </Grid.ColumnDefinitions>
-                <NumberBox app:Money.Format="True" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
-                           Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" Visibility="{x:Bind Line.IsItem}" />
+                <NumberBox app:Money.Format="True" AcceptsExpression="True" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
+                           Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" ToolTipService.ToolTip="You can type a sum here, such as 1200+350 or 3000/2" Visibility="{x:Bind Line.IsItem}" />
                 <TextBlock Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                            Style="{StaticResource BodyStrongTextBlockStyle}" Visibility="{x:Bind Line.IsHeader}" />
                 <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -80,9 +81,9 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
-                        <TextBlock Text="Planned: no transactions yet" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Grid.ColumnSpan="2">
+                        <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalTextAlignment="Center" />
+                        <TextBlock Text="Planned: no transactions yet" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" HorizontalTextAlignment="Center"
                                    Visibility="{x:Bind IsPlanned, Mode=OneWay}" />
                     </StackPanel>
                     <Button Grid.Column="1" Click="MonthMenu_Click" Tag="{x:Bind}" Background="Transparent" BorderThickness="0"
@@ -158,6 +159,8 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Budget" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,24,0" />
                 <Button Grid.Column="1" Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
@@ -166,6 +169,16 @@
                            VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <Button Grid.Column="3" Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"
                         IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" AutomationProperties.Name="Later months" ToolTipService.ToolTip="Later months" />
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" Margin="24,0,0,0">
+                    <ToggleButton x:Name="SingleButton" Checked="SingleMonth_Checked" Unchecked="SingleMonth_Unchecked" IsChecked="{x:Bind ViewModel.ShowSingleMonth, Mode=OneWay}"
+                                  AutomationProperties.Name="Show one month at a time" ToolTipService.ToolTip="Show one month at a time (more room for item names)">
+                        <FontIcon Glyph="&#xE7C3;" FontSize="16" />
+                    </ToggleButton>
+                    <ToggleButton x:Name="ManyButton" Checked="ManyMonths_Checked" Unchecked="ManyMonths_Unchecked" IsChecked="{x:Bind ViewModel.ShowManyMonths, Mode=OneWay}"
+                                  AutomationProperties.Name="Show as many months as fit" ToolTipService.ToolTip="Show as many months as fit across the screen">
+                        <FontIcon Glyph="&#xE80A;" FontSize="16" />
+                    </ToggleButton>
+                </StackPanel>
             </Grid>
 
             <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
@@ -177,7 +190,7 @@
                                Text="There are no budget items yet. Add some under Manage Budget Items." />
                     <StackPanel Orientation="Horizontal">
                         <!-- Names column -->
-                        <StackPanel Width="220">
+                        <StackPanel Width="{x:Bind ViewModel.NameColumnWidth, Mode=OneWay}">
                             <Border Height="56" />
                             <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
                                 <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />

@@ -434,6 +434,78 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task An_item_moves_to_another_group_at_the_chosen_place_taking_its_sub_items_along()
+    {
+        var home = await _store.AddGroupAsync("Home", ItemKind.Expense);
+        var daily = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var rates = await _store.AddItemAsync(home.Id, null, "Rates", ItemKind.Expense);
+        var water = await _store.AddItemAsync(home.Id, rates.Id, "Water", ItemKind.Expense);
+        var food = await _store.AddItemAsync(daily.Id, null, "Food", ItemKind.Expense);
+        var gifts = await _store.AddItemAsync(daily.Id, null, "Gifts", ItemKind.Expense);
+
+        Assert.Null(await _store.MoveItemToAsync(rates.Id, daily.Id, null, gifts.Id));
+
+        var inDaily = (await _store.GetItemsAsync()).Where(i => i.GroupId == daily.Id && i.ParentItemId == null).Select(i => i.Name).ToArray();
+        Assert.Equal(new[] { "Food", "Rates", "Gifts" }, inDaily);
+        Assert.Equal(daily.Id, water.GroupId);
+        Assert.Equal(rates.Id, water.ParentItemId);
+    }
+
+    [Fact]
+    public async Task A_moved_item_goes_last_when_no_place_is_given_and_can_become_a_sub_item()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var a = await _store.AddItemAsync(group.Id, null, "A", ItemKind.Expense);
+        var b = await _store.AddItemAsync(group.Id, null, "B", ItemKind.Expense);
+
+        Assert.Null(await _store.MoveItemToAsync(a.Id, group.Id, null, null));
+        Assert.Equal(new[] { "B", "A" }, (await _store.GetItemsAsync()).Select(i => i.Name).ToArray());
+
+        Assert.Null(await _store.MoveItemToAsync(a.Id, group.Id, b.Id, null));
+        Assert.Equal(b.Id, a.ParentItemId);
+    }
+
+    [Fact]
+    public async Task Items_cannot_move_into_the_other_kind_of_group_or_inside_themselves()
+    {
+        var expense = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var income = await _store.AddGroupAsync("Income", ItemKind.Income);
+        var parent = await _store.AddItemAsync(expense.Id, null, "Parent", ItemKind.Expense);
+        var child = await _store.AddItemAsync(expense.Id, parent.Id, "Child", ItemKind.Expense);
+
+        Assert.NotNull(await _store.MoveItemToAsync(parent.Id, income.Id, null, null));
+        Assert.NotNull(await _store.MoveItemToAsync(parent.Id, expense.Id, child.Id, null));
+        Assert.NotNull(await _store.MoveItemToAsync(parent.Id, expense.Id, parent.Id, null));
+        Assert.Equal(expense.Id, parent.GroupId);
+    }
+
+    [Fact]
+    public async Task An_items_emoji_shows_in_front_of_its_name_in_the_budget_and_can_be_removed()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var item = await _store.AddItemAsync(group.Id, null, "Groceries", ItemKind.Expense);
+        Assert.Equal("Groceries", item.DisplayName);
+
+        item.Emoji = "🛒";
+        await _store.SaveAsync();
+        Assert.Equal("🛒 Groceries", (await _store.LoadSnapshotAsync()).Items.Single().Name);
+
+        item.Emoji = null;
+        await _store.SaveAsync();
+        Assert.Equal("Groceries", (await _store.LoadSnapshotAsync()).Items.Single().Name);
+    }
+
+    [Fact]
+    public async Task Local_settings_are_remembered_and_updated()
+    {
+        Assert.Null(await _store.GetLocalSettingAsync("budgetView"));
+        await _store.SetLocalSettingAsync("budgetView", "single");
+        await _store.SetLocalSettingAsync("budgetView", "many");
+
+        Assert.Equal("many", await _store.GetLocalSettingAsync("budgetView"));
+    }
+
+    [Fact]
     public async Task Payees_are_created_once_ignoring_case_and_picked_up_from_new_transactions()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

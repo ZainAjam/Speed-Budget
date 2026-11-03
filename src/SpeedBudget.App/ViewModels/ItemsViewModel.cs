@@ -49,6 +49,18 @@ public sealed partial class NodeVm(GroupEntity? group, ItemEntity? item, Func<Ta
         set { if (Item is null || AccountRef == value) return; Item.AccountRef = value; Changed(nameof(AccountRef)); }
     }
 
+    /// <summary>Index into <see cref="Emojis.Choices"/>; 0 means no icon.</summary>
+    public int EmojiIndex
+    {
+        get => Item is null ? 0 : Emojis.IndexOf(Item.Emoji);
+        set
+        {
+            if (Item is null || value < 0 || Emojis.At(value) == Item.Emoji) return;
+            Item.Emoji = Emojis.At(value);
+            Changed(nameof(EmojiIndex), nameof(Display));
+        }
+    }
+
     public bool IsPinned
     {
         get => Item?.IsPinned ?? false;
@@ -61,7 +73,7 @@ public sealed partial class NodeVm(GroupEntity? group, ItemEntity? item, Func<Ta
         set { if (Item is null || Item.IsArchived == value) return; Item.IsArchived = value; Changed(nameof(IsArchived), nameof(Display)); }
     }
 
-    public string Display => IsArchived ? $"{Name} (archived)" : Name;
+    public string Display => IsArchived ? $"{Item?.DisplayName ?? Name} (archived)" : Item?.DisplayName ?? Name;
 
     public string KindText => Kind == ItemKind.Income ? "Income" : "Expense";
 
