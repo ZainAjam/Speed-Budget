@@ -37,6 +37,13 @@ public sealed partial class BudgetLine(Guid? itemId, string name, int depth, boo
     public List<Guid> GroupItemIds { get; } = new();
 
     [ObservableProperty] public partial bool IsVisible { get; set; } = true;
+
+    /// <summary>True for a few seconds after the user is taken to this item, so it can be found on a long page.</summary>
+    [ObservableProperty] public partial bool IsHighlighted { get; set; }
+
+    public Brush HighlightBrush => IsHighlighted ? Format.Highlight : Format.Clear;
+
+    partial void OnIsHighlightedChanged(bool value) => OnPropertyChanged(nameof(HighlightBrush));
 }
 
 /// <summary>Base for a month's cell on a line: it shows or hides together with its line.</summary>
@@ -452,6 +459,27 @@ public sealed partial class BudgetViewModel : ObservableObject
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Brings an item into view for the page: opens its group if folded, and highlights its row for a few seconds.
+    /// Returns the line, or null if the item is not on the budget.
+    /// </summary>
+    public BudgetLine? Reveal(Guid itemId)
+    {
+        var line = _outflowLines.FirstOrDefault(l => l.ItemId == itemId);
+        if (line is null) return null;
+
+        if (line.Group is { IsExpanded: false } group) group.IsExpanded = true;
+        line.IsHighlighted = true;
+        _ = ClearHighlightLaterAsync(line);
+        return line;
+    }
+
+    private static async Task ClearHighlightLaterAsync(BudgetLine line)
+    {
+        await Task.Delay(3500);
+        line.IsHighlighted = false;
     }
 
     /// <summary>

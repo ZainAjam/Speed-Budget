@@ -10,7 +10,6 @@ public sealed partial class NewMonthDialog : ContentDialog
 
     public string MonthName => LabelBox.Text.Trim();
     public DateTimeOffset StartDate => DateBox.Date ?? DateTimeOffset.Now;
-    public bool CopyBudget => CopyBox.IsChecked == true;
 
     public NewMonthDialog(TransactionsViewModel vm)
     {

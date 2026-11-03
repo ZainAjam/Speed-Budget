@@ -466,12 +466,12 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>The label to suggest for a month starting on the given date: the month after the latest one.</summary>
     public string SuggestMonthLabel(DateTimeOffset date) => MonthLabels.Next(_lastMonthLabel, DateOnly.FromDateTime(date.DateTime));
 
-    public async Task AddMonthAsync(string label, DateTimeOffset date, bool copyPreviousBudget)
+    public async Task AddMonthAsync(string label, DateTimeOffset date)
     {
         await _gate.WaitAsync();
         try
         {
-            var marker = await _store.AddMarkerAsync(label.Trim(), DateOnly.FromDateTime(date.DateTime), copyPreviousBudget);
+            var marker = await _store.AddMarkerAsync(label.Trim(), DateOnly.FromDateTime(date.DateTime), copyPreviousBudget: false);
             Message = "";
             await LoadRowsAsync(marker.Id);
         }

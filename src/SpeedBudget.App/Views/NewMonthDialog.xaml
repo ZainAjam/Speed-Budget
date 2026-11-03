@@ -4,9 +4,8 @@
     Title="Let's start a new month" PrimaryButtonText="Start new month" CloseButtonText="Cancel" DefaultButton="Primary">
     <StackPanel Spacing="12" MinWidth="380">
         <TextBlock TextWrapping="Wrap" Opacity="0.8"
-                   Text="A line is drawn in your transactions. Everything after it counts towards the new month. You can drag the line later." />
+                   Text="A line is drawn in your transactions. Everything after it counts towards the new month. You can drag the line later. The month's budget is the one you planned ahead on the Budget screen." />
         <CalendarDatePicker x:Name="DateBox" Header="The new month starts on" DateChanged="DateBox_DateChanged" />
         <TextBox x:Name="LabelBox" Header="Month name" TextChanged="LabelBox_TextChanged" />
-        <CheckBox x:Name="CopyBox" Content="Copy last month's budgeted amounts" IsChecked="True" />
     </StackPanel>
 </ContentDialog>

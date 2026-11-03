@@ -147,7 +147,7 @@ public sealed partial class TransactionsPage : Page
     {
         var dialog = new NewMonthDialog(ViewModel) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            await ViewModel.AddMonthAsync(dialog.MonthName, dialog.StartDate, dialog.CopyBudget);
+            await ViewModel.AddMonthAsync(dialog.MonthName, dialog.StartDate);
     }
 
     // Only a month line may be dragged; transactions stay where their date puts them.

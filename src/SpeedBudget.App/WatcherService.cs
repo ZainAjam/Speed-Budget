@@ -7,8 +7,9 @@ using SpeedBudget.Data;
 
 namespace SpeedBudget.App;
 
-public sealed class WatcherChip(string name, string remainingText, Brush brush)
+public sealed class WatcherChip(Guid itemId, string name, string remainingText, Brush brush)
 {
+    public Guid ItemId { get; } = itemId;
     public string Name { get; } = name;
     public string RemainingText { get; } = remainingText;
     public Brush Brush { get; } = brush;
@@ -57,7 +58,7 @@ public sealed partial class WatcherService : ObservableObject
         foreach (var id in pinned.Where(names.ContainsKey))
         {
             var left = remaining.GetValueOrDefault(id);
-            Chips.Add(new WatcherChip(names[id], Format.Money(left), Format.Signed(left)));
+            Chips.Add(new WatcherChip(id, names[id], Format.Money(left), Format.Signed(left)));
         }
         HasChips = Chips.Count > 0;
     }

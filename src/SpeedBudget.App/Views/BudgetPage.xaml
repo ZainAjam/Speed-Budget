@@ -14,7 +14,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="OutflowNameTemplate" x:DataType="vm:BudgetLine">
-            <Grid Height="40" Padding="4,0,12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="Transparent"
+            <Grid Height="40" Padding="4,0,12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="{x:Bind HighlightBrush, Mode=OneWay}"
                   CanDrag="{x:Bind IsItem}" AllowDrop="True" DragStarting="Line_DragStarting" DragOver="Line_DragOver" Drop="Line_Drop"
                   ContextRequested="Line_ContextRequested">
                 <StackPanel Orientation="Horizontal" Spacing="4" Visibility="{x:Bind IsHeader}">
@@ -58,7 +58,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="OutflowCellTemplate" x:DataType="vm:OutflowCell">
-            <Grid Height="40" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+            <Grid Height="40" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="{x:Bind Line.HighlightBrush, Mode=OneWay}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1.15*" />
                     <ColumnDefinition Width="1*" />
@@ -233,7 +233,7 @@
                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
-                                <ItemsControl ItemsSource="{x:Bind ViewModel.OutflowLines}" ItemTemplate="{StaticResource OutflowNameTemplate}" />
+                                <ItemsControl x:Name="OutflowNames" ItemsSource="{x:Bind ViewModel.OutflowLines}" ItemTemplate="{StaticResource OutflowNameTemplate}" />
                             </Border>
                         </StackPanel>
 

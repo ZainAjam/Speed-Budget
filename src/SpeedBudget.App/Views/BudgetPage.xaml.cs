@@ -17,6 +17,12 @@ public sealed partial class BudgetPage : Page
 
     public BudgetViewModel ViewModel { get; } = new();
 
+    private Guid? _revealItem;
+
+    /// <summary>The navigation parameter, when there is one, is a budget item to bring into view (from a pinned-item chip).</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
+        _revealItem = e.Parameter is Guid id ? id : null;
+
     public BudgetPage()
     {
         InitializeComponent();
@@ -38,6 +44,18 @@ public sealed partial class BudgetPage : Page
         FitMonths(ActualWidth);
         await ViewModel.LoadAsync();
         EmptyHint.Visibility = ViewModel.HasItems ? Visibility.Collapsed : Visibility.Visible;
+
+        // Arrived from a pinned-item chip: scroll to that item and light it up. The page opens on the current month.
+        if (_revealItem is { } itemId)
+        {
+            _revealItem = null;
+            if (ViewModel.Reveal(itemId) is { } line)
+            {
+                await Task.Delay(250); // let the rows lay out first
+                (OutflowNames.ContainerFromItem(line) as UIElement)?.StartBringIntoView(
+                    new BringIntoViewOptions { AnimationDesired = true, VerticalAlignmentRatio = 0.4 });
+            }
+        }
     }
 
     /// <summary>Shows as many months side by side as the width allows, and at least one.</summary>

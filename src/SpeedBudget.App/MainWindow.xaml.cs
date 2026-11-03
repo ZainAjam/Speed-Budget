@@ -77,6 +77,12 @@ public sealed partial class MainWindow : Window
 
     private bool _suppressSelection;
 
+    /// <summary>A pinned-item chip was pressed: show that item on the Budget screen, in the current month.</summary>
+    private void Chip_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is Guid itemId) NavigateTo("budget", itemId);
+    }
+
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (_suppressSelection) return;
@@ -114,7 +120,7 @@ public sealed partial class MainWindow : Window
         UpdateWatcherStrip();
         switch (tag)
         {
-            case "budget": ContentFrame.Navigate(typeof(BudgetPage)); break;
+            case "budget": ContentFrame.Navigate(typeof(BudgetPage), parameter); break;
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
             case "accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
             case "payees": ContentFrame.Navigate(typeof(PayeesPage), parameter); break;
