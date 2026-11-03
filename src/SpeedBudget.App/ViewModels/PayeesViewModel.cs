@@ -53,10 +53,19 @@ public sealed partial class PayeesViewModel : ObservableObject
 
     partial void OnSearchChanged(string value) => ApplyFilter(Selected?.Entity.Id);
 
-    public async Task LoadAsync(Guid? select = null)
+    public async Task LoadAsync(Guid? select = null, string? selectName = null)
     {
         await _gate.WaitAsync();
-        try { await ReloadAsync(select); }
+        try
+        {
+            // Opened from a transaction: find the counterparty by the name that transaction carries.
+            if (select is null && !string.IsNullOrWhiteSpace(selectName))
+            {
+                var wanted = selectName.Trim();
+                select = (await _store.GetPayeesAsync()).FirstOrDefault(p => string.Equals(p.Name, wanted, StringComparison.OrdinalIgnoreCase))?.Id;
+            }
+            await ReloadAsync(select);
+        }
         finally { _gate.Release(); }
     }
 
@@ -86,14 +95,14 @@ public sealed partial class PayeesViewModel : ObservableObject
         try
         {
             var names = (await _store.GetPayeesAsync()).Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var name = "New payee";
-            for (var n = 2; names.Contains(name); n++) name = $"New payee {n}";
+            var name = "New counterparty";
+            for (var n = 2; names.Contains(name); n++) name = $"New counterparty {n}";
             var payee = await _store.EnsurePayeeAsync(name);
             Search = "";
             Message = "";
             await ReloadAsync(payee.Id);
         }
-        catch (Exception ex) { Message = $"Could not add the payee: {ex.Message}"; }
+        catch (Exception ex) { Message = $"Could not add the counterparty: {ex.Message}"; }
         finally { _gate.Release(); }
     }
 

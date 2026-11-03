@@ -13,9 +13,9 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.ColumnSpan="2" Spacing="4" Margin="0,0,0,16">
-            <TextBlock Text="Payees" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Counterparties" Style="{StaticResource TitleTextBlockStyle}" />
             <TextBlock Style="{StaticResource BodyTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
-                       Text="The people and businesses you pay or are paid by. You can also add a payee while entering a transaction. Renaming a payee renames it on all of its transactions." />
+                       Text="A counterparty is who a transaction is with: a person or business you pay, or who pays you. You can also add a counterparty while entering a transaction. Renaming a counterparty renames it on all of its transactions." />
             <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
         </StackPanel>
 
@@ -29,9 +29,9 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBox PlaceholderText="Search payees" Text="{x:Bind ViewModel.Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         AutomationProperties.Name="Search payees" />
-                <Button Grid.Column="1" Content="Add payee" Click="Add_Click" Style="{StaticResource AccentButtonStyle}" />
+                <TextBox PlaceholderText="Search counterparties" Text="{x:Bind ViewModel.Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.Name="Search counterparties" />
+                <Button Grid.Column="1" Content="Add counterparty" Click="Add_Click" Style="{StaticResource AccentButtonStyle}" />
             </Grid>
             <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Rows}" SelectedItem="{x:Bind ViewModel.Selected, Mode=TwoWay}">
                 <ListView.ItemTemplate>
@@ -49,7 +49,7 @@
                     Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
             <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
             <TextBlock Text="{x:Bind ViewModel.Selected.UsageText, Mode=OneWay, FallbackValue=''}" Opacity="0.7" />
-            <Button Content="Delete payee" Click="Delete_Click" />
+            <Button Content="Delete counterparty" Click="Delete_Click" />
         </StackPanel>
     </Grid>
 </Page>

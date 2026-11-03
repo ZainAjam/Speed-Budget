@@ -544,7 +544,7 @@ public sealed class DataTests : IDisposable
         var payees = await _store.GetPayeesAsync();
         var shop = payees.Single(p => p.Name == "Shop rite");
 
-        Assert.Equal("There is already a payee with that name.", await _store.RenamePayeeAsync(shop, "clicks"));
+        Assert.Equal("There is already a counterparty with that name.", await _store.RenamePayeeAsync(shop, "clicks"));
         Assert.Null(await _store.RenamePayeeAsync(shop, "Shoprite"));
 
         var transactions = (await _store.GetTransactionsAsync()).Select(t => t.Transaction.Payee).OrderBy(n => n).ToArray();

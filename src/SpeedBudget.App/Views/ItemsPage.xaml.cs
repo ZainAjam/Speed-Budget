@@ -9,11 +9,27 @@ public sealed partial class ItemsPage : Page
 {
     public ItemsViewModel ViewModel { get; } = new();
 
+    private Guid? _openItem;
+
     public ItemsPage()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await ViewModel.LoadAsync();
+        Loaded += async (_, _) =>
+        {
+            await ViewModel.LoadAsync(_openItem);
+            // Highlight the item in the tree too, when the page was opened to edit one.
+            if (_openItem is not null && ViewModel.Selected is { } node)
+            {
+                // The tree builds its rows a moment after the data arrives, so wait for it before highlighting the item.
+                await Task.Delay(250);
+                try { Tree.SelectedItem = node; } catch { /* the edit panel is shown regardless */ }
+            }
+        };
     }
+
+    /// <summary>The navigation parameter, when there is one, is the budget item to open for editing.</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
+        _openItem = e.Parameter is Guid id ? id : null;
 
     private void Tree_ItemInvoked(TreeView sender, TreeViewItemInvokedEventArgs args)
     {

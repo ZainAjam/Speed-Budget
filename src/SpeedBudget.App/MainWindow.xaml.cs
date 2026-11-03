@@ -22,7 +22,7 @@ public sealed partial class MainWindow : Window
 
         var budget = new NavigationViewItem { Content = "Budget", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
         var accounts = new NavigationViewItem { Content = "Accounts", Tag = "accounts", Icon = new SymbolIcon(Symbol.Library) };
-        var payees = new NavigationViewItem { Content = "Payees", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
+        var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
         var items = new NavigationViewItem { Content = "Manage Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
         Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Activity" });
@@ -35,7 +35,7 @@ public sealed partial class MainWindow : Window
         Nav.MenuItems.Add(items);
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Backup and export", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
-        // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Payees and Manage Budget Items.
+        // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Counterparties and Manage Budget Items.
         var shortcuts = new[] { budget, _transactions, accounts, payees, items };
         for (var i = 0; i < shortcuts.Length; i++)
         {
@@ -75,9 +75,41 @@ public sealed partial class MainWindow : Window
     private void UpdateWatcherStrip() =>
         WatcherHost.Visibility = _onTransactions && Watcher.HasChips ? Visibility.Visible : Visibility.Collapsed;
 
+    private bool _suppressSelection;
+
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        var tag = (args.SelectedItem as NavigationViewItem)?.Tag as string;
+        if (_suppressSelection) return;
+        Show((args.SelectedItem as NavigationViewItem)?.Tag as string, null);
+    }
+
+    /// <summary>
+    /// Opens a page from elsewhere in the app, such as the edit screen for one item or counterparty, and moves the
+    /// highlight in the left panel to match. The parameter tells the page what to select.
+    /// </summary>
+    public void NavigateTo(string tag, object? parameter = null)
+    {
+        if (FindItem(tag, Nav.MenuItems.Concat(Nav.FooterMenuItems)) is { } item)
+        {
+            _suppressSelection = true;
+            Nav.SelectedItem = item;
+            _suppressSelection = false;
+        }
+        Show(tag, parameter);
+    }
+
+    private static NavigationViewItem? FindItem(string tag, IEnumerable<object> items)
+    {
+        foreach (var item in items.OfType<NavigationViewItem>())
+        {
+            if ((string?)item.Tag == tag) return item;
+            if (FindItem(tag, item.MenuItems) is { } child) return child;
+        }
+        return null;
+    }
+
+    private void Show(string? tag, object? parameter)
+    {
         _onTransactions = tag is not null && tag.StartsWith("tx");
         UpdateWatcherStrip();
         switch (tag)
@@ -85,8 +117,8 @@ public sealed partial class MainWindow : Window
             case "budget": ContentFrame.Navigate(typeof(BudgetPage)); break;
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
             case "accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
-            case "payees": ContentFrame.Navigate(typeof(PayeesPage)); break;
-            case "items": ContentFrame.Navigate(typeof(ItemsPage)); break;
+            case "payees": ContentFrame.Navigate(typeof(PayeesPage), parameter); break;
+            case "items": ContentFrame.Navigate(typeof(ItemsPage), parameter); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):
                 ContentFrame.Navigate(typeof(TransactionsPage), id);

@@ -282,8 +282,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     /// <summary>The how-to shown above the entry form. A tracked account is outside the budget, so it needs no budget item.</summary>
     public string CaptureGuidance => ShowItemColumn
-        ? "Fill in the fields from left to right, then press Enter or Add. Pick or add a payee, choose the budget item it counts against, and type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here."
-        : "Fill in the fields from left to right, then press Enter or Add. Pick or add a payee, and type either an outflow (money out) or an inflow (money in). This is a tracked account, outside your budget, so transactions here need no budget item. Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here.";
+        ? "Fill in the fields from left to right, then press Enter or Add. The counterparty is who the transaction is with: the person or business you paid, or the one who paid you. Pick or add one, choose the budget item it counts against, and type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here."
+        : "Fill in the fields from left to right, then press Enter or Add. The counterparty is who the transaction is with: the person or business you paid, or the one who paid you. Pick or add one, and type either an outflow (money out) or an inflow (money in). This is a tracked account, outside your budget, so transactions here need no budget item. Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here.";
 
     private void RaiseItemFieldChanged()
     {
@@ -585,7 +585,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var payee = await _store.EnsurePayeeAsync(name);
             AddPayeeName(payee.Name);
         }
-        catch (Exception ex) { Message = $"Could not add the payee: {ex.Message}"; }
+        catch (Exception ex) { Message = $"Could not add the counterparty: {ex.Message}"; }
         finally { _gate.Release(); }
     }
 

@@ -92,6 +92,7 @@ public sealed partial class ItemsViewModel : ObservableObject
 {
     private readonly BudgetStore _store = AppServices.Store;
     private readonly HashSet<Guid> _expanded = new();
+    private readonly HashSet<Guid> _knownGroups = new();
 
     public ObservableCollection<NodeVm> Roots { get; } = new();
 
@@ -113,6 +114,18 @@ public sealed partial class ItemsViewModel : ObservableObject
     {
         var groups = await _store.GetGroupsAsync();
         var items = await _store.GetItemsAsync();
+
+        // Every group starts open, including ones added later. After that the user's own folding is remembered.
+        foreach (var g in groups)
+            if (_knownGroups.Add(g.Id)) _expanded.Add(g.Id);
+
+        // Coming here to edit one item: make sure its group, and any item it sits under, are open so it can be seen.
+        for (var item = items.FirstOrDefault(i => i.Id == select); item is not null;
+             item = item.ParentItemId is { } parent ? items.FirstOrDefault(i => i.Id == parent) : null)
+        {
+            _expanded.Add(item.GroupId);
+            if (item.ParentItemId is { } p) _expanded.Add(p);
+        }
 
         Roots.Clear();
         NodeVm? toSelect = null;

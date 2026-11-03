@@ -58,7 +58,7 @@ public sealed partial class PayeePicker : UserControl
     private void ShowSelection()
     {
         var empty = string.IsNullOrEmpty(SelectedPayee);
-        ValueText.Text = empty ? "Choose payee" : SelectedPayee;
+        ValueText.Text = empty ? "Choose counterparty" : SelectedPayee;
         ValueText.Opacity = empty ? 0.6 : 1;
     }
 

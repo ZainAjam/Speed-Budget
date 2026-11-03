@@ -43,7 +43,7 @@
                 <Border Style="{StaticResource CellBorder}">
                     <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
                 </Border>
-                <Border Grid.Column="1" Style="{StaticResource CellBorder}">
+                <Border Grid.Column="1" Style="{StaticResource CellBorder}" Background="Transparent" ContextRequested="Counterparty_ContextRequested">
                     <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
@@ -175,7 +175,7 @@
                     <CalendarDatePicker x:Name="DateBox" Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
                     <ComboBox Grid.Column="1" Header="Account" Width="170" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
                               SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
-                    <local:PayeePicker x:Name="PayeeBox" Grid.Column="2" Header="Payee" ItemsSource="{x:Bind ViewModel.Payees}"
+                    <local:PayeePicker x:Name="PayeeBox" Grid.Column="2" Header="Counterparty" ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." ItemsSource="{x:Bind ViewModel.Payees}"
                                        SelectedPayee="{x:Bind ViewModel.NewPayee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" />
                     <local:ItemPicker x:Name="NewItemBox" Grid.Column="3" Header="Budget item" Visibility="{x:Bind ViewModel.ShowItemPicker, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.ItemOptions}"
                                       SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" CreateRequested="Item_CreateRequested" />
@@ -229,7 +229,7 @@
                             <ColumnDefinition Width="80" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Payee" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Counterparty" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="2" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
                             <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
                         </Border>
@@ -266,7 +266,7 @@
                     <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{x:Bind ViewModel.Selected.IsEditable, Mode=OneWay, FallbackValue=true}">
                         <StackPanel Spacing="12">
                             <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.Selected.DateOffset, Mode=TwoWay}" />
-                            <local:PayeePicker Header="Payee" ItemsSource="{x:Bind ViewModel.Payees}" SelectedPayee="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay}"
+                            <local:PayeePicker Header="Counterparty" ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." ItemsSource="{x:Bind ViewModel.Payees}" SelectedPayee="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay}"
                                                CreateRequested="Payee_CreateRequested" />
                             <local:ItemPicker Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
                                               SelectedItem="{x:Bind ViewModel.Selected.Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"

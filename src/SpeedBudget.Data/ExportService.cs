@@ -52,7 +52,7 @@ public static class ExportService
             }
         }
 
-        var csv = new StringBuilder("Date,Bank date,Account,Payee,Memo,Budget item,Outflow,Inflow,Cleared\r\n");
+        var csv = new StringBuilder("Date,Bank date,Account,Counterparty,Memo,Budget item,Outflow,Inflow,Cleared\r\n");
         foreach (var row in rows.OrderBy(r => r.Date).ThenBy(r => r.Order).ThenBy(r => r.Rank)) csv.Append(row.Line).Append("\r\n");
         return csv.ToString();
     }

@@ -157,6 +157,21 @@ public sealed partial class BudgetPage : Page
         BudgetScroll.Focus(FocusState.Programmatic);
     }
 
+    /// <summary>Right-click (or the menu key) on a budget item's name: jump to its edit screen.</summary>
+    private void Line_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: BudgetLine { ItemId: { } itemId } } target) return;
+
+        var menu = new MenuFlyout();
+        var edit = new MenuFlyoutItem { Text = "Edit Budget Item" };
+        edit.Click += (_, _) => (App.MainWindow as MainWindow)?.NavigateTo("items", itemId);
+        menu.Items.Add(edit);
+
+        if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
+        else menu.ShowAt(target);
+        args.Handled = true;
+    }
+
     // ---- Dragging a budget item to another category ----
 
     private void Line_DragStarting(UIElement sender, DragStartingEventArgs args)

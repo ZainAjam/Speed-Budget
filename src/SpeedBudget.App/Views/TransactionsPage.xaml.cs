@@ -68,6 +68,22 @@ public sealed partial class TransactionsPage : Page
         if (option is not null && sender is ItemPicker picker) picker.SelectedItem = option;
     }
 
+    /// <summary>Right-click (or the menu key) on a counterparty in the table: jump to its edit screen.</summary>
+    private void Counterparty_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        // A transfer's name ("Transfer to ...") is not a counterparty, so there is nothing to edit.
+        if (sender is not FrameworkElement { DataContext: TransactionRow { IsTransfer: false } row } target || string.IsNullOrWhiteSpace(row.Payee)) return;
+
+        var menu = new MenuFlyout();
+        var edit = new MenuFlyoutItem { Text = "Edit Counterparty" };
+        edit.Click += (_, _) => (App.MainWindow as MainWindow)?.NavigateTo("payees", row.Payee);
+        menu.Items.Add(edit);
+
+        if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
+        else menu.ShowAt(target);
+        args.Handled = true;
+    }
+
     /// <summary>A payee typed into the drop-down that was not in the list: save it so it is there from now on.</summary>
     private async void Payee_CreateRequested(object? sender, string name) => await ViewModel.CreatePayeeAsync(name);
 

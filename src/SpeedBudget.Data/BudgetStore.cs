@@ -209,9 +209,9 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public async Task<string?> RenamePayeeAsync(PayeeEntity payee, string newName, CancellationToken ct = default)
     {
         newName = newName.Trim();
-        if (newName == "") return "A payee needs a name.";
+        if (newName == "") return "A counterparty needs a name.";
         var clash = (await db.Payees.ToListAsync(ct)).Any(p => p.Id != payee.Id && string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase));
-        if (clash) return "There is already a payee with that name.";
+        if (clash) return "There is already a counterparty with that name.";
 
         var oldLower = payee.Name.ToLower();
         foreach (var t in await db.Transactions.Where(t => t.Payee.ToLower() == oldLower).ToListAsync(ct)) t.Payee = newName;

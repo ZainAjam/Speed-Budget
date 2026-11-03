@@ -16,7 +16,7 @@
             <Button.Flyout>
                 <Flyout x:Name="PickerFlyout" Placement="Bottom" Opened="Flyout_Opened">
                     <StackPanel Width="340" Spacing="8">
-                        <TextBox x:Name="SearchBox" PlaceholderText="Search payees, or type a new one" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
+                        <TextBox x:Name="SearchBox" PlaceholderText="Search counterparties, or type a new one" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
                         <ListView x:Name="ResultList" MaxHeight="320" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Result_ItemClick">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
@@ -25,7 +25,7 @@
                             </ListView.ItemTemplate>
                         </ListView>
                         <TextBlock x:Name="Hint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
-                                   Text="Enter picks the first match, or adds the payee if nothing matches. Ctrl+Enter always adds what you typed." />
+                                   Text="Enter picks the first match, or adds the counterparty if nothing matches. Ctrl+Enter always adds what you typed." />
                     </StackPanel>
                 </Flyout>
             </Button.Flyout>

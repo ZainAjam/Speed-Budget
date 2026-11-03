@@ -11,8 +11,14 @@ public sealed partial class PayeesPage : Page
     public PayeesPage()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await ViewModel.LoadAsync();
+        Loaded += async (_, _) => await ViewModel.LoadAsync(selectName: _openName);
     }
+
+    private string? _openName;
+
+    /// <summary>The navigation parameter, when there is one, is the name of the counterparty to open for editing.</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
+        _openName = e.Parameter as string;
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await ViewModel.AddAsync();
 
@@ -23,7 +29,7 @@ public sealed partial class PayeesPage : Page
         {
             XamlRoot = XamlRoot,
             Title = $"Delete {row.Name}?",
-            Content = "A payee that transactions already use can't be deleted.",
+            Content = "A counterparty that transactions already use can't be deleted.",
             PrimaryButtonText = "Delete",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,

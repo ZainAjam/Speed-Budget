@@ -65,7 +65,7 @@ public sealed class BackupExportTests : IDisposable
 
         var lines = (await ExportService.TransactionsCsvAsync(_store)).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
 
-        Assert.Equal("Date,Bank date,Account,Payee,Memo,Budget item,Outflow,Inflow,Cleared", lines[0]);
+        Assert.Equal("Date,Bank date,Account,Counterparty,Memo,Budget item,Outflow,Inflow,Cleared", lines[0]);
         Assert.Equal(4, lines.Length);
         Assert.Contains(lines, l => l == "2027-01-05,,\"Cheque, main\",\"Shop \"\"Big\"\"\",,Food,350.00,,TRUE");
         Assert.Contains(lines, l => l == "2027-01-05,,\"Cheque, main\",\"Shop \"\"Big\"\"\",,Petrol,150.00,,TRUE");
