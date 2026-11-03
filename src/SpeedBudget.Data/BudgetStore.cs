@@ -292,6 +292,19 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Sets many budgeted amounts for a month in one save.</summary>
+    public async Task SetAllocationsAsync(Guid monthId, IEnumerable<(Guid ItemId, long Amount)> amounts, CancellationToken ct = default)
+    {
+        var existing = await db.Allocations.Where(a => a.MonthId == monthId).ToListAsync(ct);
+        foreach (var (itemId, amount) in amounts)
+        {
+            var row = existing.FirstOrDefault(a => a.BudgetItemId == itemId);
+            if (row is null) db.Allocations.Add(new AllocationEntity { MonthId = monthId, BudgetItemId = itemId, Amount = amount });
+            else row.Amount = amount;
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>Sets how much of a month's income is held for next month. Zero removes the hold.</summary>
     public async Task SetIncomeHoldAsync(Guid monthId, Guid incomeItemId, long amount, CancellationToken ct = default)
     {

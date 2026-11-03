@@ -1,10 +1,13 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using SpeedBudget.App.ViewModels;
 
 namespace SpeedBudget.App.Views;
 
 public sealed partial class BudgetPage : Page
 {
+    public BudgetViewModel ViewModel { get; } = new();
+
     public BudgetPage()
     {
         InitializeComponent();
@@ -15,12 +18,11 @@ public sealed partial class BudgetPage : Page
     {
         var firstRun = await AppServices.Store.IsEmptyAsync() && !FirstRunDismissed.Value;
         Welcome.Visibility = firstRun ? Visibility.Visible : Visibility.Collapsed;
-        NextSteps.Visibility = firstRun ? Visibility.Collapsed : Visibility.Visible;
+        BudgetContent.Visibility = firstRun ? Visibility.Collapsed : Visibility.Visible;
         if (firstRun) return;
 
-        var accounts = await AppServices.Store.GetAccountsAsync();
-        var items = await AppServices.Store.GetItemsAsync();
-        Summary.Text = $"{accounts.Count} account(s) and {items.Count} budget item(s) are set up.";
+        await ViewModel.LoadAsync();
+        EmptyHint.Visibility = ViewModel.HasItems ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void Starter_Click(object sender, RoutedEventArgs e)
@@ -35,9 +37,18 @@ public sealed partial class BudgetPage : Page
         await RefreshAsync();
     }
 
-    private void Accounts_Click(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(AccountsPage));
+    private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.GoBack();
 
-    private void Items_Click(object sender, RoutedEventArgs e) => Frame.Navigate(typeof(ItemsPage));
+    private void Forward_Click(object sender, RoutedEventArgs e) => ViewModel.GoForward();
+
+    private async void HoldAll_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is IncomeRow row) await ViewModel.HoldAllAsync(row);
+    }
+
+    private async void CopyLast_Click(object sender, RoutedEventArgs e) => await ViewModel.CopyLastMonthAsync();
+
+    private async void SpentLast_Click(object sender, RoutedEventArgs e) => await ViewModel.BudgetLastMonthsSpendingAsync();
 }
 
 /// <summary>Remembers, for this run, that the user chose to start empty.</summary>

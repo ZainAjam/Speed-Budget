@@ -187,6 +187,29 @@ public class BudgetEngineTests
     }
 
     [Fact]
+    public void Income_items_report_expected_received_and_held_amounts_separately_from_expenses()
+    {
+        var snap = Snapshot(
+            new[] { Tx(Cheque, D(1, 25), 0, 8_000_00, Salary), Tx(Cheque, D(1, 26), 0, -100_00, Food) },
+            allocations: new[]
+            {
+                new Allocation(BudgetEngine.FirstMonthId, Salary, 9_000_00),
+                new Allocation(BudgetEngine.FirstMonthId, Food, 500_00),
+            },
+            holds: new[] { new IncomeHold(BudgetEngine.FirstMonthId, Salary, 3_000_00) });
+
+        var month = BudgetEngine.Calculate(snap).Single();
+
+        var salary = Assert.Single(month.IncomeItems);
+        Assert.Equal(9_000_00, salary.Expected);
+        Assert.Equal(8_000_00, salary.Received);
+        Assert.Equal(3_000_00, salary.Held);
+        Assert.DoesNotContain(month.Items, i => i.ItemId == Salary);
+        Assert.Equal(500_00, month.Budgeted);
+        Assert.Equal(4_500_00, month.Available);
+    }
+
+    [Fact]
     public void Tracked_account_transactions_do_not_affect_the_budget()
     {
         var snap = Snapshot(

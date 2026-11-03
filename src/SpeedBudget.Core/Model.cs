@@ -45,6 +45,9 @@ public sealed record ItemMonth(Guid ItemId, long Budgeted, long Activity)
     public long Remaining => Budgeted + Activity;
 }
 
+/// <summary>An income item in a month: what you expect, what arrived, and how much of it is held for next month.</summary>
+public sealed record IncomeItemMonth(Guid ItemId, long Expected, long Received, long Held);
+
 public sealed record MonthSummary(
     Guid MonthId,
     string Label,
@@ -55,4 +58,5 @@ public sealed record MonthSummary(
     long CarriedOver,
     long Budgeted,
     long Available,
-    IReadOnlyList<ItemMonth> Items);
+    IReadOnlyList<ItemMonth> Items,
+    IReadOnlyList<IncomeItemMonth> IncomeItems);

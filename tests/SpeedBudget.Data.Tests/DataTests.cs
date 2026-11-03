@@ -371,6 +371,21 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Batch_allocation_update_creates_missing_rows_and_overwrites_existing_ones()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        var petrol = AddItem("Petrol", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 100_00);
+
+        await _store.SetAllocationsAsync(BudgetEngine.FirstMonthId, new[] { (food.Id, 250_00L), (petrol.Id, 75_00L) });
+
+        var rows = _db.Allocations.ToList();
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(250_00, rows.Single(a => a.BudgetItemId == food.Id).Amount);
+        Assert.Equal(75_00, rows.Single(a => a.BudgetItemId == petrol.Id).Amount);
+    }
+
+    [Fact]
     public async Task First_month_label_defaults_then_can_be_changed_without_duplicating_the_row()
     {
         Assert.Equal(BudgetStore.DefaultFirstMonthLabel, await _store.GetFirstMonthLabelAsync());

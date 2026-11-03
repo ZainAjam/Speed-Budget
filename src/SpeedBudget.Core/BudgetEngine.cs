@@ -53,16 +53,19 @@ public static class BudgetEngine
         {
             long income = 0, budgeted = 0, remaining = 0;
             var items = new List<ItemMonth>();
+            var incomeItems = new List<IncomeItemMonth>();
 
             foreach (var item in s.Items)
             {
                 var act = activity.GetValueOrDefault((monthId, item.Id));
+                var bud = s.Allocations.Where(a => a.MonthId == monthId && a.BudgetItemId == item.Id).Sum(a => a.Amount);
                 if (item.Kind == ItemKind.Income)
                 {
+                    var held = s.Holds.Where(h => h.MonthId == monthId && h.IncomeItemId == item.Id).Sum(h => h.Amount);
+                    incomeItems.Add(new IncomeItemMonth(item.Id, bud, act, held));
                     income += act;
                     continue;
                 }
-                var bud = s.Allocations.Where(a => a.MonthId == monthId && a.BudgetItemId == item.Id).Sum(a => a.Amount);
                 var im = new ItemMonth(item.Id, bud, act);
                 items.Add(im);
                 budgeted += bud;
@@ -74,7 +77,7 @@ public static class BudgetEngine
             var carried = previousAvailable;
             var available = income - heldOut + previousHeldOut + overflow + carried - budgeted;
 
-            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items));
+            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems));
             previousHeldOut = heldOut;
             previousRemaining = remaining;
             previousAvailable = available;
