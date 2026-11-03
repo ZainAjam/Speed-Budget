@@ -1,0 +1,47 @@
+<Page x:Class="SpeedBudget.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer>
+        <StackPanel Margin="32,24" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
+            <InfoBar x:Name="Status" IsOpen="False" IsClosable="True" />
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Your data" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="DataPath" IsTextSelectionEnabled="True" TextWrapping="Wrap" Opacity="0.8" />
+                <TextBlock Text="Everything is stored in one file on this PC. Copy the folder, or keep it in OneDrive, to move your budget." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Backups" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="BackupInfo" TextWrapping="Wrap" Opacity="0.8" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Back up now" Click="BackUp_Click" />
+                    <Button Content="Open backups folder" Click="OpenBackups_Click" />
+                </StackPanel>
+                <TextBlock Text="A backup is made automatically when the app opens, at most once a day. The newest 14 are kept. To restore one, close the app and copy it over budget.db in the data folder."
+                           Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Export" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Export transactions (CSV)" Click="ExportCsv_Click" />
+                    <Button Content="Export everything (JSON)" Click="ExportJson_Click" />
+                </StackPanel>
+                <TextBlock Text="The CSV opens in Excel or Google Sheets. Month lines appear as NEW MONTH rows, as in the sheet." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Sync" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="Syncing between devices isn't set up yet. Your data is already prepared for it, so nothing will need converting when it arrives."
+                           Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="About" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="AboutText" Opacity="0.8" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

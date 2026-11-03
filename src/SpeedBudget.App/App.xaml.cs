@@ -4,14 +4,15 @@ namespace SpeedBudget.App;
 
 public partial class App : Application
 {
-    private Window? _window;
+    /// <summary>The main window, needed to attach file pickers to it.</summary>
+    public static Window? MainWindow { get; private set; }
 
     public App() => InitializeComponent();
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         AppServices.Initialize();
-        _window = new MainWindow();
-        _window.Activate();
+        MainWindow = new MainWindow();
+        MainWindow.Activate();
     }
 }

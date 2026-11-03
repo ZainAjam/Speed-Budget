@@ -1,5 +1,10 @@
 # Speed Budget — Build Plan
 
+> **Status (3 Nov 2026):** M0–M7 and most of M9 are built (see [README.md](README.md)). **M8 (sync) is deliberately
+> skipped for now**; the data model is sync-ready. Not built: sync, Android, automatic updates, a signed installer,
+> and the Actual Budget ideas (rules, scheduled transactions, budget templates, per-item rollover, statement import,
+> end-to-end encryption, undo/redo, reports, quick-add hotkey, reconcile locking).
+
 A native Windows 11 (Fluent) app that replaces the "Action Budget" Google Sheet. Android phone, tablet and desktop apps come later. All devices, including several Windows PCs at once, will share one budget through sync.
 
 The budget starts fresh with 2027 data. There is no import of earlier history.

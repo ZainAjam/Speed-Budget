@@ -1,6 +1,7 @@
 <Page x:Class="SpeedBudget.App.Views.BudgetPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="using:SpeedBudget.App"
     xmlns:vm="using:SpeedBudget.App.ViewModels">
     <Page.Resources>
         <DataTemplate x:Key="IncomeRowTemplate" x:DataType="vm:IncomeRow">
@@ -14,10 +15,10 @@
                     <ColumnDefinition Width="110" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <NumberBox Grid.Column="1" Value="{x:Bind Expected, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
+                <NumberBox app:Money.Format="True" Grid.Column="1" Value="{x:Bind Expected, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
                            AutomationProperties.Name="Expected" ToolTipService.ToolTip="Expected" />
                 <TextBlock Grid.Column="2" Text="{x:Bind ReceivedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                <NumberBox Grid.Column="3" Value="{x:Bind Held, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
+                <NumberBox app:Money.Format="True" Grid.Column="3" Value="{x:Bind Held, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
                            AutomationProperties.Name="Held for next month" ToolTipService.ToolTip="Held for next month" />
                 <Button Grid.Column="4" Content="Hold all" Click="HoldAll_Click" Tag="{x:Bind}" HorizontalAlignment="Stretch" />
                 <TextBlock Grid.Column="5" Text="{x:Bind AvailableThisMonthText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
@@ -35,7 +36,7 @@
                     <ColumnDefinition Width="44" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind Name}" Margin="{x:Bind Indent}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <NumberBox Grid.Column="1" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00" AutomationProperties.Name="Budgeted" />
+                <NumberBox app:Money.Format="True" Grid.Column="1" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00" AutomationProperties.Name="Budgeted" />
                 <TextBlock Grid.Column="2" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="3" Text="{x:Bind RemainingText, Mode=OneWay}" Foreground="{x:Bind RemainingBrush, Mode=OneWay}"
                            HorizontalTextAlignment="Right" VerticalAlignment="Center" />

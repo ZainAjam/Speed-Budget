@@ -25,6 +25,7 @@ public sealed class RecordPaymentDialog : ContentDialog
         DefaultButton = ContentDialogButton.Primary;
         PrimaryButtonClick += Record_Click;
 
+        Money.Apply(_amount);
         _account.ItemsSource = vm.BudgetAccounts;
         if (vm.BudgetAccounts.Count > 0) _account.SelectedIndex = 0;
         _amount.Value = row.ToPayCents > 0 ? (double)AppServices.ToRands(row.ToPayCents) : double.NaN;

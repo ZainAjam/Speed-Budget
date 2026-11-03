@@ -1,0 +1,74 @@
+using System.Diagnostics;
+using System.Reflection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using SpeedBudget.Data;
+using Windows.Storage.Pickers;
+
+namespace SpeedBudget.App.Views;
+
+public sealed partial class SettingsPage : Page
+{
+    public SettingsPage()
+    {
+        InitializeComponent();
+        DataPath.Text = AppServices.DataDirectory;
+        var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
+        AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
+        ShowBackupInfo();
+    }
+
+    private void ShowBackupInfo() =>
+        BackupInfo.Text = BackupService.LastBackupTime(AppServices.DataDirectory) is { } last
+            ? $"Last backup: {last:d MMM yyyy, HH:mm}"
+            : "No backup has been made yet.";
+
+    private void Report(string message, InfoBarSeverity severity)
+    {
+        Status.Message = message;
+        Status.Severity = severity;
+        Status.IsOpen = true;
+    }
+
+    private void BackUp_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
+            BackupService.Prune(AppServices.DataDirectory, 14);
+            ShowBackupInfo();
+            Report($"Backed up to {path}", InfoBarSeverity.Success);
+        }
+        catch (Exception ex) { Report($"The backup failed: {ex.Message}", InfoBarSeverity.Error); }
+    }
+
+    private void OpenBackups_Click(object sender, RoutedEventArgs e)
+    {
+        var folder = BackupService.BackupsDirectory(AppServices.DataDirectory);
+        Directory.CreateDirectory(folder);
+        Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+    }
+
+    private async void ExportCsv_Click(object sender, RoutedEventArgs e) =>
+        await ExportAsync("transactions", ".csv", "CSV file", () => ExportService.TransactionsCsvAsync(AppServices.Store));
+
+    private async void ExportJson_Click(object sender, RoutedEventArgs e) =>
+        await ExportAsync("speed-budget", ".json", "JSON file", () => ExportService.EverythingJsonAsync(AppServices.Db));
+
+    private async Task ExportAsync(string name, string extension, string description, Func<Task<string>> build)
+    {
+        try
+        {
+            var picker = new FileSavePicker { SuggestedFileName = $"{name}-{DateTime.Now:yyyyMMdd}" };
+            picker.FileTypeChoices.Add(description, new List<string> { extension });
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+
+            // UTF-8 with a byte order mark, so Excel reads accented characters correctly.
+            await File.WriteAllTextAsync(file.Path, await build(), new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            Report($"Saved {file.Path}", InfoBarSeverity.Success);
+        }
+        catch (Exception ex) { Report($"The export failed: {ex.Message}", InfoBarSeverity.Error); }
+    }
+}

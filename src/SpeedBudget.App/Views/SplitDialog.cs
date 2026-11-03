@@ -70,6 +70,7 @@ public sealed class SplitDialog : ContentDialog
             SelectedItem = _vm.ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? _vm.NoItem,
         };
         var amountBox = new NumberBox { Value = amount, Width = 120, PlaceholderText = "0.00", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };
+        Money.Apply(amountBox);
         var memoBox = new TextBox { Text = memo ?? "", PlaceholderText = "Memo", Width = 140 };
         var remove = new Button { Content = "✕" };
         ToolTipService.SetToolTip(remove, "Remove this line");

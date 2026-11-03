@@ -71,6 +71,13 @@ public sealed partial class TransactionsPage : Page
         await dialog.ShowAsync();
     }
 
+    /// <summary>Ctrl+N: jump to the payee box to start typing a new transaction.</summary>
+    private void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        PayeeBox.Focus(FocusState.Keyboard);
+    }
+
     private async void NewMonth_Click(object sender, RoutedEventArgs e) => await StartNewMonthAsync();
 
     private async void NewMonth_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)

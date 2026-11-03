@@ -9,11 +9,21 @@ public static class AppServices
     public static BudgetStore Store { get; private set; } = null!;
     public static WatcherService Watcher { get; private set; } = null!;
 
+    /// <summary>Automatic backups: at most one a day, keeping the newest two weeks.</summary>
+    private static readonly TimeSpan BackupInterval = TimeSpan.FromHours(24);
+    private const int BackupsToKeep = 14;
+
+    public static string DataDirectory => LocalDatabase.DefaultDirectory;
+
     public static void Initialize()
     {
         Db = LocalDatabase.Open();
         Store = new BudgetStore(Db);
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
+
+        // A failed backup must never stop the app from opening.
+        try { BackupService.BackupIfDue(Db, DataDirectory, BackupInterval, BackupsToKeep); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Automatic backup failed: {ex.Message}"); }
     }
 
     /// <summary>The app shows money in rands but stores whole cents.</summary>
