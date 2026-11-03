@@ -35,7 +35,7 @@
                     <ColumnDefinition Width="104" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="{x:Bind ItemColumnWidth}" />
-                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="{x:Bind AccountColumnWidth}" />
                     <ColumnDefinition Width="104" />
                     <ColumnDefinition Width="104" />
                     <ColumnDefinition Width="80" />
@@ -49,7 +49,7 @@
                 <Border Grid.Column="2" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
                     <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                 </Border>
-                <Border Grid.Column="3" Style="{StaticResource CellBorder}">
+                <Border Grid.Column="3" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
                     <TextBlock Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                 </Border>
                 <Border Grid.Column="4" Style="{StaticResource CellBorder}">
@@ -186,7 +186,7 @@
                             <ColumnDefinition Width="104" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
-                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="{x:Bind ViewModel.AccountColumnWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="104" />
                             <ColumnDefinition Width="104" />
                             <ColumnDefinition Width="80" />
@@ -196,7 +196,9 @@
                         <Border Grid.Column="2" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
                             <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
                         </Border>
-                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><TextBlock Text="Account" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
+                            <TextBlock Text="Account" Style="{StaticResource HeadingText}" />
+                        </Border>
                         <Border Grid.Column="4" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="6" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>

@@ -34,13 +34,15 @@ public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
 
 /// <summary>One transaction in the list. Edits go straight to the entity and are saved by the owner.</summary>
 public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, int lineCount, bool accountOnBudget,
-    bool showItemColumn, TransactionsViewModel owner) : ObservableObject
+    bool showItemColumn, bool showAccountColumn, TransactionsViewModel owner) : ObservableObject
 {
     /// <summary>Tracked accounts sit outside the budget, so their transactions have no budget item to show or edit.</summary>
     public bool AccountOnBudget { get; } = accountOnBudget;
 
     public bool ShowItemColumn { get; } = showItemColumn;
     public Microsoft.UI.Xaml.GridLength ItemColumnWidth { get; } = new(showItemColumn ? 170 : 0);
+    public Microsoft.UI.Xaml.GridLength AccountColumnWidth { get; } = new(showAccountColumn ? 130 : 0);
+    public bool ShowAccountColumn { get; } = showAccountColumn;
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
     public int LineCount { get; } = lineCount;
@@ -268,6 +270,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     public Microsoft.UI.Xaml.GridLength ItemColumnWidth => new(ShowItemColumn ? 170 : 0);
 
+    /// <summary>Each account's own page only lists that account, so the Account column is only for the all-accounts page.</summary>
+    public bool ShowAccountColumn => AccountId is null;
+
+    public Microsoft.UI.Xaml.GridLength AccountColumnWidth => new(ShowAccountColumn ? 130 : 0);
+
     /// <summary>On the all-accounts page the item field follows the account chosen for the new transaction.</summary>
     public bool ShowItemPicker => AccountId is null ? NewAccount?.IsOnBudget ?? true : ShowItemColumn;
 
@@ -287,7 +294,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     private void RaiseItemFieldChanged()
     {
-        foreach (var name in new[] { nameof(ShowItemColumn), nameof(ItemColumnWidth), nameof(ShowItemPicker), nameof(ItemFieldWidth), nameof(CaptureGuidance) })
+        foreach (var name in new[] { nameof(ShowItemColumn), nameof(ItemColumnWidth), nameof(ShowAccountColumn), nameof(AccountColumnWidth), nameof(ShowItemPicker), nameof(ItemFieldWidth), nameof(CaptureGuidance) })
             OnPropertyChanged(name);
     }
     public bool CanReconcile => AccountId is not null;
@@ -409,7 +416,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
             var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count,
-                accountsOnBudget.GetValueOrDefault(d.Transaction.AccountId, true), ShowItemColumn, this);
+                accountsOnBudget.GetValueOrDefault(d.Transaction.AccountId, true), ShowItemColumn, ShowAccountColumn, this);
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
 
