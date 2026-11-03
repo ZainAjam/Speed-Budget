@@ -122,11 +122,15 @@ public sealed partial class OutflowCell : LineCell
     [ObservableProperty] public partial string LeftText { get; set; } = "";
     [ObservableProperty] public partial Brush LeftBrush { get; set; } = Format.Theme("TextFillColorPrimaryBrush");
 
-    public void Apply(long budgeted, long activity)
+    /// <summary>Explains where part of the Left figure came from, when some was carried forward. Null when nothing was.</summary>
+    [ObservableProperty] public partial string? LeftTip { get; set; }
+
+    public void Apply(long budgeted, long activity, long carriedIn)
     {
         _budgeted = budgeted;
         OnPropertyChanged(nameof(Budgeted));
-        var left = budgeted + activity;
+        var left = carriedIn + budgeted + activity;
+        LeftTip = carriedIn > 0 ? $"Includes {Format.Money(carriedIn)} carried forward from last month" : null;
         BudgetedText = Format.Money(budgeted);
         SpentText = Format.Money(-activity);
         LeftText = Format.Money(left);
@@ -154,14 +158,18 @@ public sealed partial class MonthColumn : ObservableObject
     /// <summary>A month after the latest real one: it has no transactions yet, only a budget being planned.</summary>
     public bool IsPlanned { get; private set; }
     public bool HasPrevious { get; }
+
+    /// <summary>How wide this month is drawn: wider when it is the only month on show.</summary>
+    public double Width { get; }
     public IReadOnlyList<SummaryCell> Summary { get; }
     public ObservableCollection<IncomeCell> Income { get; } = new();
     public ObservableCollection<OutflowCell> Outflow { get; } = new();
 
-    public MonthColumn(Guid monthId, bool hasPrevious, IReadOnlyList<BudgetLine> incomeLines, IReadOnlyList<BudgetLine> outflowLines, BudgetViewModel owner)
+    public MonthColumn(Guid monthId, bool hasPrevious, IReadOnlyList<BudgetLine> incomeLines, IReadOnlyList<BudgetLine> outflowLines, BudgetViewModel owner, double width)
     {
         MonthId = monthId;
         HasPrevious = hasPrevious;
+        Width = width;
         Summary = Enumerable.Range(0, 7).Select(i => new SummaryCell(isStrong: i == 6)).ToList();
         foreach (var line in incomeLines) Income.Add(new IncomeCell(line, monthId));
         foreach (var line in outflowLines) Outflow.Add(new OutflowCell(line, monthId, owner));
@@ -187,12 +195,12 @@ public sealed partial class MonthColumn : ObservableObject
             if (cell.Line.IsHeader)
             {
                 var mine = cell.Line.GroupItemIds.Select(id => items.GetValueOrDefault(id)).Where(i => i is not null).ToList();
-                cell.Apply(mine.Sum(i => i!.Budgeted), mine.Sum(i => i!.Activity));
+                cell.Apply(mine.Sum(i => i!.Budgeted), mine.Sum(i => i!.Activity), mine.Sum(i => i!.CarriedIn));
             }
             else
             {
                 var item = items.GetValueOrDefault(cell.Line.ItemId!.Value);
-                cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0);
+                cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0, item?.CarriedIn ?? 0);
             }
         }
     }
@@ -258,6 +266,10 @@ public sealed partial class BudgetViewModel : ObservableObject
     }
 
     private const string ViewModeKey = "budgetView";
+
+    /// <summary>The width of a month when several are shown side by side, and when only one is.</summary>
+    public const double MonthWidth = 330;
+    public const double SingleMonthWidth = 660;
 
     public async Task LoadAsync()
     {
@@ -348,7 +360,7 @@ public sealed partial class BudgetViewModel : ObservableObject
     {
         Columns.Clear();
         for (var i = _start; i < Math.Min(_months.Count, _start + _capacity); i++)
-            Columns.Add(new MonthColumn(_months[i].MonthId, hasPrevious: i > 0, _incomeLines, _outflowLines, this));
+            Columns.Add(new MonthColumn(_months[i].MonthId, hasPrevious: i > 0, _incomeLines, _outflowLines, this, ShowSingleMonth ? SingleMonthWidth : MonthWidth));
         ApplyData();
     }
 

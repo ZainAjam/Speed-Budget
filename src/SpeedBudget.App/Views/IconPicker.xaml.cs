@@ -1,29 +1,30 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using SpeedBudget;
 using Windows.System;
 
 namespace SpeedBudget.App.Views;
 
 /// <summary>
-/// A drop-down for choosing the icon in front of a budget item's name. Each icon is listed with its name, and the
-/// search box narrows the list by name, so "car" finds 🚗.
+/// A drop-down for choosing the icon in front of a budget item's name, from the full emoji collection. Each icon is
+/// listed with its name and group, and the search box matches names and keywords, so "car" finds 🚗 (automobile).
 /// </summary>
 public sealed partial class IconPicker : UserControl
 {
-    public static readonly DependencyProperty SelectedIndexProperty =
-        DependencyProperty.Register(nameof(SelectedIndex), typeof(int), typeof(IconPicker),
-            new PropertyMetadata(0, (d, _) => ((IconPicker)d).ShowSelection()));
+    public static readonly DependencyProperty SelectedEmojiProperty =
+        DependencyProperty.Register(nameof(SelectedEmoji), typeof(string), typeof(IconPicker),
+            new PropertyMetadata("", (d, _) => ((IconPicker)d).ShowSelection()));
 
     public static readonly DependencyProperty HeaderProperty =
         DependencyProperty.Register(nameof(Header), typeof(string), typeof(IconPicker),
             new PropertyMetadata("", (d, _) => ((IconPicker)d).ShowHeader()));
 
-    /// <summary>Index into <see cref="Emojis.Choices"/>; 0 means no icon.</summary>
-    public int SelectedIndex
+    /// <summary>The chosen emoji, or an empty string for no icon.</summary>
+    public string SelectedEmoji
     {
-        get => (int)GetValue(SelectedIndexProperty);
-        set => SetValue(SelectedIndexProperty, value);
+        get => (string)GetValue(SelectedEmojiProperty);
+        set => SetValue(SelectedEmojiProperty, value ?? "");
     }
 
     public string Header
@@ -36,13 +37,24 @@ public sealed partial class IconPicker : UserControl
     {
         InitializeComponent();
         ShowSelection();
+
+        // The full collection may arrive after the page is shown; refresh the name beside the chosen icon when it does.
+        Loaded += (_, _) => Emojis.Changed += OnCatalogChanged;
+        Unloaded += (_, _) => Emojis.Changed -= OnCatalogChanged;
     }
+
+    private void OnCatalogChanged() => ShowSelection();
 
     private void ShowSelection()
     {
-        var choice = Emojis.Choices[Math.Clamp(SelectedIndex, 0, Emojis.Choices.Count - 1)];
-        ValueText.Text = choice.Display;
-        ValueText.Opacity = choice.Index == 0 ? 0.6 : 1;
+        if (string.IsNullOrEmpty(SelectedEmoji))
+        {
+            ValueText.Text = "No icon";
+            ValueText.Opacity = 0.6;
+            return;
+        }
+        ValueText.Text = Emojis.Find(SelectedEmoji) is { } choice ? choice.Display : SelectedEmoji;
+        ValueText.Opacity = 1;
     }
 
     private void ShowHeader()
@@ -53,18 +65,19 @@ public sealed partial class IconPicker : UserControl
 
     private void Flyout_Opened(object? sender, object e)
     {
+        SourceNote.Text = Emojis.IsFullCollection
+            ? $"{Emojis.Choices.Count - 1:N0} icons from the open-source Emojibase collection."
+            : "Showing a short built-in list. The full collection of about 1,900 icons downloads when the app can reach the internet.";
         SearchBox.Text = "";
         ResultList.ItemsSource = Emojis.Choices;
         SearchBox.Focus(FocusState.Programmatic);
     }
 
-    private static List<EmojiChoice> Matches(string text)
-    {
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return Emojis.Choices.Where(c => words.All(w => c.Name.Contains(w, StringComparison.OrdinalIgnoreCase))).ToList();
-    }
+    private static IReadOnlyList<EmojiChoice> Matches(string text) =>
+        Core.EmojiCatalogData.Search(Emojis.Choices, c => c.Entry, text);
 
-    private void Search_TextChanged(object sender, TextChangedEventArgs e) => ResultList.ItemsSource = Matches(SearchBox.Text);
+    private void Search_TextChanged(object sender, TextChangedEventArgs e) =>
+        ResultList.ItemsSource = string.IsNullOrWhiteSpace(SearchBox.Text) ? Emojis.Choices : Matches(SearchBox.Text);
 
     private void Search_KeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -87,7 +100,7 @@ public sealed partial class IconPicker : UserControl
 
     private void Choose(EmojiChoice choice)
     {
-        SelectedIndex = choice.Index;
+        SelectedEmoji = choice.Emoji;
         PickerFlyout.Hide();
     }
 }

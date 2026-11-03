@@ -55,7 +55,7 @@
                        Text="{x:Bind ViewModel.Selected.KindText, Mode=OneWay, FallbackValue=''}" />
             <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
             <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsItemSelected, Mode=OneWay}">
-                <local:IconPicker Header="Icon shown in front of the name" SelectedIndex="{x:Bind ViewModel.Selected.EmojiIndex, Mode=TwoWay, FallbackValue=0}" />
+                <local:IconPicker Header="Icon shown in front of the name" SelectedEmoji="{x:Bind ViewModel.Selected.Emoji, Mode=TwoWay, FallbackValue=''}" />
                 <TextBox Header="Account number or reference" Text="{x:Bind ViewModel.Selected.AccountRef, Mode=TwoWay, FallbackValue=''}" />
                 <TextBox Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"
                          Text="{x:Bind ViewModel.Selected.Notes, Mode=TwoWay, FallbackValue=''}" />

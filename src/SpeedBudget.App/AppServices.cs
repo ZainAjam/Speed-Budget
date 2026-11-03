@@ -26,6 +26,10 @@ public static class AppServices
         Store = new BudgetStore(Db);
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
 
+        // The full icon collection downloads once in the background; until then a short built-in list is used.
+        Emojis.UiQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        _ = Emojis.LoadAsync(DataDirectory);
+
         // A failed backup must never stop the app from opening.
         try { BackupService.BackupIfDue(Db, DataDirectory, BackupInterval, BackupsToKeep); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Automatic backup failed: {ex.Message}"); }

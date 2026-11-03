@@ -15,22 +15,25 @@
             </Grid>
             <Button.Flyout>
                 <Flyout x:Name="PickerFlyout" Placement="Bottom" Opened="Flyout_Opened">
-                    <StackPanel Width="340" Spacing="8">
-                        <TextBox x:Name="SearchBox" PlaceholderText="Search icons, such as car or health" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
-                        <ListView x:Name="ResultList" MaxHeight="340" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Result_ItemClick">
+                    <StackPanel Width="380" Spacing="8">
+                        <TextBox x:Name="SearchBox" PlaceholderText="Search icons, such as car, health or school" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
+                        <ListView x:Name="ResultList" MaxHeight="360" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Result_ItemClick">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="app:EmojiChoice">
                                     <Grid ColumnSpacing="12" Padding="0,2">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="32" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind Emoji}" FontSize="20" HorizontalTextAlignment="Center" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind Group}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.55" VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
+                        <TextBlock x:Name="SourceNote" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                     </StackPanel>
                 </Flyout>
             </Button.Flyout>

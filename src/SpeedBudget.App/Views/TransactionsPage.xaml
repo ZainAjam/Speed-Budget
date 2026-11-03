@@ -12,39 +12,69 @@
     </Page.KeyboardAccelerators>
 
     <Page.Resources>
+        <!-- The recorded transactions are a table: thin lines between cells and rows, and a shaded heading. -->
+        <Style x:Key="CellBorder" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Padding" Value="8,7" />
+        </Style>
+        <SolidColorBrush x:Key="HeadingBrush" Color="{ThemeResource SystemAccentColorDark2}" />
+        <Style x:Key="HeadingBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource HeadingBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="8,8" />
+        </Style>
+        <Style x:Key="HeadingText" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
         <DataTemplate x:Key="TransactionTemplate" x:DataType="vm:TransactionRow">
-            <Grid ColumnSpacing="8" Padding="0,6">
+            <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="104" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="{x:Bind ItemColumnWidth}" />
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="90" />
-                    <ColumnDefinition Width="90" />
-                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="130" />
+                    <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="80" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="1" Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <TextBlock Grid.Column="2" Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.8"
-                           Visibility="{x:Bind ShowItemColumn}" />
-                <TextBlock Grid.Column="3" Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.8" />
-                <TextBlock Grid.Column="4" Text="{x:Bind OutflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="5" Text="{x:Bind InflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                <Border Style="{StaticResource CellBorder}">
+                    <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource CellBorder}">
+                    <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
+                    <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+                </Border>
+                <Border Grid.Column="3" Style="{StaticResource CellBorder}">
+                    <TextBlock Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+                </Border>
+                <Border Grid.Column="4" Style="{StaticResource CellBorder}">
+                    <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                </Border>
+                <Border Grid.Column="5" Style="{StaticResource CellBorder}">
+                    <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                </Border>
                 <!-- A reconciled transaction shows a padlock instead of the Cleared tick; pressing it offers to unreconcile. -->
-                <Grid Grid.Column="6" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" Visibility="{x:Bind IsEditable, Mode=OneWay}" MinWidth="0"
-                              AutomationProperties.Name="Cleared" />
-                    <Button Click="Padlock_Click" Tag="{x:Bind}" Visibility="{x:Bind IsReconciled, Mode=OneWay}" Padding="6" Background="Transparent"
-                            BorderThickness="0" AutomationProperties.Name="Reconciled. Press to unreconcile"
-                            ToolTipService.ToolTip="Reconciled. Press to unreconcile">
-                        <FontIcon Glyph="&#xE72E;" FontSize="14" />
-                    </Button>
-                </Grid>
+                <Border Grid.Column="6" Style="{StaticResource CellBorder}" BorderThickness="0,0,0,1" Padding="0,2">
+                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" Visibility="{x:Bind IsEditable, Mode=OneWay}" MinWidth="0"
+                                  AutomationProperties.Name="Cleared" />
+                        <Button Click="Padlock_Click" Tag="{x:Bind}" Visibility="{x:Bind IsReconciled, Mode=OneWay}" Padding="6" Background="Transparent"
+                                BorderThickness="0" AutomationProperties.Name="Reconciled. Press to unreconcile"
+                                ToolTipService.ToolTip="Reconciled. Press to unreconcile">
+                            <FontIcon Glyph="&#xE72E;" FontSize="14" />
+                        </Button>
+                    </Grid>
+                </Border>
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="MarkerTemplate" x:DataType="vm:MarkerRow">
-            <StackPanel Padding="0,12,0,8" Spacing="4">
+            <StackPanel Padding="8,12,8,8" Spacing="4">
                 <Rectangle Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="⠿" Opacity="0.6" VerticalAlignment="Center"
@@ -182,35 +212,48 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
-            <Grid RowSpacing="4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <Grid Padding="12,0" ColumnSpacing="8" Opacity="0.7">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
-                        <ColumnDefinition Width="110" />
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="70" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Date" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <TextBlock Grid.Column="1" Text="Payee" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <TextBlock Grid.Column="2" Text="Budget item" Style="{StaticResource CaptionTextBlockStyle}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" />
-                    <TextBlock Grid.Column="3" Text="Account" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <TextBlock Grid.Column="4" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <TextBlock Grid.Column="5" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" />
-                    <TextBlock Grid.Column="6" Text="Clear" HorizontalTextAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" />
+            <Border CornerRadius="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="104" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="104" />
+                            <ColumnDefinition Width="104" />
+                            <ColumnDefinition Width="80" />
+                        </Grid.ColumnDefinitions>
+                        <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Payee" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
+                            <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
+                        </Border>
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><TextBlock Text="Account" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
+                    </Grid>
+                    <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
+                              ItemTemplateSelector="{StaticResource EntrySelector}"
+                              SelectedItem="{x:Bind ViewModel.SelectedEntry, Mode=TwoWay}"
+                              CanDragItems="True" CanReorderItems="True" AllowDrop="True"
+                              DragItemsStarting="List_DragItemsStarting" DragItemsCompleted="List_DragItemsCompleted">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
                 </Grid>
-                <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
-                          ItemTemplateSelector="{StaticResource EntrySelector}"
-                          SelectedItem="{x:Bind ViewModel.SelectedEntry, Mode=TwoWay}"
-                          CanDragItems="True" CanReorderItems="True" AllowDrop="True"
-                          DragItemsStarting="List_DragItemsStarting" DragItemsCompleted="List_DragItemsCompleted" />
-            </Grid>
+            </Border>
 
             <ScrollViewer Grid.Column="1">
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">

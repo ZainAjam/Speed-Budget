@@ -49,15 +49,17 @@ public sealed partial class NodeVm(GroupEntity? group, ItemEntity? item, Func<Ta
         set { if (Item is null || AccountRef == value) return; Item.AccountRef = value; Changed(nameof(AccountRef)); }
     }
 
-    /// <summary>Index into <see cref="Emojis.Choices"/>; 0 means no icon.</summary>
-    public int EmojiIndex
+    /// <summary>The icon shown in front of the item's name, or an empty string for none.</summary>
+    public string Emoji
     {
-        get => Item is null ? 0 : Emojis.IndexOf(Item.Emoji);
+        get => Item?.Emoji ?? "";
         set
         {
-            if (Item is null || value < 0 || Emojis.At(value) == Item.Emoji) return;
-            Item.Emoji = Emojis.At(value);
-            Changed(nameof(EmojiIndex), nameof(Display));
+            if (Item is null) return;
+            var chosen = string.IsNullOrEmpty(value) ? null : value;
+            if (Item.Emoji == chosen) return;
+            Item.Emoji = chosen;
+            Changed(nameof(Emoji), nameof(Display));
         }
     }
 

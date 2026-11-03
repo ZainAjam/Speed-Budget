@@ -44,9 +44,9 @@
         <DataTemplate x:Key="IncomeCellTemplate" x:DataType="vm:IncomeCell">
             <Grid Height="40" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="1" Text="{x:Bind ReceivedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
                 <Border Grid.Column="2" Background="Transparent" ContextRequested="Income_ContextRequested"
@@ -59,22 +59,22 @@
         <DataTemplate x:Key="OutflowCellTemplate" x:DataType="vm:OutflowCell">
             <Grid Height="40" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
                 <NumberBox app:Money.Format="True" AcceptsExpression="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
                            Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" ToolTipService.ToolTip="You can type a sum here, such as 1200+350 or 3000/2" Visibility="{x:Bind Line.IsItem}" />
                 <TextBlock Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                            Style="{StaticResource BodyStrongTextBlockStyle}" Visibility="{x:Bind Line.IsHeader}" />
                 <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <TextBlock Grid.Column="2" Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}"
+                <TextBlock Grid.Column="2" Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind LeftTip, Mode=OneWay}"
                            HorizontalTextAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="MonthTemplate" x:DataType="vm:MonthColumn">
-            <StackPanel Width="330" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+            <StackPanel Width="{x:Bind Width}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
                 <!-- Month heading -->
                 <Grid Height="56" Padding="12,0,8,0">
                     <Grid.ColumnDefinitions>
@@ -99,9 +99,9 @@
                 <!-- Cash inflow -->
                 <Grid Height="48" Padding="8,0,8,4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110" />
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="1.15*" />
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="1*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="1" Text="Received" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
                                Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
@@ -115,9 +115,9 @@
                 <!-- Cash outflow -->
                 <Grid Height="48" Padding="8,0,8,4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110" />
-                        <ColumnDefinition Width="100" />
-                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="1.15*" />
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="1*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Budgeted" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
                                Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
@@ -159,8 +159,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Budget" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,24,0" />
                 <Button Grid.Column="1" Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
@@ -169,7 +168,7 @@
                            VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <Button Grid.Column="3" Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"
                         IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" AutomationProperties.Name="Later months" ToolTipService.ToolTip="Later months" />
-                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" Margin="24,0,0,0">
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right">
                     <ToggleButton x:Name="SingleButton" Checked="SingleMonth_Checked" Unchecked="SingleMonth_Unchecked" IsChecked="{x:Bind ViewModel.ShowSingleMonth, Mode=OneWay}"
                                   AutomationProperties.Name="Show one month at a time" ToolTipService.ToolTip="Show one month at a time (more room for item names)">
                         <FontIcon Glyph="&#xE7C3;" FontSize="16" />

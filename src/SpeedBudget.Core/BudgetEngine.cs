@@ -68,12 +68,16 @@ public static class BudgetEngine
         }
 
         var results = new List<MonthSummary>();
-        long previousHeldOut = 0, previousRemaining = 0, previousAvailable = 0;
+        long previousHeldOut = 0, previousDeficit = 0, previousAvailable = 0;
+
+        // What each item is carrying into the month: its positive balance at the end of the month before.
+        var carriedIntoMonth = new Dictionary<Guid, long>();
 
         foreach (var (monthId, label, planned) in months)
         {
-            long income = 0, budgeted = 0, remaining = 0;
+            long income = 0, budgeted = 0, deficit = 0;
             var items = new List<ItemMonth>();
+            var carryOut = new Dictionary<Guid, long>();
             var incomeItems = new List<IncomeItemMonth>();
 
             foreach (var item in s.Items)
@@ -87,20 +91,25 @@ public static class BudgetEngine
                     income += act;
                     continue;
                 }
-                var im = new ItemMonth(item.Id, bud, act);
+                var im = new ItemMonth(item.Id, bud, act, carriedIntoMonth.GetValueOrDefault(item.Id));
                 items.Add(im);
                 budgeted += bud;
-                remaining += im.Remaining;
+
+                // A positive balance stays with the item next month. A negative one is cleared from the item (it starts
+                // the next month from zero) and instead comes off what is available to budget as overflow.
+                if (im.Remaining > 0) carryOut[item.Id] = im.Remaining;
+                else deficit += im.Remaining;
             }
 
             var heldOut = s.Holds.Where(h => h.MonthId == monthId).Sum(h => h.Amount);
-            var overflow = previousRemaining;
+            var overflow = previousDeficit;
             var carried = previousAvailable;
             var available = income - heldOut + previousHeldOut + overflow + carried - budgeted;
 
             results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems, planned));
             previousHeldOut = heldOut;
-            previousRemaining = remaining;
+            previousDeficit = deficit;
+            carriedIntoMonth = carryOut;
             previousAvailable = available;
         }
         return results;
