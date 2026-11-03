@@ -21,7 +21,7 @@
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="90" />
                     <ColumnDefinition Width="90" />
-                    <ColumnDefinition Width="60" />
+                    <ColumnDefinition Width="70" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -29,7 +29,11 @@
                 <TextBlock Grid.Column="3" Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.8" />
                 <TextBlock Grid.Column="4" Text="{x:Bind OutflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="5" Text="{x:Bind InflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                <CheckBox Grid.Column="6" IsChecked="{x:Bind IsCleared, Mode=TwoWay}" MinWidth="0" HorizontalAlignment="Center" />
+                <StackPanel Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <FontIcon Glyph="&#xE72E;" FontSize="11" Opacity="0.7" VerticalAlignment="Center" Margin="0,0,2,0"
+                              Visibility="{x:Bind IsReconciled, Mode=OneWay}" ToolTipService.ToolTip="Reconciled" />
+                    <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" IsEnabled="{x:Bind IsEditable, Mode=OneWay}" MinWidth="0" />
+                </StackPanel>
             </Grid>
         </DataTemplate>
 
@@ -42,7 +46,6 @@
                     <TextBlock Text="{x:Bind Heading, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                 </StackPanel>
-                <TextBlock Text="{x:Bind Subtotals, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
             </StackPanel>
         </DataTemplate>
 
@@ -56,6 +59,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -64,60 +69,83 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Transactions" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
-            <ComboBox Grid.Column="1" Width="200" ItemsSource="{x:Bind ViewModel.FilterAccounts}" DisplayMemberPath="Name"
-                      SelectedItem="{x:Bind ViewModel.FilterAccount, Mode=TwoWay}" />
-            <ComboBox Grid.Column="2" Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}">
-                <ComboBoxItem Content="Newest first" />
-                <ComboBoxItem Content="Oldest first" />
-            </ComboBox>
-            <Button Grid.Column="3" Content="Add transfer" Click="Transfer_Click" />
-            <Button Grid.Column="4" Content="Let's start a new month" Click="NewMonth_Click" Style="{StaticResource AccentButtonStyle}"
+            <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Add transfer" Click="Transfer_Click" />
+            <Button Grid.Column="2" Content="Let's start a new month" Click="NewMonth_Click" Style="{StaticResource AccentButtonStyle}"
                     ToolTipService.ToolTip="Ctrl+M" />
         </Grid>
 
         <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                  Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
-        <Border Grid.Row="2" Padding="12" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        <Border Grid.Row="2" Padding="16,12" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-            <Grid ColumnSpacing="8" RowSpacing="8">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <Grid ColumnSpacing="32">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" Text="Available bank balance" />
+                    <TextBlock Text="{x:Bind ViewModel.AvailableText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" Text="Cleared bank balance" />
+                    <TextBlock Text="{x:Bind ViewModel.ClearedText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" Text="Uncleared transactions" />
+                    <TextBlock Text="{x:Bind ViewModel.UnclearedText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                </StackPanel>
+                <Button Grid.Column="4" Content="Reconcile" Click="Reconcile_Click" VerticalAlignment="Center"
+                        Visibility="{x:Bind ViewModel.CanReconcile}" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Padding="12" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="*" MinWidth="140" />
+                    <ColumnDefinition Width="210" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" MinWidth="110" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
                 <AutoSuggestBox x:Name="PayeeBox" Grid.Column="1" Header="Payee" Text="{x:Bind ViewModel.NewPayee, Mode=TwoWay}"
                                 TextChanged="Payee_TextChanged" SuggestionChosen="Payee_SuggestionChosen"
                                 QuerySubmitted="Payee_QuerySubmitted" />
-                <ComboBox Grid.Column="2" Header="Budget item" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.ItemOptions}"
-                          DisplayMemberPath="Name" SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" />
-                <ComboBox Grid.Column="3" Header="Account" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.EntryAccounts}"
-                          DisplayMemberPath="Name" SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" />
+                <local:ItemPicker Grid.Column="2" Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
+                                  SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" />
+                <ComboBox Grid.Column="3" Header="Account" Width="170" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
+                          SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
                 <NumberBox app:Money.Format="True" Grid.Column="4" Header="Outflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
                            Value="{x:Bind ViewModel.NewOutflow, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
                 <NumberBox app:Money.Format="True" Grid.Column="5" Header="Inflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
                            Value="{x:Bind ViewModel.NewInflow, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                <Button Grid.Column="6" Grid.Row="0" Content="Add" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}"
-                        Click="Add_Click" />
-                <TextBox Grid.Row="1" Grid.ColumnSpan="6" Header="Memo" PlaceholderText="Optional"
-                         Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
+                <TextBox Grid.Column="6" Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
+                <Button Grid.Column="7" Content="Add" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}" Click="Add_Click" />
             </Grid>
         </Border>
 
-        <Grid Grid.Row="3" ColumnSpacing="24">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="16">
+            <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
+                <ComboBoxItem Content="Newest first" />
+                <ComboBoxItem Content="Oldest first" />
+            </ComboBox>
+            <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
+            <CheckBox Content="Hide reconciled" IsChecked="{x:Bind ViewModel.HideReconciled, Mode=TwoWay}" />
+        </StackPanel>
+
+        <Grid Grid.Row="5" ColumnSpacing="24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="320" />
@@ -135,7 +163,7 @@
                         <ColumnDefinition Width="110" />
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition Width="90" />
-                        <ColumnDefinition Width="60" />
+                        <ColumnDefinition Width="70" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Date" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock Grid.Column="1" Text="Payee" Style="{StaticResource CaptionTextBlockStyle}" />
@@ -152,30 +180,41 @@
                           DragItemsStarting="List_DragItemsStarting" DragItemsCompleted="List_DragItemsCompleted" />
             </Grid>
 
-            <StackPanel Grid.Column="1" Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
-                <TextBlock Text="Edit transaction" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.Selected.DateOffset, Mode=TwoWay}" />
-                <TextBox Header="Payee" Text="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay, FallbackValue=''}" />
-                <ComboBox Header="Budget item" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.ItemOptions}" DisplayMemberPath="Name"
-                          SelectedItem="{x:Bind ViewModel.Selected.Item, Mode=TwoWay}"
-                          IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
-                <NumberBox app:Money.Format="True" Header="Outflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Outflow, Mode=TwoWay}"
-                           IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
-                <NumberBox app:Money.Format="True" Header="Inflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Inflow, Mode=TwoWay}"
-                           IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
-                <TextBox Header="Memo" AcceptsReturn="True" TextWrapping="Wrap" Text="{x:Bind ViewModel.Selected.Memo, Mode=TwoWay, FallbackValue=''}" />
-                <CalendarDatePicker Header="Bank date (clears the transaction)" Date="{x:Bind ViewModel.Selected.BankDateOffset, Mode=TwoWay}" />
-                <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
-                           Text="Transfers can't change amount or item. Delete the transfer and add it again instead."
-                           Visibility="{x:Bind ViewModel.Selected.IsTransfer, Mode=OneWay, FallbackValue=Collapsed}" />
-                <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
-                           Text="This transaction is split. Use Split to change its lines or amounts."
-                           Visibility="{x:Bind ViewModel.Selected.IsSplit, Mode=OneWay, FallbackValue=Collapsed}" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="Split…" Click="Split_Click" IsEnabled="{x:Bind ViewModel.Selected.CanSplit, Mode=OneWay, FallbackValue=true}" />
-                    <Button Content="Delete" Click="Delete_Click" />
+            <ScrollViewer Grid.Column="1">
+                <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
+                    <TextBlock Text="Edit transaction" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                               Text="This transaction is reconciled, so it is locked. Unreconcile it to make changes."
+                               Visibility="{x:Bind ViewModel.Selected.IsReconciled, Mode=OneWay, FallbackValue=Collapsed}" />
+                    <Button Content="Unreconcile" Click="Unreconcile_Click"
+                            Visibility="{x:Bind ViewModel.Selected.IsReconciled, Mode=OneWay, FallbackValue=Collapsed}" />
+                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{x:Bind ViewModel.Selected.IsEditable, Mode=OneWay, FallbackValue=true}">
+                    <StackPanel Spacing="12">
+                        <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.Selected.DateOffset, Mode=TwoWay}" />
+                        <TextBox Header="Payee" Text="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay, FallbackValue=''}" />
+                        <local:ItemPicker Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
+                                          SelectedItem="{x:Bind ViewModel.Selected.Item, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
+                        <NumberBox app:Money.Format="True" Header="Outflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Outflow, Mode=TwoWay}"
+                                   IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
+                        <NumberBox app:Money.Format="True" Header="Inflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Inflow, Mode=TwoWay}"
+                                   IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
+                        <TextBox Header="Memo" AcceptsReturn="True" TextWrapping="Wrap" Text="{x:Bind ViewModel.Selected.Memo, Mode=TwoWay, FallbackValue=''}" />
+                        <CalendarDatePicker Header="Bank date (clears the transaction)" Date="{x:Bind ViewModel.Selected.BankDateOffset, Mode=TwoWay}" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Text="Transfers can't change amount or item. Delete the transfer and add it again instead."
+                                   Visibility="{x:Bind ViewModel.Selected.IsTransfer, Mode=OneWay, FallbackValue=Collapsed}" />
+                        <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Text="This transaction is split. Use Split to change its lines or amounts."
+                                   Visibility="{x:Bind ViewModel.Selected.IsSplit, Mode=OneWay, FallbackValue=Collapsed}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Split…" Click="Split_Click" IsEnabled="{x:Bind ViewModel.Selected.CanSplit, Mode=OneWay, FallbackValue=true}" />
+                            <Button Content="Delete" Click="Delete_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                    </ContentControl>
                 </StackPanel>
-            </StackPanel>
+            </ScrollViewer>
 
             <StackPanel Grid.Column="1" Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />

@@ -19,7 +19,7 @@ public sealed class SplitDialog : ContentDialog
     private readonly StackPanel _lines = new() { Spacing = 8 };
     private readonly TextBlock _remaining = new();
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"] };
-    private readonly List<(ComboBox Item, NumberBox Amount, TextBox Memo, Grid Panel)> _entries = new();
+    private readonly List<(ItemPicker Item, NumberBox Amount, TextBox Memo, Grid Panel)> _entries = new();
 
     public SplitDialog(TransactionsViewModel vm, TransactionRow row, IReadOnlyList<SplitLineEntity> existing)
     {
@@ -64,9 +64,9 @@ public sealed class SplitDialog : ContentDialog
 
     private void AddLine(Guid? itemId, double amount, string? memo)
     {
-        var item = new ComboBox
+        var item = new ItemPicker
         {
-            ItemsSource = _vm.ItemOptions, DisplayMemberPath = "Name", Width = 260, PlaceholderText = "Budget item",
+            ItemsSource = _vm.ItemOptions, Width = 260,
             SelectedItem = _vm.ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? _vm.NoItem,
         };
         var amountBox = new NumberBox { Value = amount, Width = 120, PlaceholderText = "0.00", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };
@@ -118,7 +118,7 @@ public sealed class SplitDialog : ContentDialog
         foreach (var (item, amount, memo, _) in _entries)
         {
             var cents = Cents(amount);
-            var itemId = (item.SelectedItem as ItemOption)?.Id;
+            var itemId = item.SelectedItem?.Id;
             if (cents <= 0) { error = "Every line needs an amount above zero. Remove lines you don't need."; break; }
             if (_requiresItem && itemId is null) { error = "Choose a budget item for every line."; break; }
             lines.Add((itemId, cents * _sign, string.IsNullOrWhiteSpace(memo.Text) ? null : memo.Text.Trim()));

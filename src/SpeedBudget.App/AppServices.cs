@@ -13,6 +13,11 @@ public static class AppServices
     private static readonly TimeSpan BackupInterval = TimeSpan.FromHours(24);
     private const int BackupsToKeep = 14;
 
+    /// <summary>Raised when accounts are added, renamed, closed or deleted, so menus listing them can refresh.</summary>
+    public static event Action? AccountsChanged;
+
+    public static void RaiseAccountsChanged() => AccountsChanged?.Invoke();
+
     public static string DataDirectory => LocalDatabase.DefaultDirectory;
 
     public static void Initialize()

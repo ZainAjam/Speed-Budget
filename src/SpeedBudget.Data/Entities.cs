@@ -98,6 +98,9 @@ public class TransactionEntity : SyncEntity
     public string? Memo { get; set; }
     public long Amount { get; set; }
     public bool IsCleared { get; set; }
+
+    /// <summary>Checked against a bank balance during a reconcile. Reconciled transactions are locked until unreconciled.</summary>
+    public bool IsReconciled { get; set; }
     public Guid? TransferPairId { get; set; }
 }
 

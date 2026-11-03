@@ -108,6 +108,39 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public Task SetStatementBalanceAsync(Guid accountId, long? cents, CancellationToken ct = default) =>
         SetSettingAsync($"statement:{accountId}", cents?.ToString(), ct);
 
+    /// <summary>The cleared and uncleared balances of one account, or of every account when none is given.</summary>
+    public async Task<Reconciliation> GetBalancesAsync(Guid? accountId = null, CancellationToken ct = default)
+    {
+        var accounts = db.Accounts.AsNoTracking().AsQueryable();
+        var transactions = db.Transactions.AsNoTracking().AsQueryable();
+        if (accountId is { } id)
+        {
+            accounts = accounts.Where(a => a.Id == id);
+            transactions = transactions.Where(t => t.AccountId == id);
+        }
+        var opening = (await accounts.Select(a => a.OpeningBalance).ToListAsync(ct)).Sum();
+        var lines = await transactions.Select(t => new { t.Amount, t.IsCleared }).ToListAsync(ct);
+        return Reconciliation.Calculate(opening, lines.Select(l => new ReconcileLine(l.Amount, l.IsCleared)), null);
+    }
+
+    /// <summary>
+    /// Checks the account against the bank's balance. When the cleared balance matches, every cleared transaction is
+    /// marked reconciled and the balance is remembered. Returns the comparison either way.
+    /// </summary>
+    public async Task<(Reconciliation Result, bool Reconciled)> ReconcileAsync(Guid accountId, long bankBalance, CancellationToken ct = default)
+    {
+        var account = await db.Accounts.SingleAsync(a => a.Id == accountId, ct);
+        var transactions = await db.Transactions.Where(t => t.AccountId == accountId).ToListAsync(ct);
+        var result = Reconciliation.Calculate(account.OpeningBalance,
+            transactions.Select(t => new ReconcileLine(t.Amount, t.IsCleared)), bankBalance);
+        if (!result.IsReconciled) return (result, false);
+
+        foreach (var t in transactions.Where(t => t.IsCleared && !t.IsReconciled)) t.IsReconciled = true;
+        await db.SaveChangesAsync(ct);
+        await SetStatementBalanceAsync(accountId, bankBalance, ct);
+        return (result, true);
+    }
+
     public Task<List<SplitLineEntity>> GetSplitLinesAsync(Guid transactionId, CancellationToken ct = default) =>
         db.SplitLines.AsNoTracking().Where(l => l.TransactionId == transactionId).OrderBy(l => l.Id).ToListAsync(ct);
 

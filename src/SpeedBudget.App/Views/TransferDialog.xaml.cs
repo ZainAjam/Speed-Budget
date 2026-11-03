@@ -35,7 +35,7 @@ public sealed partial class TransferDialog : ContentDialog
 
         var kind = from.IsOnBudget ? ItemKind.Expense : ItemKind.Income;
         ItemBox.ItemsSource = _vm.ItemOptions.Where(o => o.Kind == kind).ToList();
-        ItemBox.SelectedIndex = -1;
+        ItemBox.SelectedItem = null;
         ItemBox.Header = from.IsOnBudget ? "Expense item to count this against" : "Income item to count this as";
         ItemHelp.Text = from.IsOnBudget
             ? "Money moving to a tracked account counts as spending from your budget."
@@ -49,7 +49,7 @@ public sealed partial class TransferDialog : ContentDialog
         var deferral = args.GetDeferral();
         var error = await _vm.AddTransferAsync(
             FromBox.SelectedItem as AccountOption, ToBox.SelectedItem as AccountOption,
-            DateBox.Date ?? DateTimeOffset.Now, AmountBox.Value, MemoBox.Text, ItemBox.SelectedItem as ItemOption);
+            DateBox.Date ?? DateTimeOffset.Now, AmountBox.Value, MemoBox.Text, ItemBox.SelectedItem);
         Error.Text = error ?? "";
         args.Cancel = error is not null;
         deferral.Complete();

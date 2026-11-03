@@ -38,8 +38,8 @@ Settings page can also back up on demand and export to CSV or JSON.
 
 ## Status
 
-Built: engine, local storage, accounts and items, transactions (splits, transfers), the draggable month line, the
-budget screen with income and holds, pinned items, reconciliation, payments, backups and export.
+Built: engine, local storage, accounts and items, transactions per account (splits, transfers, reconcile), the draggable
+month line, a multi-month budget screen with cash inflow and outflow and holds, pinned items, backups and export.
 
 Not built yet: sync between devices (the data is already prepared for it), Android apps, automatic updates, and
 an installer (a signed MSIX needs a code-signing certificate).

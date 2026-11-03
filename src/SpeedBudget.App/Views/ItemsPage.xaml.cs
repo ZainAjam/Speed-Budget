@@ -21,6 +21,10 @@ public sealed partial class ItemsPage : Page
         if (args.InvokedItem is NodeVm node) ViewModel.Selected = node;
     }
 
+    // The tree rearranges its nodes on a drop but leaves our data alone, so save the new layout.
+    private async void Tree_DragItemsCompleted(TreeView sender, TreeViewDragItemsCompletedEventArgs args) =>
+        await ViewModel.SaveStructureAsync(sender.RootNodes);
+
     private async void AddExpenseGroup_Click(object sender, RoutedEventArgs e) => await ViewModel.AddGroupAsync(ItemKind.Expense);
 
     private async void AddIncomeGroup_Click(object sender, RoutedEventArgs e) => await ViewModel.AddGroupAsync(ItemKind.Income);

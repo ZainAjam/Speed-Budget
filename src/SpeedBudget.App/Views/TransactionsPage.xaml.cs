@@ -16,6 +16,18 @@ public sealed partial class TransactionsPage : Page
         Loaded += async (_, _) => await ViewModel.LoadAsync();
     }
 
+    /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
+        ViewModel.AccountId = e.Parameter is Guid id ? id : null;
+
+    private async void Reconcile_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ReconcileDialog(ViewModel, await ViewModel.ClearedBalanceAsync(), await ViewModel.LastBankBalanceAsync()) { XamlRoot = XamlRoot };
+        await dialog.ShowAsync();
+    }
+
+    private async void Unreconcile_Click(object sender, RoutedEventArgs e) => await ViewModel.UnreconcileSelectedAsync();
+
     private void Payee_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
         if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)

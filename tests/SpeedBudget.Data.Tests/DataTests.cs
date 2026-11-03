@@ -434,6 +434,48 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Balances_cover_one_account_or_all_of_them()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true, openingBalance: 1_000_00);
+        var b = await _store.AddAccountAsync("B", AccountType.Savings, false, openingBalance: 500_00);
+        var cleared = await AddTx(a, new(2027, 1, 2), -100_00);
+        cleared.IsCleared = true;
+        await _store.SaveAsync();
+        await AddTx(a, new(2027, 1, 3), -40_00);
+        await AddTx(b, new(2027, 1, 4), 60_00);
+
+        var onlyA = await _store.GetBalancesAsync(a.Id);
+        var all = await _store.GetBalancesAsync();
+
+        Assert.Equal(900_00, onlyA.ClearedBalance);
+        Assert.Equal(-40_00, onlyA.UnclearedTotal);
+        Assert.Equal(860_00, onlyA.BookBalance);
+        Assert.Equal(1_420_00, all.BookBalance);
+        Assert.Equal(1_400_00, all.ClearedBalance);
+    }
+
+    [Fact]
+    public async Task Reconciling_marks_cleared_transactions_only_when_the_bank_balance_matches()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true, openingBalance: 1_000_00);
+        var cleared = await AddTx(a, new(2027, 1, 2), -100_00);
+        cleared.IsCleared = true;
+        var pending = await AddTx(a, new(2027, 1, 3), -40_00);
+        await _store.SaveAsync();
+
+        var wrong = await _store.ReconcileAsync(a.Id, 950_00);
+        Assert.False(wrong.Reconciled);
+        Assert.Equal(50_00, wrong.Result.Difference);
+        Assert.False(cleared.IsReconciled);
+
+        var right = await _store.ReconcileAsync(a.Id, 900_00);
+        Assert.True(right.Reconciled);
+        Assert.True(cleared.IsReconciled);
+        Assert.False(pending.IsReconciled);
+        Assert.Equal(900_00, await _store.GetStatementBalanceAsync(a.Id));
+    }
+
+    [Fact]
     public async Task Payment_method_and_heading_are_stored_on_items()
     {
         var group = await _store.AddGroupAsync("Utilities", ItemKind.Expense);

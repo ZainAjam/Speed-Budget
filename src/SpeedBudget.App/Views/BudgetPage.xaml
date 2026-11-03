@@ -2,80 +2,130 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:app="using:SpeedBudget.App"
-    xmlns:vm="using:SpeedBudget.App.ViewModels">
+    xmlns:vm="using:SpeedBudget.App.ViewModels"
+    SizeChanged="Page_SizeChanged">
     <Page.Resources>
-        <DataTemplate x:Key="IncomeRowTemplate" x:DataType="vm:IncomeRow">
-            <Grid ColumnSpacing="12" Padding="0,4" Visibility="{x:Bind IsVisible, Mode=OneWay}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="130" />
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="130" />
-                    <ColumnDefinition Width="100" />
-                    <ColumnDefinition Width="110" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{x:Bind Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <NumberBox app:Money.Format="True" Grid.Column="1" Value="{x:Bind Expected, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
-                           AutomationProperties.Name="Expected" ToolTipService.ToolTip="Expected" />
-                <TextBlock Grid.Column="2" Text="{x:Bind ReceivedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                <NumberBox app:Money.Format="True" Grid.Column="3" Value="{x:Bind Held, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
-                           AutomationProperties.Name="Held for next month" ToolTipService.ToolTip="Held for next month" />
-                <Button Grid.Column="4" Content="Hold all" Click="HoldAll_Click" Tag="{x:Bind}" HorizontalAlignment="Stretch" />
-                <TextBlock Grid.Column="5" Text="{x:Bind AvailableThisMonthText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-            </Grid>
-        </DataTemplate>
+        <!-- Every row is a fixed height, so the name column and each month column line up row for row. -->
 
-        <DataTemplate x:Key="ExpenseRowTemplate" x:DataType="vm:ExpenseRow">
-            <Grid ColumnSpacing="12" Padding="0,4" Visibility="{x:Bind IsVisible, Mode=OneWay}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="130" />
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="140" />
-                    <ColumnDefinition Width="44" />
-                </Grid.ColumnDefinitions>
+        <DataTemplate x:Key="IncomeNameTemplate" x:DataType="vm:BudgetLine">
+            <Grid Height="40" Padding="12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
                 <TextBlock Text="{x:Bind Name}" Margin="{x:Bind Indent}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <NumberBox app:Money.Format="True" Grid.Column="1" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00" AutomationProperties.Name="Budgeted" />
-                <TextBlock Grid.Column="2" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="3" Text="{x:Bind RemainingText, Mode=OneWay}" Foreground="{x:Bind RemainingBrush, Mode=OneWay}"
-                           HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                <ProgressBar Grid.Column="4" Value="{x:Bind Progress, Mode=OneWay}" Maximum="100" ShowError="{x:Bind IsOverspent, Mode=OneWay}"
-                             VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
 
-        <DataTemplate x:Key="ExpenseSectionTemplate" x:DataType="vm:ExpenseSection">
-            <Expander IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <Expander.Header>
-                    <Grid ColumnSpacing="12" MinHeight="40">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="130" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="140" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Opacity="0.8" Margin="0,0,12,0" />
-                        <TextBlock Grid.Column="2" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Opacity="0.8" />
-                        <TextBlock Grid.Column="3" Text="{x:Bind RemainingText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Opacity="0.8" />
-                    </Grid>
-                </Expander.Header>
-                <ItemsControl ItemsSource="{x:Bind Rows}" ItemTemplate="{StaticResource ExpenseRowTemplate}" />
-            </Expander>
+        <DataTemplate x:Key="OutflowNameTemplate" x:DataType="vm:BudgetLine">
+            <Grid Height="40" Padding="4,0,12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="4" Visibility="{x:Bind IsHeader}">
+                    <Button Click="Chevron_Click" Tag="{x:Bind}" Padding="6" Background="Transparent" BorderThickness="0"
+                            AutomationProperties.Name="Fold or unfold this group">
+                        <FontIcon Glyph="{x:Bind app:Glyphs.Chevron(Group.IsExpanded), Mode=OneWay}" FontSize="12" />
+                    </Button>
+                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind Name}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Visibility="{x:Bind IsItem}" />
+            </Grid>
         </DataTemplate>
 
-        <DataTemplate x:Key="IncomeSectionTemplate" x:DataType="vm:IncomeSection">
-            <StackPanel>
-                <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,4,0,4" />
-                <ItemsControl ItemsSource="{x:Bind Rows}" ItemTemplate="{StaticResource IncomeRowTemplate}" />
+        <DataTemplate x:Key="SummaryLabelTemplate" x:DataType="x:String">
+            <Grid Height="34" Padding="12,0">
+                <TextBlock Text="{x:Bind}" VerticalAlignment="Center" Opacity="0.85" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SummaryCellTemplate" x:DataType="vm:SummaryCell">
+            <Grid Height="34" Padding="8,0">
+                <TextBlock Text="{x:Bind Text, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center"
+                           FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="IncomeCellTemplate" x:DataType="vm:IncomeCell">
+            <Grid Height="40" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="1" Text="{x:Bind ReceivedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Border Grid.Column="2" Background="Transparent" ContextRequested="Income_ContextRequested"
+                        ToolTipService.ToolTip="Right-click to hold some of this for next month">
+                    <TextBlock Text="{x:Bind AvailableText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="OutflowCellTemplate" x:DataType="vm:OutflowCell">
+            <Grid Height="40" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                <NumberBox app:Money.Format="True" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
+                           Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" Visibility="{x:Bind Line.IsItem}" />
+                <TextBlock Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Style="{StaticResource BodyStrongTextBlockStyle}" Visibility="{x:Bind Line.IsHeader}" />
+                <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="2" Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}"
+                           HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="MonthTemplate" x:DataType="vm:MonthColumn">
+            <StackPanel Width="330" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+                <!-- Month heading -->
+                <Grid Height="56" Padding="12,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Click="MonthMenu_Click" Tag="{x:Bind}" Background="Transparent" BorderThickness="0"
+                            Visibility="{x:Bind HasPrevious}" AutomationProperties.Name="Month options" ToolTipService.ToolTip="Fill this month's budget">
+                        <FontIcon Glyph="&#xE712;" FontSize="14" />
+                    </Button>
+                </Grid>
+                <!-- Summary block, shaded differently from the cash blocks -->
+                <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
+                    <ItemsControl ItemsSource="{x:Bind Summary}" ItemTemplate="{StaticResource SummaryCellTemplate}" />
+                </Border>
+                <Border Height="16" />
+                <!-- Cash inflow -->
+                <Grid Height="48" Padding="8,0,8,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="100" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="1" Text="Received" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
+                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock Grid.Column="2" Text="Available now" HorizontalTextAlignment="Right" VerticalAlignment="Bottom"
+                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                </Grid>
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
+                    <ItemsControl ItemsSource="{x:Bind Income}" ItemTemplate="{StaticResource IncomeCellTemplate}" />
+                </Border>
+                <Border Height="16" />
+                <!-- Cash outflow -->
+                <Grid Height="48" Padding="8,0,8,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="100" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Budgeted" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
+                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock Grid.Column="1" Text="Spent" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
+                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock Grid.Column="2" Text="Left" HorizontalTextAlignment="Right" VerticalAlignment="Bottom"
+                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                </Grid>
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
+                    <ItemsControl ItemsSource="{x:Bind Outflow}" ItemTemplate="{StaticResource OutflowCellTemplate}" />
+                </Border>
             </StackPanel>
         </DataTemplate>
-
-        <Style x:Key="StatLabel" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
-            <Setter Property="Opacity" Value="0.7" />
-        </Style>
     </Page.Resources>
 
     <Grid Margin="32,24">
@@ -91,121 +141,72 @@
                        Text="The starter list is a typical household set of groups and items. You can rename, move or delete any of it later." />
         </StackPanel>
 
-        <ScrollViewer x:Name="BudgetContent" Visibility="Collapsed">
-            <StackPanel Spacing="16" MaxWidth="1000" HorizontalAlignment="Left" Padding="0,0,16,24">
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Budget" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,24,0" />
-                    <Button Grid.Column="1" Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
-                            IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" ToolTipService.ToolTip="Previous month" AutomationProperties.Name="Previous month" />
-                    <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.MonthLabel, Mode=OneWay}" MinWidth="170" TextAlignment="Center"
-                               Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-                    <Button Grid.Column="3" Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"
-                            IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" ToolTipService.ToolTip="Next month" AutomationProperties.Name="Next month" />
-                    <DropDownButton Grid.Column="5" Content="Quick fill" IsEnabled="{x:Bind ViewModel.HasPreviousMonth, Mode=OneWay}">
-                        <DropDownButton.Flyout>
-                            <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                <MenuFlyoutItem Text="Copy last month's budget (items not yet set)" Click="CopyLast_Click" />
-                                <MenuFlyoutItem Text="Budget what was spent last month" Click="SpentLast_Click" />
-                            </MenuFlyout>
-                        </DropDownButton.Flyout>
-                    </DropDownButton>
-                </Grid>
+        <Grid x:Name="BudgetContent" Visibility="Collapsed" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-                <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Budget" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,24,0" />
+                <Button Grid.Column="1" Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
+                        IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Earlier months" ToolTipService.ToolTip="Earlier months" />
+                <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.RangeText, Mode=OneWay}" MinWidth="240" TextAlignment="Center"
+                           VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <Button Grid.Column="3" Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"
+                        IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" AutomationProperties.Name="Later months" ToolTipService.ToolTip="Later months" />
+            </Grid>
 
-                <Border Padding="20" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                    <Grid ColumnSpacing="24">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid ColumnSpacing="20" RowSpacing="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Style="{StaticResource StatLabel}" Text="Income this month" />
-                            <TextBlock Grid.Row="1" Text="{x:Bind ViewModel.IncomeText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Grid.Column="1" Style="{StaticResource StatLabel}" Text="Held for next month" />
-                            <TextBlock Grid.Column="1" Grid.Row="1" Text="{x:Bind ViewModel.HeldOutText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Grid.Column="2" Style="{StaticResource StatLabel}" Text="Released from last month" />
-                            <TextBlock Grid.Column="2" Grid.Row="1" Text="{x:Bind ViewModel.HeldInText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Grid.Row="2" Margin="0,8,0,0" Style="{StaticResource StatLabel}" Text="Overflow from last month" />
-                            <TextBlock Grid.Row="3" Text="{x:Bind ViewModel.OverflowText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Margin="0,8,0,0" Style="{StaticResource StatLabel}" Text="Carried over" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.CarriedText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Grid.Row="2" Grid.Column="2" Margin="0,8,0,0" Style="{StaticResource StatLabel}" Text="Budgeted" />
-                            <TextBlock Grid.Row="3" Grid.Column="2" Text="{x:Bind ViewModel.BudgetedText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        </Grid>
-                        <StackPanel Grid.Column="1" MinWidth="200" HorizontalAlignment="Right">
-                            <TextBlock Style="{StaticResource StatLabel}" Text="Available to budget" HorizontalAlignment="Right" />
-                            <TextBlock Text="{x:Bind ViewModel.AvailableText, Mode=OneWay}" Style="{StaticResource TitleLargeTextBlockStyle}"
-                                       Foreground="{x:Bind ViewModel.AvailableBrush, Mode=OneWay}" HorizontalAlignment="Right" />
-                            <TextBlock Text="{x:Bind ViewModel.AvailableStatus, Mode=OneWay}" Foreground="{x:Bind ViewModel.AvailableBrush, Mode=OneWay}"
-                                       HorizontalAlignment="Right" />
+            <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
+                     Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
+
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
+                               Text="There are no budget items yet. Add some under Manage Budget Items." />
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Names column -->
+                        <StackPanel Width="220">
+                            <Border Height="56" />
+                            <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
+                                <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />
+                            </Border>
+                            <Border Height="16" />
+                            <Grid Height="48" Padding="12,0,0,2">
+                                <TextBlock Text="Cash Inflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                           Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                            </Grid>
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.IncomeLines}" ItemTemplate="{StaticResource IncomeNameTemplate}" />
+                            </Border>
+                            <Border Height="16" />
+                            <Grid Height="48" Padding="12,0,0,2">
+                                <TextBlock Text="Cash Outflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                            </Grid>
+                            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.OutflowLines}" ItemTemplate="{StaticResource OutflowNameTemplate}" />
+                            </Border>
                         </StackPanel>
-                    </Grid>
-                </Border>
 
-                <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8"
-                           Text="There are no budget items yet. Add some under Manage items." />
-
-                <Border Padding="16" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                    <StackPanel Spacing="4">
-                        <Grid ColumnSpacing="12" Opacity="0.7">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="130" />
-                                <ColumnDefinition Width="110" />
-                                <ColumnDefinition Width="130" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="110" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Income" Style="{StaticResource SubtitleTextBlockStyle}" Opacity="1" />
-                            <TextBlock Grid.Column="1" Text="Expected" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                            <TextBlock Grid.Column="2" Text="Received" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                            <TextBlock Grid.Column="3" Text="Held for next month" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                            <TextBlock Grid.Column="5" Text="Available now" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                        </Grid>
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.IncomeSections}" ItemTemplate="{StaticResource IncomeSectionTemplate}" />
+                        <!-- One column per month -->
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource MonthTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
                     </StackPanel>
-                </Border>
-
-                <StackPanel Spacing="4">
-                    <Grid ColumnSpacing="12" Opacity="0.7" Padding="16,0,16,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="130" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="140" />
-                            <ColumnDefinition Width="44" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Spending" Style="{StaticResource SubtitleTextBlockStyle}" Opacity="1" />
-                        <TextBlock Grid.Column="1" Text="Budgeted" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                        <TextBlock Grid.Column="2" Text="Spent" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                        <TextBlock Grid.Column="3" Text="Left" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Bottom" />
-                    </Grid>
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.ExpenseSections}" ItemTemplate="{StaticResource ExpenseSectionTemplate}" />
                 </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
+            </ScrollViewer>
+        </Grid>
     </Grid>
 </Page>

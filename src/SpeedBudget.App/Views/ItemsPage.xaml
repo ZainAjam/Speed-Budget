@@ -13,9 +13,9 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.ColumnSpan="2" Spacing="4" Margin="0,0,0,16">
-            <TextBlock Text="Manage items" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="Manage Budget Items" Style="{StaticResource TitleTextBlockStyle}" />
             <TextBlock Style="{StaticResource BodyTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
-                       Text="Groups hold the things you budget for and the income you expect. Items can have sub-items." />
+                       Text="Groups hold the things you budget for and the income you expect. Drag items between groups to reorganise them. Items can have sub-items." />
             <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Error" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
         </StackPanel>
 
@@ -36,7 +36,8 @@
                 <Button Content="Move down" Click="MoveDown_Click" IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
             </StackPanel>
             <TreeView Grid.Row="2" x:Name="Tree" ItemsSource="{x:Bind ViewModel.Roots}" SelectionMode="Single"
-                      ItemInvoked="Tree_ItemInvoked">
+                      ItemInvoked="Tree_ItemInvoked" CanDragItems="True" CanReorderItems="True" AllowDrop="True"
+                      DragItemsCompleted="Tree_DragItemsCompleted">
                 <TreeView.ItemTemplate>
                     <DataTemplate x:DataType="vm:NodeVm">
                         <TreeViewItem ItemsSource="{x:Bind Children}" IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -53,17 +54,6 @@
             <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
             <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsItemSelected, Mode=OneWay}">
                 <TextBox Header="Account number or reference" Text="{x:Bind ViewModel.Selected.AccountRef, Mode=TwoWay, FallbackValue=''}" />
-                <ComboBox Header="How it is paid" HorizontalAlignment="Stretch"
-                          SelectedIndex="{x:Bind ViewModel.Selected.PaymentMethodIndex, Mode=TwoWay, FallbackValue=0}">
-                    <ComboBoxItem Content="Not specified" />
-                    <ComboBoxItem Content="EFT" />
-                    <ComboBoxItem Content="Cash or card" />
-                    <ComboBoxItem Content="Debit order" />
-                    <ComboBoxItem Content="Transfer" />
-                    <ComboBoxItem Content="Savings" />
-                </ComboBox>
-                <TextBox Header="Heading on the Payments page (for EFT and transfers)" PlaceholderText="e.g. Utilities"
-                         Text="{x:Bind ViewModel.Selected.ReportHeading, Mode=TwoWay, FallbackValue=''}" />
                 <TextBox Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"
                          Text="{x:Bind ViewModel.Selected.Notes, Mode=TwoWay, FallbackValue=''}" />
                 <ToggleSwitch Header="Pinned to the watcher strip" IsOn="{x:Bind ViewModel.Selected.IsPinned, Mode=TwoWay, FallbackValue=false}" />

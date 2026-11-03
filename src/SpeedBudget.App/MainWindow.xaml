@@ -6,16 +6,9 @@
     <Window.SystemBackdrop>
         <MicaBackdrop />
     </Window.SystemBackdrop>
+    <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
     <NavigationView x:Name="Nav" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left"
-                    IsSettingsVisible="True" SelectionChanged="Nav_SelectionChanged">
-        <NavigationView.MenuItems>
-            <NavigationViewItem Content="Budget" Tag="Budget" Icon="Calculator" />
-            <NavigationViewItem Content="Transactions" Tag="Transactions" Icon="List" />
-            <NavigationViewItem Content="Accounts" Tag="Accounts" Icon="Library" />
-            <NavigationViewItem Content="Reconcile" Tag="Reconcile" Icon="Accept" />
-            <NavigationViewItem Content="Payments" Tag="Payments" Icon="Send" />
-            <NavigationViewItem Content="Manage items" Tag="Items" Icon="Edit" />
-        </NavigationView.MenuItems>
+                    IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml.Controls;
 using SpeedBudget.Core;
 using SpeedBudget.Data;
 
@@ -46,19 +47,6 @@ public sealed partial class NodeVm(GroupEntity? group, ItemEntity? item, Func<Ta
     {
         get => Item?.AccountRef ?? "";
         set { if (Item is null || AccountRef == value) return; Item.AccountRef = value; Changed(nameof(AccountRef)); }
-    }
-
-    /// <summary>Index into the payment method list on the page, which follows the enum's order.</summary>
-    public int PaymentMethodIndex
-    {
-        get => Item is null ? 0 : (int)Item.PaymentMethod;
-        set { if (Item is null || value < 0 || (int)Item.PaymentMethod == value) return; Item.PaymentMethod = (PaymentMethod)value; Changed(nameof(PaymentMethodIndex)); }
-    }
-
-    public string ReportHeading
-    {
-        get => Item?.ReportHeading ?? "";
-        set { if (Item is null || ReportHeading == value) return; Item.ReportHeading = string.IsNullOrWhiteSpace(value) ? null : value.Trim(); Changed(nameof(ReportHeading)); }
     }
 
     public bool IsPinned
@@ -194,6 +182,54 @@ public sealed partial class ItemsViewModel : ObservableObject
         }
         node.RaiseArchived();
         return "This item is in use, so it was archived instead of deleted.";
+    }
+
+    /// <summary>
+    /// Saves where the user dragged groups and items to: their order, which group they are in, and which item they
+    /// sit under. The tree itself does not update its data, so the new layout is read from its nodes. A drop that
+    /// makes no sense is undone with a message.
+    /// </summary>
+    public async Task SaveStructureAsync(IList<TreeViewNode> roots)
+    {
+        var changes = new List<Action>();
+        string? error = null;
+
+        string? Visit(NodeVm group, IList<TreeViewNode> children, ItemEntity? parent)
+        {
+            for (var i = 0; i < children.Count; i++)
+            {
+                if (children[i].Content is not NodeVm { IsGroup: false } child) return "Groups can't go inside other groups.";
+                if (child.Kind != group.Kind) return "Income items can only be in income groups, and expense items in expense groups.";
+                var index = i;
+                changes.Add(() => { child.Item!.GroupId = group.Group!.Id; child.Item.ParentItemId = parent?.Id; child.Item.SortOrder = index; });
+                if (Visit(group, children[i].Children, child.Item) is { } nested) return nested;
+            }
+            return null;
+        }
+
+        for (var g = 0; g < roots.Count && error is null; g++)
+        {
+            if (roots[g].Content is not NodeVm { IsGroup: true } group) { error = "Items must stay inside a group."; break; }
+            var index = g;
+            changes.Add(() => group.Group!.SortOrder = index);
+            error = Visit(group, roots[g].Children, null);
+        }
+
+        var keep = Selected?.Id;
+        if (error is null)
+        {
+            try
+            {
+                foreach (var apply in changes) apply();
+                await _store.SaveAsync();
+                Message = "";
+            }
+            catch (Exception ex) { error = $"Could not save: {ex.Message}"; }
+        }
+        else Message = error;
+
+        // Rebuild from the saved data, which also puts back anything that was rejected.
+        await LoadAsync(keep);
     }
 
     private async Task SaveAsync()

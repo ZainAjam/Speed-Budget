@@ -89,6 +89,7 @@ public sealed partial class AccountsViewModel : ObservableObject
         var row = new AccountRow(entity, SaveAsync);
         Accounts.Add(row);
         Selected = row;
+        AppServices.RaiseAccountsChanged();
     }
 
     /// <summary>Returns true if the account was deleted, false if it was closed because it has transactions.</summary>
@@ -96,6 +97,7 @@ public sealed partial class AccountsViewModel : ObservableObject
     {
         if (Selected is not { } row) return false;
         var deleted = await _store.DeleteOrCloseAccountAsync(row.Entity);
+        AppServices.RaiseAccountsChanged();
         if (deleted)
         {
             var index = Accounts.IndexOf(row);
@@ -111,7 +113,7 @@ public sealed partial class AccountsViewModel : ObservableObject
 
     private async Task SaveAsync()
     {
-        try { await _store.SaveAsync(); Message = ""; }
+        try { await _store.SaveAsync(); Message = ""; AppServices.RaiseAccountsChanged(); }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
     }
 }

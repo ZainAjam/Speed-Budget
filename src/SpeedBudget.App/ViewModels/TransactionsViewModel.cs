@@ -9,7 +9,7 @@ namespace SpeedBudget.App.ViewModels;
 
 public sealed record ItemOption(Guid? Id, string Name, ItemKind? Kind);
 
-/// <summary>Id is null for the "All accounts" entry in the filter.</summary>
+/// <summary>Id is null for "all accounts".</summary>
 public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
 
 /// <summary>One transaction in the list. Edits go straight to the entity and are saved by the owner.</summary>
@@ -21,6 +21,10 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public int LineCount { get; } = lineCount;
     public bool IsTransfer => Entity.TransferPairId is not null;
     public bool IsSplit => LineCount > 1;
+    public bool IsReconciled => Entity.IsReconciled;
+
+    /// <summary>A reconciled transaction is locked until it is unreconciled.</summary>
+    public bool IsEditable => !IsReconciled;
 
     /// <summary>Amount and item are fixed for transfers (the other side depends on them) and split lines (they must add up).</summary>
     public bool CanEditAmount => !IsTransfer && !IsSplit;
@@ -104,6 +108,12 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public override string ToString() => $"{DateText} {Entity.Payee}";
 
+    /// <summary>Refreshes the lock state after the store changed it.</summary>
+    public void RaiseReconciledChanged()
+    {
+        foreach (var n in new[] { nameof(IsReconciled), nameof(IsEditable) }) OnPropertyChanged(n);
+    }
+
     private void SetAmount(long cents, string source)
     {
         // Entering 0 in the box that is not currently in use must not wipe the other side.
@@ -154,17 +164,15 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
     public string Heading => $"{_label} starts here";
 
     public override string ToString() => Heading;
-
-    private string _subtotals = "";
-    public string Subtotals
-    {
-        get => _subtotals;
-        set => SetProperty(ref _subtotals, value);
-    }
 }
 
 public sealed partial class TransactionsViewModel : ObservableObject
 {
+    // The filters stay as the user left them when moving between accounts.
+    private static bool s_hideCleared;
+    private static bool s_hideReconciled;
+    private static int s_sortIndex;
+
     private readonly BudgetStore _store = AppServices.Store;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private List<AccountEntity> _accounts = new();
@@ -172,12 +180,19 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private bool _loaded;
     private string _lastMonthLabel = "";
 
+    /// <summary>The account this page shows, or null for all accounts.</summary>
+    public Guid? AccountId { get; set; }
+
     /// <summary>Transaction rows and month lines, interleaved in time order.</summary>
     public ObservableCollection<object> Rows { get; } = new();
-    public ObservableCollection<AccountOption> FilterAccounts { get; } = new();
     public ObservableCollection<AccountOption> EntryAccounts { get; } = new();
     public ObservableCollection<ItemOption> ItemOptions { get; } = new();
     public ItemOption NoItem { get; } = new(null, "(no item)", null);
+
+    [ObservableProperty] public partial string PageTitle { get; set; } = "";
+    [ObservableProperty] public partial string AvailableText { get; set; } = "";
+    [ObservableProperty] public partial string ClearedText { get; set; } = "";
+    [ObservableProperty] public partial string UnclearedText { get; set; } = "";
 
     /// <summary>The selected list entry: a transaction or a month line.</summary>
     [ObservableProperty]
@@ -194,12 +209,12 @@ public sealed partial class TransactionsViewModel : ObservableObject
             OnPropertyChanged(name);
     }
 
-    [ObservableProperty]
-    public partial AccountOption? FilterAccount { get; set; }
-
     /// <summary>0 = newest first, 1 = oldest first.</summary>
     [ObservableProperty]
-    public partial int SortIndex { get; set; }
+    public partial int SortIndex { get; set; } = s_sortIndex;
+
+    [ObservableProperty] public partial bool HideCleared { get; set; } = s_hideCleared;
+    [ObservableProperty] public partial bool HideReconciled { get; set; } = s_hideReconciled;
 
     [ObservableProperty]
     public partial string Message { get; set; } = "";
@@ -216,17 +231,27 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public bool HasSelection => Selected is not null;
     public bool HasMessage => Message != "";
 
-    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+    /// <summary>The account picker on the entry form is only needed when looking at all accounts.</summary>
+    public bool ShowAccountPicker => AccountId is null;
+    public bool CanReconcile => AccountId is not null;
 
-    partial void OnFilterAccountChanged(AccountOption? value)
-    {
-        if (!_loaded) return;
-        if (value?.Id is { } id) NewAccount = EntryAccounts.FirstOrDefault(a => a.Id == id) ?? NewAccount;
-        _ = ReloadAsync();
-    }
+    partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     partial void OnSortIndexChanged(int value)
     {
+        s_sortIndex = value;
+        if (_loaded) _ = ReloadAsync();
+    }
+
+    partial void OnHideClearedChanged(bool value)
+    {
+        s_hideCleared = value;
+        if (_loaded) _ = ReloadAsync();
+    }
+
+    partial void OnHideReconciledChanged(bool value)
+    {
+        s_hideReconciled = value;
         if (_loaded) _ = ReloadAsync();
     }
 
@@ -240,15 +265,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var items = await _store.GetItemsAsync();
             _hints = await _store.GetPayeeHintsAsync();
 
-            FilterAccounts.Clear();
+            PageTitle = AccountId is { } id ? _accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "Account" : "All accounts";
+
             EntryAccounts.Clear();
-            FilterAccounts.Add(new AccountOption(null, "All accounts", false));
-            foreach (var a in _accounts)
-            {
-                var option = new AccountOption(a.Id, a.IsClosed ? $"{a.Name} (closed)" : a.Name, a.IsOnBudget);
-                FilterAccounts.Add(option);
-                if (!a.IsClosed) EntryAccounts.Add(option);
-            }
+            foreach (var a in _accounts.Where(a => !a.IsClosed || a.Id == AccountId))
+                EntryAccounts.Add(new AccountOption(a.Id, a.IsClosed ? $"{a.Name} (closed)" : a.Name, a.IsOnBudget));
 
             ItemOptions.Clear();
             ItemOptions.Add(NoItem);
@@ -256,9 +277,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 foreach (var i in items.Where(i => i.GroupId == g.Id))
                     ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.Name}{(i.IsArchived ? " (archived)" : "")}", i.Kind));
 
-            _loaded = false;
-            FilterAccount = FilterAccounts[0];
-            NewAccount = EntryAccounts.FirstOrDefault();
+            NewAccount = AccountId is { } fixedId
+                ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId)
+                : EntryAccounts.FirstOrDefault(a => !a.Name.EndsWith("(closed)"));
             NewItem = NoItem;
             _loaded = true;
             await LoadRowsAsync(null);
@@ -273,16 +294,26 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>Recalculates the balances shown at the top. The caller must hold the gate.</summary>
+    private async Task RefreshBalancesAsync()
+    {
+        var balances = await _store.GetBalancesAsync(AccountId);
+        AvailableText = Format.Money(balances.BookBalance);
+        ClearedText = Format.Money(balances.ClearedBalance);
+        UnclearedText = Format.Money(balances.UnclearedTotal);
+    }
+
     /// <summary>Rebuilds the list. The caller must hold the gate.</summary>
     private async Task LoadRowsAsync(Guid? select)
     {
-        var details = await _store.GetTransactionsAsync(FilterAccount?.Id);
+        var details = await _store.GetTransactionsAsync(AccountId);
         var snapshot = await _store.LoadSnapshotAsync();
-        var months = BudgetEngine.Calculate(snapshot);
-        _lastMonthLabel = months[^1].Label;
+        _lastMonthLabel = BudgetEngine.Calculate(snapshot)[^1].Label;
+        await RefreshBalancesAsync();
 
         // Month lines are budget-wide, so they are hidden while looking at a tracked account.
-        var showLines = FilterAccount?.Id is null || FilterAccount.IsOnBudget;
+        var viewedAccount = _accounts.FirstOrDefault(a => a.Id == AccountId);
+        var showLines = viewedAccount is null || viewedAccount.IsOnBudget;
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
         var itemsById = ItemOptions.Where(o => o.Id is not null).ToDictionary(o => o.Id!.Value);
@@ -298,6 +329,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         }
         foreach (var d in details)
         {
+            if (HideCleared && d.Transaction.IsCleared) continue;
+            if (HideReconciled && d.Transaction.IsReconciled) continue;
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
             var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count, this);
@@ -311,27 +344,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
         object? toSelect = null;
         foreach (var row in ordered)
         {
-            if (row is MarkerRow marker) marker.Subtotals = SubtotalsFor(months, marker.MonthId);
             Rows.Add(row);
             var id = row switch { TransactionRow t => t.Entity.Id, MarkerRow { Entity: { } m } => m.Id, _ => Guid.Empty };
             if (select is { } wanted && id == wanted) toSelect = row;
         }
         SelectedEntry = toSelect;
-    }
-
-    private static string SubtotalsFor(IReadOnlyList<MonthSummary> months, Guid monthId)
-    {
-        var month = months.First(m => m.MonthId == monthId);
-        var spent = -month.Items.Sum(i => i.Activity);
-        string Money(long cents) => AppServices.ToRands(cents).ToString("N2");
-        return $"Income {Money(month.Income)}   ·   Spent {Money(spent)}   ·   Available to budget {Money(month.Available)}";
-    }
-
-    /// <summary>Recalculates the totals shown on the month lines after an edit that does not reload the list.</summary>
-    private async Task RefreshSubtotalsAsync()
-    {
-        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
-        foreach (var marker in Rows.OfType<MarkerRow>()) marker.Subtotals = SubtotalsFor(months, marker.MonthId);
     }
 
     public async Task RowChangedAsync(TransactionRow row, bool dateChanged, bool splitChanged)
@@ -343,8 +360,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
             if (splitChanged) await _store.SetSingleSplitAsync(row.Entity.Id, row.Item.Id, row.Entity.Amount);
             else await _store.SaveAsync();
             Message = "";
-            if (dateChanged) await LoadRowsAsync(row.Entity.Id);
-            else if (splitChanged) await RefreshSubtotalsAsync();
+
+            // Clearing a row can make it drop out of a filtered list.
+            var disappears = (HideCleared && row.IsCleared) || (HideReconciled && row.IsReconciled);
+            if (dateChanged || disappears) await LoadRowsAsync(disappears ? null : row.Entity.Id);
+            else await RefreshBalancesAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
@@ -452,7 +472,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         if (hint is null) return;
         if (NewItem?.Id is null && hint.BudgetItemId is { } itemId)
             NewItem = ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? NoItem;
-        if (FilterAccount?.Id is null)
+        if (AccountId is null)
             NewAccount = EntryAccounts.FirstOrDefault(a => a.Id == hint.AccountId) ?? NewAccount;
     }
 
@@ -527,6 +547,22 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>Unlocks a reconciled transaction so it can be edited again.</summary>
+    public async Task UnreconcileSelectedAsync()
+    {
+        if (Selected is not { } row) return;
+        await _gate.WaitAsync();
+        try
+        {
+            row.Entity.IsReconciled = false;
+            await _store.SaveAsync();
+            row.RaiseReconciledChanged();
+            Message = "";
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>Returns an error sentence, or null when the transfer was saved.</summary>
     public async Task<string?> AddTransferAsync(AccountOption? from, AccountOption? to, DateTimeOffset date, double amount, string memo, ItemOption? item)
     {
@@ -541,6 +577,30 @@ public sealed partial class TransactionsViewModel : ObservableObject
         }
         catch (ArgumentException ex) { return ex.Message; }
         catch (Exception ex) { return $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    // ---- Reconcile ----
+
+    /// <summary>The balance the user last confirmed with the bank for this account, if any.</summary>
+    public async Task<long?> LastBankBalanceAsync() => AccountId is { } id ? await _store.GetStatementBalanceAsync(id) : null;
+
+    public async Task<long> ClearedBalanceAsync() => (await _store.GetBalancesAsync(AccountId)).ClearedBalance;
+
+    /// <summary>Returns a message for the user, and whether the account reconciled.</summary>
+    public async Task<(string Message, bool Reconciled)> ReconcileAsync(long bankBalance)
+    {
+        if (AccountId is not { } id) return ("Open a single account to reconcile it.", false);
+        await _gate.WaitAsync();
+        try
+        {
+            var (result, reconciled) = await _store.ReconcileAsync(id, bankBalance);
+            await LoadRowsAsync(null);
+            return reconciled
+                ? ("Reconciled. The cleared transactions now match your bank balance and are locked.", true)
+                : ($"The bank balance is {Format.Money(Math.Abs(result.Difference ?? 0))} {(result.Difference > 0 ? "more" : "less")} than your cleared transactions.", false);
+        }
+        catch (Exception ex) { return ($"Could not reconcile: {ex.Message}", false); }
         finally { _gate.Release(); }
     }
 }
