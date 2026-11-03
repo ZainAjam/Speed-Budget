@@ -12,9 +12,15 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Border x:Name="WatcherHost" Padding="32,12,32,0" Visibility="Collapsed" AutomationProperties.Name="Pinned items">
+            <InfoBar x:Name="UpdateBar" IsOpen="False" Severity="Informational" IsClosable="True">
+                <InfoBar.ActionButton>
+                    <Button Content="Update and restart" Click="UpdateNow_Click" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <Border x:Name="WatcherHost" Grid.Row="1" Padding="32,12,32,0" Visibility="Collapsed" AutomationProperties.Name="Pinned items">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Auto">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ItemsControl x:Name="ChipList" ItemsSource="{x:Bind Watcher.Chips}">
@@ -51,7 +57,7 @@
                     </StackPanel>
                 </ScrollViewer>
             </Border>
-            <Frame Grid.Row="1" x:Name="ContentFrame" />
+            <Frame Grid.Row="2" x:Name="ContentFrame" />
         </Grid>
     </NavigationView>
 </Window>

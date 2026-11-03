@@ -56,6 +56,19 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
+                <TextBlock Text="Updates" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBox x:Name="UpdateSource" Header="Where updates are published" PlaceholderText="A web address, or a folder such as D:\SpeedBudgetReleases"
+                         LostFocus="UpdateSource_LostFocus" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="CheckButton" Content="Check for updates" Click="CheckUpdates_Click" />
+                    <Button x:Name="InstallButton" Content="Install and restart" Style="{StaticResource AccentButtonStyle}" Click="InstallUpdate_Click" Visibility="Collapsed" />
+                </StackPanel>
+                <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Maximum="100" />
+                <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" Opacity="0.8" />
+                <TextBlock Text="The app also checks when it opens. An update never changes your data: it is kept separately from the program." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
                 <TextBlock Text="About" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="AboutText" Opacity="0.8" />
             </StackPanel>

@@ -16,6 +16,7 @@ public sealed partial class SettingsPage : Page
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
         ShowBackupInfo();
+        Loaded += async (_, _) => await ShowUpdateStateAsync();
     }
 
     private void ShowBackupInfo() =>
@@ -61,6 +62,51 @@ public sealed partial class SettingsPage : Page
         AppServices.Watcher.Refresh();
         AppServices.RaiseAccountsChanged();
         (App.MainWindow as MainWindow)?.NavigateTo("budget");   // the Budget screen opens the setup wizard on an empty app
+    }
+
+    private UpdateCheck? _update;
+
+    private async Task ShowUpdateStateAsync()
+    {
+        UpdateSource.Text = await AppUpdates.GetSourceAsync();
+        if (!AppUpdates.IsInstalled)
+        {
+            UpdateStatus.Text = "This copy was not set up by the installer, so it cannot update itself. Install it with Speed Budget Setup to get updates.";
+            CheckButton.IsEnabled = UpdateSource.IsEnabled = false;
+        }
+    }
+
+    private async void UpdateSource_LostFocus(object sender, RoutedEventArgs e) => await AppUpdates.SetSourceAsync(UpdateSource.Text);
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        await AppUpdates.SetSourceAsync(UpdateSource.Text);
+        CheckButton.IsEnabled = false;
+        UpdateStatus.Text = "Checking…";
+        _update = await AppUpdates.CheckAsync();
+        UpdateStatus.Text = _update.Message;
+        InstallButton.Visibility = _update.State == UpdateState.Available ? Visibility.Visible : Visibility.Collapsed;
+        CheckButton.IsEnabled = true;
+    }
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_update?.Info is not { } info) return;
+        InstallButton.IsEnabled = CheckButton.IsEnabled = false;
+        UpdateProgress.Visibility = Visibility.Visible;
+        UpdateStatus.Text = "Downloading the update…";
+        try
+        {
+            // Backups are cheap and the update replaces the program, so take one first.
+            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
+            await AppUpdates.DownloadAndRestartAsync(info, percent => DispatcherQueue.TryEnqueue(() => UpdateProgress.Value = percent));
+        }
+        catch (Exception ex)
+        {
+            UpdateStatus.Text = $"The update failed: {ex.Message}";
+            UpdateProgress.Visibility = Visibility.Collapsed;
+            InstallButton.IsEnabled = CheckButton.IsEnabled = true;
+        }
     }
 
     private async void Setup_Click(object sender, RoutedEventArgs e)

@@ -57,6 +57,36 @@ public sealed partial class MainWindow : Window
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
         Nav.SelectedItem = budget;
+
+        _ = CheckForUpdateAtStartupAsync();
+    }
+
+    private UpdateCheck? _pendingUpdate;
+
+    /// <summary>Quietly looks for a newer version when the app opens, and says so only if there is one.</summary>
+    private async Task CheckForUpdateAtStartupAsync()
+    {
+        try
+        {
+            var check = await AppUpdates.CheckAsync();
+            if (check.State != UpdateState.Available) return;
+            _pendingUpdate = check;
+            UpdateBar.Message = $"Speed Budget {check.NewVersion} is available. Your data is kept as it is.";
+            UpdateBar.IsOpen = true;
+        }
+        catch { /* an update check must never get in the way of opening the app */ }
+    }
+
+    private async void UpdateNow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate?.Info is not { } info) return;
+        try
+        {
+            UpdateBar.Message = "Downloading the update. Speed Budget will restart when it is ready.";
+            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
+            await AppUpdates.DownloadAndRestartAsync(info);
+        }
+        catch (Exception ex) { UpdateBar.Message = $"The update failed: {ex.Message}"; }
     }
 
     /// <summary>Lists "All accounts" and each open account under Transactions, so each can be viewed on its own.</summary>

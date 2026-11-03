@@ -14,14 +14,27 @@ dotnet run --project src/SpeedBudget.App -p:Platform=x64
 dotnet test SpeedBudget.sln -p:Platform=x64
 ```
 
-## Package for another PC
+## Installer and updates
 
 ```powershell
-./scripts/publish.ps1
+./scripts/package.ps1                 # uses the Version in SpeedBudget.App.csproj
+./scripts/package.ps1 -Version 0.2.0  # or name the version
 ```
 
-This writes a self-contained zip to `artifacts/`. Unzip it and run `SpeedBudget.App.exe`. It is unsigned, so Windows
-SmartScreen may ask you to confirm the first time.
+This builds a self-contained app and packs it with [Velopack](https://velopack.io) into `artifacts/releases/`:
+
+- `SpeedBudgetApp-win-Setup.exe` installs Speed Budget for the current user: no admin rights, no .NET needed, with
+  Start menu and desktop shortcuts, and an entry under Settings > Apps for uninstalling.
+- The `.nupkg` files and `releases.win.json` are the updates. Publish the whole folder to a web address or a shared
+  folder (OneDrive works), then enter that address under **Settings > Updates** on each PC. The app checks when it
+  opens and offers **Update and restart**; it also takes a backup first. Keep earlier releases in the folder so
+  updates can be small deltas.
+
+The program installs to `%LocalAppData%\SpeedBudgetApp`, separate from your data in `%LocalAppData%\SpeedBudget`, so
+installing, updating and uninstalling never touch your budget. The installer is unsigned, so SmartScreen may ask you
+to confirm the first time (a code-signing certificate fixes that: pass it to `vpk pack` with `--signParams`).
+
+`./scripts/publish.ps1` still makes a plain zip with no installer or updates.
 
 ## Where things live
 
