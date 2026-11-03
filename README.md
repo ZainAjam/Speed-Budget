@@ -34,6 +34,24 @@ The program installs to `%LocalAppData%\SpeedBudgetApp`, separate from your data
 installing, updating and uninstalling never touch your budget. The installer is unsigned, so SmartScreen may ask you
 to confirm the first time (a code-signing certificate fixes that: pass it to `vpk pack` with `--signParams`).
 
+### Hosting on GitHub
+
+GitHub Releases can host both the download and the updates, for free:
+
+1. Create a repository (a separate public repository holding only releases keeps the source code private).
+2. Pack a version, then upload it as a release (needs a GitHub token with `repo` access, never committed):
+
+   ```powershell
+   ./scripts/package.ps1 -Version 0.2.0
+   dotnet vpk upload github --repoUrl https://github.com/OWNER/REPO --outputDir artifacts/releases --publish --releaseName "Speed Budget 0.2.0" --tag v0.2.0 --token $env:GITHUB_TOKEN
+   ```
+
+3. Others download `SpeedBudgetApp-win-Setup.exe` from the repository's Releases page. In **Settings > Updates** they
+   enter the repository address (`https://github.com/OWNER/REPO`) and the app then finds new releases by itself.
+
+Install with the Setup.exe from your own Windows session (double-click it in Explorer) so the shortcuts and icons
+point at real paths.
+
 `./scripts/publish.ps1` still makes a plain zip with no installer or updates.
 
 ## Where things live
