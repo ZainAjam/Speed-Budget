@@ -1,0 +1,32 @@
+<ContentDialog x:Class="SpeedBudget.App.Views.NewTransactionDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="using:SpeedBudget.App"
+    xmlns:local="using:SpeedBudget.App.Views"
+    Title="New transaction" PrimaryButtonText="Add" CloseButtonText="Cancel" DefaultButton="Primary"
+    PrimaryButtonClick="Add_Click">
+    <StackPanel Spacing="12" MinWidth="440">
+        <TextBlock TextWrapping="Wrap" Opacity="0.8" Style="{StaticResource CaptionTextBlockStyle}"
+                   Text="The counterparty is who the transaction is with: the person or business you paid, or the one who paid you. Type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement." />
+        <CalendarDatePicker x:Name="DateBox" Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
+        <ComboBox Header="Account" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
+                  SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
+        <local:PayeePicker x:Name="PayeeBox" Header="Counterparty" ItemsSource="{x:Bind ViewModel.Payees}"
+                           SelectedPayee="{x:Bind ViewModel.NewPayee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" />
+        <local:ItemPicker Header="Budget item" Visibility="{x:Bind ViewModel.ShowItemPicker, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.ItemOptions}"
+                          SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" CreateRequested="Item_CreateRequested" />
+        <TextBox Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" />
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <NumberBox app:Money.Format="True" Header="Outflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
+                       Value="{x:Bind ViewModel.NewOutflow, Mode=TwoWay}" />
+            <NumberBox app:Money.Format="True" Grid.Column="1" Header="Inflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
+                       Value="{x:Bind ViewModel.NewInflow, Mode=TwoWay}" />
+        </Grid>
+        <CheckBox Content="Cleared" MinWidth="0" IsChecked="{x:Bind ViewModel.NewIsCleared, Mode=TwoWay}" />
+        <TextBlock x:Name="Error" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+    </StackPanel>
+</ContentDialog>

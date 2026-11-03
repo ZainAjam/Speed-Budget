@@ -154,9 +154,12 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>Ids of items pinned to the watcher strip, in the order they were set up.</summary>
+    /// <summary>The watcher strip shows at most this many budget items.</summary>
+    public const int MaxPinnedItems = 3;
+
     public async Task<List<Guid>> GetPinnedItemIdsAsync(CancellationToken ct = default) =>
         await db.Items.AsNoTracking().Where(i => i.IsPinned && !i.IsArchived && i.Kind == ItemKind.Expense)
-            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => i.Id).ToListAsync(ct);
+            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => i.Id).Take(MaxPinnedItems).ToListAsync(ct);
 
     /// <summary>Replaces a transaction's split lines. They must add up to the transaction's amount.</summary>
     public async Task SetSplitsAsync(Guid transactionId, IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines, CancellationToken ct = default)

@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Input;
 using SpeedBudget.App.ViewModels;
 using SpeedBudget.App.Views;
 using SpeedBudget.Core;
+using SpeedBudget.Data;
 using Windows.System;
 
 namespace SpeedBudget.App;
@@ -83,25 +84,14 @@ public sealed partial class MainWindow : Window
         UpdateAddButton();
     }
 
-    private void WatcherHost_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateAddButton();
-
-    private void ChipList_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateAddButton();
-
     /// <summary>
-    /// The + is offered for as long as there is room for another chip after it: the space left beside the chips has
-    /// to hold the button and a typical chip. With no chips yet it is always there, with a label saying what it is for.
+    /// The + is offered until the strip holds its three items. With no chips yet it carries a label saying what it is for.
     /// </summary>
     private void UpdateAddButton()
     {
         var count = Watcher.Chips.Count;
         AddChipLabel.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
-
-        var available = WatcherHost.ActualWidth - WatcherHost.Padding.Left - WatcherHost.Padding.Right;
-        var used = count == 0 ? 0 : ChipList.ActualWidth;
-        var typicalChip = count > 0 && used > 0 ? used / count : 190;
-        const double addButton = 44;
-
-        AddChipButton.Visibility = count == 0 || used + addButton + typicalChip <= available ? Visibility.Visible : Visibility.Collapsed;
+        AddChipButton.Visibility = count < BudgetStore.MaxPinnedItems ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>The +: ask which budget item to add to the strip.</summary>

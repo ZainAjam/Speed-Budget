@@ -524,6 +524,15 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task The_watcher_strip_holds_at_most_three_items()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        for (var i = 1; i <= 5; i++)
+            await _store.SetPinnedAsync((await _store.AddItemAsync(group.Id, null, $"Item {i}", ItemKind.Expense)).Id, true);
+        Assert.Equal(BudgetStore.MaxPinnedItems, (await _store.GetPinnedItemIdsAsync()).Count);
+    }
+
+    [Fact]
     public async Task Payees_are_created_once_ignoring_case_and_picked_up_from_new_transactions()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

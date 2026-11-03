@@ -52,22 +52,6 @@ public sealed partial class TransactionsPage : Page
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.UnreconcileAsync(row);
     }
 
-    /// <summary>A budget item typed into the drop-down that doesn't exist: ask for its category, create it, and select it.</summary>
-    private async void Item_CreateRequested(object? sender, string name)
-    {
-        var groups = await AppServices.Store.GetGroupsAsync();
-        if (groups.Count == 0)
-        {
-            ViewModel.Message = "Add a budget category first under Manage Budget Items.";
-            return;
-        }
-        var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-
-        var option = await ViewModel.CreateItemAsync(dialog.GroupId, dialog.ItemName);
-        if (option is not null && sender is ItemPicker picker) picker.SelectedItem = option;
-    }
-
     /// <summary>Right-click (or the menu key) on a counterparty in the table: jump to its edit screen.</summary>
     private void Counterparty_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
@@ -84,21 +68,24 @@ public sealed partial class TransactionsPage : Page
         args.Handled = true;
     }
 
+    /// <summary>A budget item typed into the drop-down that doesn't exist: ask for its category, create it, and select it.</summary>
+    private async void Item_CreateRequested(object? sender, string name)
+    {
+        var groups = await AppServices.Store.GetGroupsAsync();
+        if (groups.Count == 0)
+        {
+            ViewModel.Message = "Add a budget category first under Manage Budget Items.";
+            return;
+        }
+        var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var option = await ViewModel.CreateItemAsync(dialog.GroupId, dialog.ItemName);
+        if (option is not null && sender is ItemPicker picker) picker.SelectedItem = option;
+    }
+
     /// <summary>A payee typed into the drop-down that was not in the list: save it so it is there from now on.</summary>
     private async void Payee_CreateRequested(object? sender, string name) => await ViewModel.CreatePayeeAsync(name);
-
-    private async void Add_Click(object sender, RoutedEventArgs e) => await AddAndRefocusAsync();
-
-    // Enter commits a NumberBox's text, so it is handled on key-up to see the committed value.
-    private async void Entry_KeyUp(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Enter) await AddAndRefocusAsync();
-    }
-
-    private async Task AddAndRefocusAsync()
-    {
-        if (await ViewModel.AddAsync()) PayeeBox.ShowFlyout();
-    }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
@@ -128,12 +115,16 @@ public sealed partial class TransactionsPage : Page
         await dialog.ShowAsync();
     }
 
-    /// <summary>Ctrl+N: open the payee list, ready to type in, to start a new transaction.</summary>
-    private void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    private async void NewTransaction_Click(object sender, RoutedEventArgs e) => await NewTransactionAsync();
+
+    /// <summary>Ctrl+N: open the new transaction dialog.</summary>
+    private async void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        PayeeBox.ShowFlyout();
+        await NewTransactionAsync();
     }
+
+    private async Task NewTransactionAsync() => await new NewTransactionDialog(ViewModel) { XamlRoot = XamlRoot }.ShowAsync();
 
     private async void NewMonth_Click(object sender, RoutedEventArgs e) => await StartNewMonthAsync();
 

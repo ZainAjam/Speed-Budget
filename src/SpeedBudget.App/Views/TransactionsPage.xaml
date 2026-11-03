@@ -100,16 +100,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Content="Add transfer" Click="Transfer_Click" />
-            <Button Grid.Column="2" Content="Let's start a new month" Click="NewMonth_Click" ToolTipService.ToolTip="Ctrl+M" />
-        </Grid>
+        <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
 
         <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                  Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
@@ -147,46 +138,18 @@
             </Grid>
         </Border>
 
-        <!-- 2. Where new transactions are captured: tinted and outlined in the accent colour so it stands apart -->
-        <Border Grid.Row="3" Padding="16,14" CornerRadius="8" Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
-                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2">
-            <StackPanel Spacing="12">
-                <StackPanel Spacing="2">
+        <!-- 2. What can be done: new transaction and transfer open dialogs; a new month starts a line in the list -->
+        <Border Grid.Row="3" Padding="16,12" CornerRadius="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Style="{StaticResource AccentButtonStyle}" Click="NewTransaction_Click" ToolTipService.ToolTip="Ctrl+N">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE710;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                        <TextBlock Text="Capture a new transaction" Style="{StaticResource BodyStrongTextBlockStyle}"
-                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        <FontIcon Glyph="&#xE710;" FontSize="14" />
+                        <TextBlock Text="New Transaction" />
                     </StackPanel>
-                    <TextBlock TextWrapping="Wrap" Opacity="0.8" Style="{StaticResource CaptionTextBlockStyle}"
-                               Text="{x:Bind ViewModel.CaptureGuidance, Mode=OneWay}" />
-                </StackPanel>
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="140" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" MinWidth="150" />
-                        <ColumnDefinition Width="{x:Bind ViewModel.ItemFieldWidth, Mode=OneWay}" />
-                        <ColumnDefinition Width="*" MinWidth="120" />
-                        <ColumnDefinition Width="110" />
-                        <ColumnDefinition Width="110" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <CalendarDatePicker x:Name="DateBox" Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
-                    <ComboBox Grid.Column="1" Header="Account" Width="170" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
-                              SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
-                    <local:PayeePicker x:Name="PayeeBox" Grid.Column="2" Header="Counterparty" ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." ItemsSource="{x:Bind ViewModel.Payees}"
-                                       SelectedPayee="{x:Bind ViewModel.NewPayee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" />
-                    <local:ItemPicker x:Name="NewItemBox" Grid.Column="3" Header="Budget item" Visibility="{x:Bind ViewModel.ShowItemPicker, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.ItemOptions}"
-                                      SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" CreateRequested="Item_CreateRequested" />
-                    <TextBox x:Name="MemoBox" Grid.Column="4" Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                    <NumberBox x:Name="OutflowBox" app:Money.Format="True" Grid.Column="5" Header="Outflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
-                               Value="{x:Bind ViewModel.NewOutflow, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                    <NumberBox x:Name="InflowBox" app:Money.Format="True" Grid.Column="6" Header="Inflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
-                               Value="{x:Bind ViewModel.NewInflow, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                    <CheckBox Grid.Column="7" Content="Cleared" VerticalAlignment="Bottom" MinWidth="0" IsChecked="{x:Bind ViewModel.NewIsCleared, Mode=TwoWay}" />
-                    <Button Grid.Column="8" Content="Add" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}" Click="Add_Click" />
-                </Grid>
+                </Button>
+                <Button Content="New Transfer" Click="Transfer_Click" />
+                <Button Content="Start a new month" Click="NewMonth_Click" ToolTipService.ToolTip="Ctrl+M" />
             </StackPanel>
         </Border>
 
