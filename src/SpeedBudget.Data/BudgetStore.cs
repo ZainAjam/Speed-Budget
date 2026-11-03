@@ -3,6 +3,10 @@ using SpeedBudget.Core;
 
 namespace SpeedBudget.Data;
 
+public sealed record TransactionDetail(TransactionEntity Transaction, IReadOnlyList<SplitLineEntity> Lines);
+
+public sealed record PayeeHint(string Payee, Guid? BudgetItemId, Guid AccountId);
+
 /// <summary>Opens the local database and gives this installation a stable device id.</summary>
 public static class LocalDatabase
 {
@@ -218,6 +222,115 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         }
         await db.SaveChangesAsync(ct);
         return transaction;
+    }
+
+    /// <summary>Transactions in date order (oldest first), with their split lines. Optionally for one account.</summary>
+    public async Task<List<TransactionDetail>> GetTransactionsAsync(Guid? accountId = null, CancellationToken ct = default)
+    {
+        var query = db.Transactions.AsQueryable();
+        if (accountId is { } id) query = query.Where(t => t.AccountId == id);
+        var transactions = await query.OrderBy(t => t.Date).ThenBy(t => t.DayOrder).ThenBy(t => t.Id).ToListAsync(ct);
+
+        var wanted = transactions.Select(t => t.Id).ToHashSet();
+        var lines = (await db.SplitLines.ToListAsync(ct)).Where(l => wanted.Contains(l.TransactionId)).ToLookup(l => l.TransactionId);
+        return transactions.Select(t => new TransactionDetail(t, lines[t.Id].ToList())).ToList();
+    }
+
+    /// <summary>The order-in-day for a new row on a date, so it lands after everything already on that day.</summary>
+    public async Task<int> NextDayOrderAsync(DateOnly date, CancellationToken ct = default)
+    {
+        var txOrders = await db.Transactions.Where(t => t.Date == date).Select(t => t.DayOrder).ToListAsync(ct);
+        var markerOrders = await db.Markers.Where(m => m.Date == date).Select(m => m.DayOrder).ToListAsync(ct);
+        var all = txOrders.Concat(markerOrders).ToList();
+        return all.Count == 0 ? 0 : all.Max() + 1;
+    }
+
+    /// <summary>Gives a transaction exactly one split line with the given item and amount.</summary>
+    public async Task SetSingleSplitAsync(Guid transactionId, Guid? itemId, long amount, CancellationToken ct = default)
+    {
+        var lines = await db.SplitLines.Where(l => l.TransactionId == transactionId).ToListAsync(ct);
+        if (lines.Count == 1)
+        {
+            lines[0].BudgetItemId = itemId;
+            lines[0].Amount = amount;
+        }
+        else
+        {
+            foreach (var line in lines) db.SplitLines.Remove(line);
+            db.SplitLines.Add(new SplitLineEntity { TransactionId = transactionId, BudgetItemId = itemId, Amount = amount });
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Deletes a transaction. Deleting one side of a transfer deletes the other side too.</summary>
+    public async Task DeleteTransactionAsync(TransactionEntity transaction, CancellationToken ct = default)
+    {
+        if (transaction.TransferPairId is { } pair)
+            db.Transactions.RemoveRange(await db.Transactions.Where(t => t.TransferPairId == pair).ToListAsync(ct));
+        else
+            db.Transactions.Remove(transaction);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Moves money between two accounts as a linked pair of transactions. Between two budget accounts, or two
+    /// tracked ones, the budget is unaffected. When exactly one side is a budget account, the transfer counts as
+    /// spending (to a tracked account) or income (from one) and needs a matching budget item.
+    /// </summary>
+    public async Task<(TransactionEntity From, TransactionEntity To)> AddTransferAsync(
+        Guid fromAccountId, Guid toAccountId, DateOnly date, long amount, string? memo, Guid? budgetItemId,
+        CancellationToken ct = default)
+    {
+        if (amount <= 0) throw new ArgumentException("A transfer amount must be more than zero.");
+        if (fromAccountId == toAccountId) throw new ArgumentException("Choose two different accounts.");
+
+        var from = await db.Accounts.SingleAsync(a => a.Id == fromAccountId, ct);
+        var to = await db.Accounts.SingleAsync(a => a.Id == toAccountId, ct);
+
+        Guid? fromItem = null, toItem = null;
+        if (from.IsOnBudget != to.IsOnBudget)
+        {
+            var wantedKind = from.IsOnBudget ? ItemKind.Expense : ItemKind.Income;
+            var item = budgetItemId is { } id ? await db.Items.SingleOrDefaultAsync(i => i.Id == id, ct) : null;
+            if (item is null || item.Kind != wantedKind)
+                throw new ArgumentException($"Choose an {wantedKind.ToString().ToLowerInvariant()} item for this transfer.");
+            if (from.IsOnBudget) fromItem = item.Id; else toItem = item.Id;
+        }
+
+        var pair = Guid.CreateVersion7();
+        var order = await NextDayOrderAsync(date, ct);
+        var outgoing = new TransactionEntity
+        {
+            AccountId = from.Id, Date = date, DayOrder = order, Payee = $"Transfer to {to.Name}",
+            Memo = memo, Amount = -amount, TransferPairId = pair,
+        };
+        var incoming = new TransactionEntity
+        {
+            AccountId = to.Id, Date = date, DayOrder = order, Payee = $"Transfer from {from.Name}",
+            Memo = memo, Amount = amount, TransferPairId = pair,
+        };
+        db.Transactions.AddRange(outgoing, incoming);
+        db.SplitLines.Add(new SplitLineEntity { TransactionId = outgoing.Id, BudgetItemId = fromItem, Amount = -amount });
+        db.SplitLines.Add(new SplitLineEntity { TransactionId = incoming.Id, BudgetItemId = toItem, Amount = amount });
+        await db.SaveChangesAsync(ct);
+        return (outgoing, incoming);
+    }
+
+    /// <summary>For each payee used before, the item and account of its most recent transaction.</summary>
+    public async Task<IReadOnlyList<PayeeHint>> GetPayeeHintsAsync(CancellationToken ct = default)
+    {
+        var transactions = await db.Transactions.AsNoTracking()
+            .Where(t => t.TransferPairId == null && t.Payee != "")
+            .OrderByDescending(t => t.Date).ThenByDescending(t => t.DayOrder).ThenByDescending(t => t.Id)
+            .ToListAsync(ct);
+        var lines = (await db.SplitLines.AsNoTracking().ToListAsync(ct)).ToLookup(l => l.TransactionId);
+
+        return transactions
+            .GroupBy(t => t.Payee.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .Select(t => new PayeeHint(t.Payee.Trim(), lines[t.Id].FirstOrDefault()?.BudgetItemId, t.AccountId))
+            .OrderBy(h => h.Payee, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>Every row, including tombstones, changed after the given clock value. This is what sync pushes.</summary>

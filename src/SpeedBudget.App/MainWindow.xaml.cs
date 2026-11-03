@@ -18,6 +18,7 @@ public sealed partial class MainWindow : Window
         switch (tag)
         {
             case "Budget": ContentFrame.Navigate(typeof(BudgetPage)); break;
+            case "Transactions": ContentFrame.Navigate(typeof(TransactionsPage)); break;
             case "Accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
             case "Items": ContentFrame.Navigate(typeof(ItemsPage)); break;
             default: ContentFrame.Navigate(typeof(PlaceholderPage), tag); break;

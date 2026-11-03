@@ -228,6 +228,148 @@ public sealed class DataTests : IDisposable
         Assert.Equal(new[] { "A", "C", "B" }, order);
     }
 
+    private Task<TransactionEntity> AddTx(AccountEntity account, DateOnly date, long amount, Guid? itemId = null, string payee = "") =>
+        _store.AddTransactionAsync(
+            new TransactionEntity { AccountId = account.Id, Date = date, DayOrder = 0, Amount = amount, Payee = payee },
+            new[] { new SplitLineEntity { BudgetItemId = itemId, Amount = amount } });
+
+    [Fact]
+    public async Task Transactions_come_back_oldest_first_and_can_be_limited_to_one_account()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+        await AddTx(a, new(2027, 1, 9), -1_00, payee: "late");
+        await AddTx(b, new(2027, 1, 2), -1_00, payee: "other");
+        await AddTx(a, new(2027, 1, 3), -1_00, payee: "early");
+
+        var all = await _store.GetTransactionsAsync();
+        var onlyA = await _store.GetTransactionsAsync(a.Id);
+
+        Assert.Equal(new[] { "other", "early", "late" }, all.Select(t => t.Transaction.Payee));
+        Assert.Equal(new[] { "early", "late" }, onlyA.Select(t => t.Transaction.Payee));
+    }
+
+    [Fact]
+    public async Task New_rows_on_a_date_go_after_existing_rows_and_markers_on_that_date()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var day = new DateOnly(2027, 1, 25);
+        Assert.Equal(0, await _store.NextDayOrderAsync(day));
+
+        var tx = await AddTx(a, day, -1_00);
+        _db.Markers.Add(new MonthMarkerEntity { Date = day, DayOrder = 4, Label = "Feb" });
+        await _db.SaveChangesAsync();
+
+        Assert.Equal(0, tx.DayOrder);
+        Assert.Equal(5, await _store.NextDayOrderAsync(day));
+    }
+
+    [Fact]
+    public async Task Changing_a_transactions_item_and_amount_rewrites_its_single_split()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        var petrol = AddItem("Petrol", ItemKind.Expense);
+        var tx = await AddTx(a, new(2027, 1, 3), -100_00, food.Id);
+
+        tx.Amount = -150_00;
+        await _store.SetSingleSplitAsync(tx.Id, petrol.Id, tx.Amount);
+
+        var line = Assert.Single((await _store.GetTransactionsAsync()).Single().Lines);
+        Assert.Equal(petrol.Id, line.BudgetItemId);
+        Assert.Equal(-150_00, line.Amount);
+    }
+
+    [Fact]
+    public async Task Payee_hints_use_the_most_recent_item_and_ignore_transfers()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var s = await _store.AddAccountAsync("S", AccountType.Savings, false);
+        var food = AddItem("Food", ItemKind.Expense);
+        var petrol = AddItem("Petrol", ItemKind.Expense);
+        await AddTx(a, new(2027, 1, 3), -10_00, food.Id, "Polo");
+        await AddTx(a, new(2027, 1, 9), -10_00, petrol.Id, "polo");
+        await _store.AddTransferAsync(a.Id, s.Id, new(2027, 1, 10), 5_00, null, petrol.Id);
+
+        var hint = Assert.Single(await _store.GetPayeeHintsAsync());
+
+        Assert.Equal("polo", hint.Payee);
+        Assert.Equal(petrol.Id, hint.BudgetItemId);
+    }
+
+    [Fact]
+    public async Task Transfer_between_two_budget_accounts_does_not_touch_the_budget()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 100_00);
+
+        var (from, to) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 40_00, "move", null);
+
+        Assert.Equal(-40_00, from.Amount);
+        Assert.Equal(40_00, to.Amount);
+        Assert.Equal(from.TransferPairId, to.TransferPairId);
+        var month = BudgetEngine.Calculate(await _store.LoadSnapshotAsync()).Single();
+        Assert.Equal(100_00, month.Items.Single(i => i.ItemId == food.Id).Remaining);
+        Assert.Equal(0, month.Income);
+    }
+
+    [Fact]
+    public async Task Transfer_from_budget_to_tracked_counts_as_spending_on_the_chosen_item()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var pocket = await _store.AddAccountAsync("Pocket", AccountType.Savings, false);
+        var saving = AddItem("Savings", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, saving.Id, 500_00);
+
+        await _store.AddTransferAsync(cheque.Id, pocket.Id, new(2027, 1, 5), 200_00, null, saving.Id);
+
+        var item = BudgetEngine.Calculate(await _store.LoadSnapshotAsync()).Single().Items.Single(i => i.ItemId == saving.Id);
+        Assert.Equal(-200_00, item.Activity);
+        Assert.Equal(300_00, item.Remaining);
+    }
+
+    [Fact]
+    public async Task Transfer_from_tracked_to_budget_counts_as_income_and_needs_an_income_item()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var pocket = await _store.AddAccountAsync("Pocket", AccountType.Savings, false);
+        var salary = AddItem("Salary", ItemKind.Income);
+        var food = AddItem("Food", ItemKind.Expense);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _store.AddTransferAsync(pocket.Id, cheque.Id, new(2027, 1, 5), 100_00, null, null));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _store.AddTransferAsync(pocket.Id, cheque.Id, new(2027, 1, 5), 100_00, null, food.Id));
+
+        await _store.AddTransferAsync(pocket.Id, cheque.Id, new(2027, 1, 5), 100_00, null, salary.Id);
+        Assert.Equal(100_00, BudgetEngine.Calculate(await _store.LoadSnapshotAsync()).Single().Income);
+    }
+
+    [Fact]
+    public async Task Invalid_transfers_are_rejected()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddTransferAsync(a.Id, a.Id, new(2027, 1, 5), 10_00, null, null));
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 0, null, null));
+    }
+
+    [Fact]
+    public async Task Deleting_one_side_of_a_transfer_deletes_both()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+        var (from, _) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 10_00, null, null);
+
+        await _store.DeleteTransactionAsync(from);
+
+        Assert.Empty(await _store.GetTransactionsAsync());
+        Assert.Empty(_db.SplitLines.ToList());
+    }
+
     [Fact]
     public async Task Stored_data_feeds_the_budget_engine()
     {
