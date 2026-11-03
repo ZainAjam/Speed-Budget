@@ -14,6 +14,8 @@ public sealed partial class MainWindow : Window
     private readonly NavigationViewItem _transactions = new() { Content = "Transactions", Tag = "tx", Icon = new SymbolIcon(Symbol.List), IsExpanded = true };
 
     private bool _onTransactions;
+    private Guid? _accountPage;
+    private readonly HashSet<Guid> _trackedAccounts = [];
 
     public WatcherService Watcher => AppServices.Watcher;
 
@@ -62,6 +64,9 @@ public sealed partial class MainWindow : Window
     {
         var selectedTag = (Nav.SelectedItem as NavigationViewItem)?.Tag as string;
         var accounts = (await AppServices.Store.GetAccountsAsync()).Where(a => !a.IsClosed).ToList();
+        _trackedAccounts.Clear();
+        foreach (var tracked in accounts.Where(a => !a.IsOnBudget)) _trackedAccounts.Add(tracked.Id);
+        UpdateWatcherStrip();
 
         _transactions.MenuItems.Clear();
         _transactions.MenuItems.Add(new NavigationViewItem { Content = "All accounts", Tag = "tx:all", Icon = new SymbolIcon(Symbol.AllApps) });
@@ -76,11 +81,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    // The strip is always there on the transaction pages (even when empty, so the first item can be added), and
-    // nowhere else.
+    // The strip is always there on the transaction pages of budget accounts (even when empty, so the first item can
+    // be added), and nowhere else: not on tracked accounts, which sit outside the budget.
     private void UpdateWatcherStrip()
     {
-        WatcherHost.Visibility = _onTransactions ? Visibility.Visible : Visibility.Collapsed;
+        WatcherHost.Visibility = _onTransactions && !(_accountPage is { } id && _trackedAccounts.Contains(id)) ? Visibility.Visible : Visibility.Collapsed;
         UpdateAddButton();
     }
 
@@ -169,6 +174,7 @@ public sealed partial class MainWindow : Window
     private void Show(string? tag, object? parameter)
     {
         _onTransactions = tag is not null && tag.StartsWith("tx");
+        _accountPage = tag is not null && tag.StartsWith("tx:") && Guid.TryParse(tag.AsSpan(3), out var page) ? page : null;
         UpdateWatcherStrip();
         switch (tag)
         {
