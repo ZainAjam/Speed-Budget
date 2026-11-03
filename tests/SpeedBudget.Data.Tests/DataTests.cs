@@ -506,6 +506,24 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Items_can_be_pinned_to_and_removed_from_the_watcher_strip()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var food = await _store.AddItemAsync(group.Id, null, "Food", ItemKind.Expense);
+        var petrol = await _store.AddItemAsync(group.Id, null, "Petrol", ItemKind.Expense);
+        var salary = await _store.AddItemAsync((await _store.AddGroupAsync("Income", ItemKind.Income)).Id, null, "Salary", ItemKind.Income);
+
+        await _store.SetPinnedAsync(food.Id, true);
+        await _store.SetPinnedAsync(petrol.Id, true);
+        await _store.SetPinnedAsync(salary.Id, true);
+        Assert.Equal(new[] { food.Id, petrol.Id }, await _store.GetPinnedItemIdsAsync());   // income items never show on the strip
+
+        await _store.SetPinnedAsync(food.Id, false);
+        await _store.SetPinnedAsync(food.Id, false);   // removing twice is harmless
+        Assert.Equal(new[] { petrol.Id }, await _store.GetPinnedItemIdsAsync());
+    }
+
+    [Fact]
     public async Task Payees_are_created_once_ignoring_case_and_picked_up_from_new_transactions()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

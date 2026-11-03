@@ -144,6 +144,15 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public Task<List<SplitLineEntity>> GetSplitLinesAsync(Guid transactionId, CancellationToken ct = default) =>
         db.SplitLines.AsNoTracking().Where(l => l.TransactionId == transactionId).OrderBy(l => l.Id).ToListAsync(ct);
 
+    /// <summary>Pins an item to the watcher strip, or removes it from the strip.</summary>
+    public async Task SetPinnedAsync(Guid itemId, bool pinned, CancellationToken ct = default)
+    {
+        var item = await db.Items.SingleAsync(i => i.Id == itemId, ct);
+        if (item.IsPinned == pinned) return;
+        item.IsPinned = pinned;
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>Ids of items pinned to the watcher strip, in the order they were set up.</summary>
     public async Task<List<Guid>> GetPinnedItemIdsAsync(CancellationToken ct = default) =>
         await db.Items.AsNoTracking().Where(i => i.IsPinned && !i.IsArchived && i.Kind == ItemKind.Expense)
