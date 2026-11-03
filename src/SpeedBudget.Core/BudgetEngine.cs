@@ -23,12 +23,33 @@ public static class BudgetEngine
     public static IReadOnlyList<MonthMarker> SortMarkers(IEnumerable<MonthMarker> markers) =>
         markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
 
-    /// <summary>Calculates every month, oldest first. Only budget accounts affect the result.</summary>
-    public static IReadOnlyList<MonthSummary> Calculate(BudgetSnapshot s)
+    /// <summary>How many months after the latest real one are offered for budgeting ahead.</summary>
+    public const int PlannedMonthCount = 3;
+
+    /// <summary>
+    /// Id of the nth month after the latest real month (1 is the very next one). A planned month has no month line
+    /// yet, but its budget can already be filled in; the same id on every device keeps that budget in sync. When a
+    /// real month is started, the planned budgets move down one place (see the store).
+    /// </summary>
+    public static Guid PlannedMonthId(int ordinal) =>
+        new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes($"planned-month:{ordinal}")));
+
+    /// <summary>
+    /// Calculates every month, oldest first. Only budget accounts affect the result. Optionally adds that many
+    /// planned months after the last real one, so budgets can be set before any transaction exists for them.
+    /// </summary>
+    public static IReadOnlyList<MonthSummary> Calculate(BudgetSnapshot s, int plannedMonths = 0)
     {
         var markers = SortMarkers(s.Markers);
-        var months = new List<(Guid Id, string Label)> { (FirstMonthId, s.FirstMonthLabel) };
-        months.AddRange(markers.Select(m => (m.Id, m.Label)));
+        var months = new List<(Guid Id, string Label, bool Planned)> { (FirstMonthId, s.FirstMonthLabel, false) };
+        months.AddRange(markers.Select(m => (m.Id, m.Label, false)));
+
+        var previousLabel = months[^1].Label;
+        for (var k = 1; k <= plannedMonths; k++)
+        {
+            previousLabel = MonthLabels.Next(previousLabel, DateOnly.FromDateTime(DateTime.Today).AddMonths(k));
+            months.Add((PlannedMonthId(k), previousLabel, true));
+        }
 
         var onBudget = s.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
         var kinds = s.Items.ToDictionary(i => i.Id, i => i.Kind);
@@ -49,7 +70,7 @@ public static class BudgetEngine
         var results = new List<MonthSummary>();
         long previousHeldOut = 0, previousRemaining = 0, previousAvailable = 0;
 
-        foreach (var (monthId, label) in months)
+        foreach (var (monthId, label, planned) in months)
         {
             long income = 0, budgeted = 0, remaining = 0;
             var items = new List<ItemMonth>();
@@ -77,7 +98,7 @@ public static class BudgetEngine
             var carried = previousAvailable;
             var available = income - heldOut + previousHeldOut + overflow + carried - budgeted;
 
-            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems));
+            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems, planned));
             previousHeldOut = heldOut;
             previousRemaining = remaining;
             previousAvailable = available;

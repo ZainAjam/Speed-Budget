@@ -144,6 +144,9 @@ public sealed partial class MonthColumn : ObservableObject
 {
     public Guid MonthId { get; }
     public string Label { get; private set; } = "";
+
+    /// <summary>A month after the latest real one: it has no transactions yet, only a budget being planned.</summary>
+    public bool IsPlanned { get; private set; }
     public bool HasPrevious { get; }
     public IReadOnlyList<SummaryCell> Summary { get; }
     public ObservableCollection<IncomeCell> Income { get; } = new();
@@ -161,7 +164,9 @@ public sealed partial class MonthColumn : ObservableObject
     public void Apply(MonthSummary m)
     {
         Label = m.Label;
+        IsPlanned = m.IsPlanned;
         OnPropertyChanged(nameof(Label));
+        OnPropertyChanged(nameof(IsPlanned));
 
         var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.CarriedOver, -m.Budgeted, m.Available };
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
@@ -259,8 +264,10 @@ public sealed partial class BudgetViewModel : ObservableObject
             foreach (var l in _outflowLines) OutflowLines.Add(l);
 
             HasItems = items.Count > 0;
-            _months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
-            if (_firstLoad) { _start = MaxStart; _firstLoad = false; }
+            _months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync(), BudgetEngine.PlannedMonthCount);
+
+            // Open on the latest real month, with the planned months after it, rather than on the far future.
+            if (_firstLoad) { _start = _months.ToList().FindLastIndex(m => !m.IsPlanned); _firstLoad = false; }
             _start = Math.Clamp(_start, 0, MaxStart);
             RebuildColumns();
         }
@@ -350,7 +357,7 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     private async Task RecalculateAsync()
     {
-        _months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+        _months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync(), BudgetEngine.PlannedMonthCount);
         _start = Math.Clamp(_start, 0, MaxStart);
         var wanted = _months.Skip(_start).Take(_capacity).Select(m => m.MonthId).ToList();
         if (wanted.SequenceEqual(Columns.Select(c => c.MonthId))) ApplyData();

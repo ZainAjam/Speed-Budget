@@ -59,4 +59,5 @@ public sealed record MonthSummary(
     long Budgeted,
     long Available,
     IReadOnlyList<ItemMonth> Items,
-    IReadOnlyList<IncomeItemMonth> IncomeItems);
+    IReadOnlyList<IncomeItemMonth> IncomeItems,
+    bool IsPlanned = false);

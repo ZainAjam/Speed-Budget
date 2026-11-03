@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
 
         var budget = new NavigationViewItem { Content = "Budget", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
         var accounts = new NavigationViewItem { Content = "Accounts", Tag = "accounts", Icon = new SymbolIcon(Symbol.Library) };
+        var payees = new NavigationViewItem { Content = "Payees", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
         var items = new NavigationViewItem { Content = "Manage Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
         Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Activity" });
@@ -28,11 +29,12 @@ public sealed partial class MainWindow : Window
         Nav.MenuItems.Add(new NavigationViewItemSeparator());
         Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Settings" });
         Nav.MenuItems.Add(accounts);
+        Nav.MenuItems.Add(payees);
         Nav.MenuItems.Add(items);
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Backup and export", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
-        // Ctrl+1 to Ctrl+4 jump to Budget, Transactions, Accounts and Manage Budget Items.
-        var shortcuts = new[] { budget, _transactions, accounts, items };
+        // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Payees and Manage Budget Items.
+        var shortcuts = new[] { budget, _transactions, accounts, payees, items };
         for (var i = 0; i < shortcuts.Length; i++)
         {
             var target = shortcuts[i];
@@ -73,6 +75,7 @@ public sealed partial class MainWindow : Window
             case "budget": ContentFrame.Navigate(typeof(BudgetPage)); break;
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
             case "accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
+            case "payees": ContentFrame.Navigate(typeof(PayeesPage)); break;
             case "items": ContentFrame.Navigate(typeof(ItemsPage)); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):

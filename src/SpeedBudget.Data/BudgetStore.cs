@@ -163,6 +163,72 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
+    // ---- Payees ----
+
+    public Task<List<PayeeEntity>> GetPayeesAsync(CancellationToken ct = default) =>
+        db.Payees.OrderBy(p => p.Name).ToListAsync(ct);
+
+    /// <summary>The payee with this name (ignoring case), created if it does not exist yet.</summary>
+    public async Task<PayeeEntity> EnsurePayeeAsync(string name, CancellationToken ct = default)
+    {
+        name = name.Trim();
+        var existing = (await db.Payees.ToListAsync(ct)).FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return existing;
+
+        var payee = new PayeeEntity { Name = name };
+        db.Payees.Add(payee);
+        await db.SaveChangesAsync(ct);
+        return payee;
+    }
+
+    /// <summary>Makes sure every payee already used on a transaction is in the payee list. Safe to run again.</summary>
+    public async Task EnsurePayeesFromTransactionsAsync(CancellationToken ct = default)
+    {
+        var known = (await db.Payees.Select(p => p.Name).ToListAsync(ct)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var used = await db.Transactions.Where(t => t.TransferPairId == null && t.Payee != "").Select(t => t.Payee).Distinct().ToListAsync(ct);
+        foreach (var name in used.Select(n => n.Trim()).Where(n => n != "").Distinct(StringComparer.OrdinalIgnoreCase))
+            if (known.Add(name)) db.Payees.Add(new PayeeEntity { Name = name });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>How many transactions use each payee, keyed by the lower-case name.</summary>
+    public async Task<Dictionary<string, int>> GetPayeeUsageAsync(CancellationToken ct = default)
+    {
+        var rows = await db.Transactions.AsNoTracking().Where(t => t.Payee != "")
+            .GroupBy(t => t.Payee.ToLower()).Select(g => new { Name = g.Key, Count = g.Count() }).ToListAsync(ct);
+        return rows.ToDictionary(r => r.Name, r => r.Count);
+    }
+
+    public async Task<int> CountPayeeTransactionsAsync(string name, CancellationToken ct = default)
+    {
+        var lower = name.Trim().ToLower();
+        return await db.Transactions.CountAsync(t => t.Payee.ToLower() == lower, ct);
+    }
+
+    /// <summary>Renames a payee, and the name on every transaction that uses it. Returns an error sentence, or null.</summary>
+    public async Task<string?> RenamePayeeAsync(PayeeEntity payee, string newName, CancellationToken ct = default)
+    {
+        newName = newName.Trim();
+        if (newName == "") return "A payee needs a name.";
+        var clash = (await db.Payees.ToListAsync(ct)).Any(p => p.Id != payee.Id && string.Equals(p.Name, newName, StringComparison.OrdinalIgnoreCase));
+        if (clash) return "There is already a payee with that name.";
+
+        var oldLower = payee.Name.ToLower();
+        foreach (var t in await db.Transactions.Where(t => t.Payee.ToLower() == oldLower).ToListAsync(ct)) t.Payee = newName;
+        payee.Name = newName;
+        await db.SaveChangesAsync(ct);
+        return null;
+    }
+
+    /// <summary>Deletes a payee that no transaction uses. Returns false, leaving it alone, if it is in use.</summary>
+    public async Task<bool> DeletePayeeAsync(PayeeEntity payee, CancellationToken ct = default)
+    {
+        if (await CountPayeeTransactionsAsync(payee.Name, ct) > 0) return false;
+        db.Payees.Remove(payee);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
     public Task<List<MonthMarkerEntity>> GetMarkersAsync(CancellationToken ct = default) =>
         db.Markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ThenBy(m => m.Id).ToListAsync(ct);
 
@@ -177,10 +243,31 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var previousMonth = BudgetEngine.MonthOf(existing, date, order);
 
         var marker = new MonthMarkerEntity { Date = date, DayOrder = order, Label = label };
+
+        // A month started at the end of the timeline takes over the budget already planned for "next month",
+        // and the later planned months each move down one place.
+        var key = new SortKey(date, order);
+        if (!existing.Any() || existing.All(m => new SortKey(m.Date, m.DayOrder) < key))
+            await ShiftPlannedBudgetsAsync(marker.Id, ct);
+
         db.Markers.Add(marker);
         await db.SaveChangesAsync(ct);
         if (copyPreviousBudget) await CopyBudgetAsync(previousMonth, marker.Id, ct);
         return marker;
+    }
+
+    /// <summary>Moves planned budgets: the next planned month's go to the new month, and each later one moves down one.</summary>
+    private async Task ShiftPlannedBudgetsAsync(Guid newMonthId, CancellationToken ct)
+    {
+        var planned = Enumerable.Range(1, BudgetEngine.PlannedMonthCount).Select(BudgetEngine.PlannedMonthId).ToList();
+        Guid Destination(Guid from)
+        {
+            var ordinal = planned.IndexOf(from) + 1;
+            return ordinal == 1 ? newMonthId : planned[ordinal - 2];
+        }
+
+        foreach (var a in await db.Allocations.Where(a => planned.Contains(a.MonthId)).ToListAsync(ct)) a.MonthId = Destination(a.MonthId);
+        foreach (var h in await db.Holds.Where(h => planned.Contains(h.MonthId)).ToListAsync(ct)) h.MonthId = Destination(h.MonthId);
     }
 
     /// <summary>Copies one month's budgeted and expected amounts into another, skipping items already set there.</summary>
@@ -401,6 +488,10 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         if (lines.Sum(l => l.Amount) != transaction.Amount)
             throw new ArgumentException("Split lines must add up to the transaction amount.");
 
+        // A typed-in payee joins the payee list, so it can be picked next time.
+        if (transaction.TransferPairId is null && !string.IsNullOrWhiteSpace(transaction.Payee))
+            await EnsurePayeeAsync(transaction.Payee, ct);
+
         db.Transactions.Add(transaction);
         foreach (var line in lines)
         {
@@ -533,6 +624,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         changes.AddRange(await db.Holds.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.Transactions.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.SplitLines.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
+        changes.AddRange(await db.Payees.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.Settings.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         return changes.OrderBy(c => c.UpdatedAt, StringComparer.Ordinal).ToList();
     }

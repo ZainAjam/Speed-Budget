@@ -80,7 +80,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="Planned: no transactions yet" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                                   Visibility="{x:Bind IsPlanned, Mode=OneWay}" />
+                    </StackPanel>
                     <Button Grid.Column="1" Click="MonthMenu_Click" Tag="{x:Bind}" Background="Transparent" BorderThickness="0"
                             Visibility="{x:Bind HasPrevious}" AutomationProperties.Name="Month options" ToolTipService.ToolTip="Fill this month's budget">
                         <FontIcon Glyph="&#xE712;" FontSize="14" />

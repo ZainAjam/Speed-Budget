@@ -28,19 +28,8 @@ public sealed partial class TransactionsPage : Page
 
     private async void Unreconcile_Click(object sender, RoutedEventArgs e) => await ViewModel.UnreconcileSelectedAsync();
 
-    private void Payee_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
-    {
-        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
-            sender.ItemsSource = ViewModel.SuggestPayees(sender.Text);
-    }
-
-    private void Payee_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
-    {
-        if (args.SelectedItem is string payee) ViewModel.ApplyHint(payee);
-    }
-
-    private void Payee_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args) =>
-        ViewModel.ApplyHint(args.QueryText);
+    /// <summary>A payee typed into the drop-down that was not in the list: save it so it is there from now on.</summary>
+    private async void Payee_CreateRequested(object? sender, string name) => await ViewModel.CreatePayeeAsync(name);
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await AddAndRefocusAsync();
 
@@ -52,7 +41,7 @@ public sealed partial class TransactionsPage : Page
 
     private async Task AddAndRefocusAsync()
     {
-        if (await ViewModel.AddAsync()) PayeeBox.Focus(FocusState.Programmatic);
+        if (await ViewModel.AddAsync()) PayeeBox.ShowFlyout();
     }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
@@ -83,11 +72,11 @@ public sealed partial class TransactionsPage : Page
         await dialog.ShowAsync();
     }
 
-    /// <summary>Ctrl+N: jump to the payee box to start typing a new transaction.</summary>
+    /// <summary>Ctrl+N: open the payee list, ready to type in, to start a new transaction.</summary>
     private void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        PayeeBox.Focus(FocusState.Keyboard);
+        PayeeBox.ShowFlyout();
     }
 
     private async void NewMonth_Click(object sender, RoutedEventArgs e) => await StartNewMonthAsync();

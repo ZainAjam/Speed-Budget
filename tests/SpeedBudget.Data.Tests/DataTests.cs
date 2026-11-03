@@ -434,6 +434,99 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Payees_are_created_once_ignoring_case_and_picked_up_from_new_transactions()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        await _store.EnsurePayeeAsync("Polo Petrol");
+        await _store.EnsurePayeeAsync("  polo petrol ");
+        await AddTx(a, new(2027, 1, 3), -10_00, payee: "Shoprite");
+        await AddTx(a, new(2027, 1, 4), -10_00, payee: "SHOPRITE");
+
+        var names = (await _store.GetPayeesAsync()).Select(p => p.Name).ToArray();
+
+        Assert.Equal(new[] { "Polo Petrol", "Shoprite" }, names);
+    }
+
+    [Fact]
+    public async Task Existing_transaction_payees_can_be_imported_into_the_list_and_transfers_are_skipped()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Savings, false);
+        _db.Transactions.Add(new TransactionEntity { AccountId = a.Id, Date = new(2027, 1, 3), Amount = -5_00, Payee = "Clicks" });
+        await _db.SaveChangesAsync();
+        var saving = AddItem("Savings", ItemKind.Expense);
+        await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 4), 10_00, null, saving.Id);
+
+        await _store.EnsurePayeesFromTransactionsAsync();
+        await _store.EnsurePayeesFromTransactionsAsync();
+
+        Assert.Equal("Clicks", Assert.Single(await _store.GetPayeesAsync()).Name);
+    }
+
+    [Fact]
+    public async Task Renaming_a_payee_renames_it_on_its_transactions_and_refuses_a_name_already_taken()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        await AddTx(a, new(2027, 1, 3), -10_00, payee: "Shop rite");
+        await AddTx(a, new(2027, 1, 4), -10_00, payee: "Clicks");
+        var payees = await _store.GetPayeesAsync();
+        var shop = payees.Single(p => p.Name == "Shop rite");
+
+        Assert.Equal("There is already a payee with that name.", await _store.RenamePayeeAsync(shop, "clicks"));
+        Assert.Null(await _store.RenamePayeeAsync(shop, "Shoprite"));
+
+        var transactions = (await _store.GetTransactionsAsync()).Select(t => t.Transaction.Payee).OrderBy(n => n).ToArray();
+        Assert.Equal(new[] { "Clicks", "Shoprite" }, transactions);
+        Assert.Equal("Shoprite", shop.Name);
+    }
+
+    [Fact]
+    public async Task A_payee_in_use_cannot_be_deleted_but_an_unused_one_can()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        await AddTx(a, new(2027, 1, 3), -10_00, payee: "Used");
+        var unused = await _store.EnsurePayeeAsync("Unused");
+        var used = (await _store.GetPayeesAsync()).Single(p => p.Name == "Used");
+
+        Assert.False(await _store.DeletePayeeAsync(used));
+        Assert.True(await _store.DeletePayeeAsync(unused));
+        Assert.Equal(1, await _store.CountPayeeTransactionsAsync("used"));
+        Assert.Equal("Used", Assert.Single(await _store.GetPayeesAsync()).Name);
+    }
+
+    [Fact]
+    public async Task Starting_a_new_month_at_the_end_moves_planned_budgets_down_one_place()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        var p1 = BudgetEngine.PlannedMonthId(1);
+        var p2 = BudgetEngine.PlannedMonthId(2);
+        var p3 = BudgetEngine.PlannedMonthId(3);
+        await _store.SetAllocationAsync(p1, food.Id, 100_00);
+        await _store.SetAllocationAsync(p2, food.Id, 200_00);
+        await _store.SetAllocationAsync(p3, food.Id, 300_00);
+
+        var feb = await _store.AddMarkerAsync("February 2027", new(2027, 2, 1), copyPreviousBudget: false);
+
+        long Of(Guid month) => _db.Allocations.Where(a => a.MonthId == month).Select(a => a.Amount).ToList().DefaultIfEmpty(0).Sum();
+        Assert.Equal(100_00, Of(feb.Id));
+        Assert.Equal(200_00, Of(p1));
+        Assert.Equal(300_00, Of(p2));
+        Assert.Equal(0, Of(p3));
+    }
+
+    [Fact]
+    public async Task Inserting_a_month_before_an_existing_one_leaves_the_planned_budgets_alone()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        await _store.AddMarkerAsync("March 2027", new(2027, 3, 1), copyPreviousBudget: false);
+        await _store.SetAllocationAsync(BudgetEngine.PlannedMonthId(1), food.Id, 100_00);
+
+        await _store.AddMarkerAsync("February 2027", new(2027, 2, 1), copyPreviousBudget: false);
+
+        Assert.Equal(100_00, _db.Allocations.Single(a => a.MonthId == BudgetEngine.PlannedMonthId(1)).Amount);
+    }
+
+    [Fact]
     public async Task Balances_cover_one_account_or_all_of_them()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true, openingBalance: 1_000_00);

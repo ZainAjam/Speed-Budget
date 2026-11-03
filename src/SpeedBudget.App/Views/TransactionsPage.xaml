@@ -111,28 +111,29 @@
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="140" />
-                    <ColumnDefinition Width="*" MinWidth="140" />
-                    <ColumnDefinition Width="210" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="150" />
+                    <ColumnDefinition Width="210" />
+                    <ColumnDefinition Width="*" MinWidth="120" />
                     <ColumnDefinition Width="110" />
                     <ColumnDefinition Width="110" />
-                    <ColumnDefinition Width="*" MinWidth="110" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
-                <AutoSuggestBox x:Name="PayeeBox" Grid.Column="1" Header="Payee" Text="{x:Bind ViewModel.NewPayee, Mode=TwoWay}"
-                                TextChanged="Payee_TextChanged" SuggestionChosen="Payee_SuggestionChosen"
-                                QuerySubmitted="Payee_QuerySubmitted" />
-                <local:ItemPicker Grid.Column="2" Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
-                                  SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" />
-                <ComboBox Grid.Column="3" Header="Account" Width="170" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
+                <ComboBox Grid.Column="1" Header="Account" Width="170" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
                           SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
-                <NumberBox app:Money.Format="True" Grid.Column="4" Header="Outflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
+                <local:PayeePicker x:Name="PayeeBox" Grid.Column="2" Header="Payee" ItemsSource="{x:Bind ViewModel.Payees}"
+                                   SelectedPayee="{x:Bind ViewModel.NewPayee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" />
+                <local:ItemPicker Grid.Column="3" Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
+                                  SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" />
+                <TextBox Grid.Column="4" Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
+                <NumberBox app:Money.Format="True" Grid.Column="5" Header="Outflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
                            Value="{x:Bind ViewModel.NewOutflow, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                <NumberBox app:Money.Format="True" Grid.Column="5" Header="Inflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
+                <NumberBox app:Money.Format="True" Grid.Column="6" Header="Inflow" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden"
                            Value="{x:Bind ViewModel.NewInflow, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                <TextBox Grid.Column="6" Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" KeyUp="Entry_KeyUp" />
-                <Button Grid.Column="7" Content="Add" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}" Click="Add_Click" />
+                <CheckBox Grid.Column="7" Content="Cleared" VerticalAlignment="Bottom" MinWidth="0" IsChecked="{x:Bind ViewModel.NewIsCleared, Mode=TwoWay}" />
+                <Button Grid.Column="8" Content="Add" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}" Click="Add_Click" />
             </Grid>
         </Border>
 
@@ -191,7 +192,8 @@
                     <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{x:Bind ViewModel.Selected.IsEditable, Mode=OneWay, FallbackValue=true}">
                     <StackPanel Spacing="12">
                         <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.Selected.DateOffset, Mode=TwoWay}" />
-                        <TextBox Header="Payee" Text="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay, FallbackValue=''}" />
+                        <local:PayeePicker Header="Payee" ItemsSource="{x:Bind ViewModel.Payees}" SelectedPayee="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay}"
+                                           CreateRequested="Payee_CreateRequested" />
                         <local:ItemPicker Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
                                           SelectedItem="{x:Bind ViewModel.Selected.Item, Mode=TwoWay}"
                                           IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />

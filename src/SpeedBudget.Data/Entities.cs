@@ -88,6 +88,15 @@ public class IncomeHoldEntity : SyncEntity
     public long Amount { get; set; }
 }
 
+/// <summary>
+/// A person or business that money is paid to or received from. Transactions keep the payee's name as text, so a
+/// rename here updates the transactions that use it.
+/// </summary>
+public class PayeeEntity : SyncEntity
+{
+    public string Name { get; set; } = "";
+}
+
 public class TransactionEntity : SyncEntity
 {
     public Guid AccountId { get; set; }

@@ -210,6 +210,52 @@ public class BudgetEngineTests
     }
 
     [Fact]
+    public void Planned_months_follow_the_last_real_month_with_chained_labels_and_no_activity()
+    {
+        var marker = new MonthMarker(Guid.NewGuid(), D(2, 1), 0, "February 2027");
+        var snap = Snapshot(new[] { Tx(Cheque, D(2, 3), 0, -100_00, Food) }, new[] { marker });
+
+        var months = BudgetEngine.Calculate(snap, plannedMonths: 3);
+
+        Assert.Equal(5, months.Count);
+        Assert.Equal(new[] { false, false, true, true, true }, months.Select(m => m.IsPlanned));
+        Assert.Equal(new[] { "March 2027", "April 2027", "May 2027" }, months.Skip(2).Select(m => m.Label));
+        Assert.Equal(BudgetEngine.PlannedMonthId(1), months[2].MonthId);
+        Assert.All(months.Skip(2), m => Assert.All(m.Items, i => Assert.Equal(0, i.Activity)));
+    }
+
+    [Fact]
+    public void Budgeting_ahead_uses_leftovers_and_held_income_from_the_last_real_month()
+    {
+        var snap = Snapshot(
+            new[] { Tx(Cheque, D(1, 25), 0, 10_000_00, Salary), Tx(Cheque, D(1, 26), 0, -300_00, Food) },
+            allocations: new[]
+            {
+                new Allocation(BudgetEngine.FirstMonthId, Food, 1_000_00),
+                new Allocation(BudgetEngine.PlannedMonthId(1), Food, 800_00),
+                new Allocation(BudgetEngine.PlannedMonthId(2), Food, 900_00),
+            },
+            holds: new[] { new IncomeHold(BudgetEngine.FirstMonthId, Salary, 4_000_00) });
+
+        var months = BudgetEngine.Calculate(snap, plannedMonths: 3);
+
+        // January: income 10,000 less 4,000 held, less 1,000 budgeted. Unbudgeted 5,000 carries on.
+        Assert.Equal(5_000_00, months[0].Available);
+        // Next month has 4,000 released, 700 left over on Food and the 5,000 carried, less its 800 budget.
+        Assert.Equal(4_000_00, months[1].HeldIn);
+        Assert.Equal(700_00, months[1].Overflow);
+        Assert.Equal(4_000_00 + 700_00 + 5_000_00 - 800_00, months[1].Available);
+        Assert.Equal(800_00, months[1].Items.Single(i => i.ItemId == Food).Budgeted);
+        Assert.Equal(900_00, months[2].Items.Single(i => i.ItemId == Food).Budgeted);
+    }
+
+    [Fact]
+    public void Without_asking_for_planned_months_none_are_added()
+    {
+        Assert.Single(BudgetEngine.Calculate(Snapshot(Array.Empty<Transaction>())));
+    }
+
+    [Fact]
     public void Tracked_account_transactions_do_not_affect_the_budget()
     {
         var snap = Snapshot(

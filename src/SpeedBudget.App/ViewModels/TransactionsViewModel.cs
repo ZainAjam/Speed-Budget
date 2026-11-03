@@ -186,6 +186,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>Transaction rows and month lines, interleaved in time order.</summary>
     public ObservableCollection<object> Rows { get; } = new();
     public ObservableCollection<AccountOption> EntryAccounts { get; } = new();
+
+    /// <summary>Payee names for the drop-down, kept in order as payees are added.</summary>
+    public ObservableCollection<string> Payees { get; } = new();
     public ObservableCollection<ItemOption> ItemOptions { get; } = new();
     public ItemOption NoItem { get; } = new(null, "(no item)", null);
 
@@ -223,6 +226,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     [ObservableProperty] public partial DateTimeOffset NewDate { get; set; } = DateTimeOffset.Now;
     [ObservableProperty] public partial string NewPayee { get; set; } = "";
     [ObservableProperty] public partial string NewMemo { get; set; } = "";
+    [ObservableProperty] public partial bool NewIsCleared { get; set; }
     [ObservableProperty] public partial double NewOutflow { get; set; } = double.NaN;
     [ObservableProperty] public partial double NewInflow { get; set; } = double.NaN;
     [ObservableProperty] public partial ItemOption? NewItem { get; set; }
@@ -236,6 +240,12 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public bool CanReconcile => AccountId is not null;
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
+
+    /// <summary>Choosing a payee fills in the item and account it was last used with.</summary>
+    partial void OnNewPayeeChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) ApplyHint(value);
+    }
 
     partial void OnSortIndexChanged(int value)
     {
@@ -263,7 +273,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
             _accounts = await _store.GetAccountsAsync();
             var groups = await _store.GetGroupsAsync();
             var items = await _store.GetItemsAsync();
+            await _store.EnsurePayeesFromTransactionsAsync();
             _hints = await _store.GetPayeeHintsAsync();
+            Payees.Clear();
+            foreach (var payee in await _store.GetPayeesAsync()) Payees.Add(payee.Name);
 
             PageTitle = AccountId is { } id ? _accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "Account" : "All accounts";
 
@@ -458,13 +471,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    public IReadOnlyList<string> SuggestPayees(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return Array.Empty<string>();
-        return _hints.Where(h => h.Payee.Contains(text.Trim(), StringComparison.OrdinalIgnoreCase))
-            .Select(h => h.Payee).Take(8).ToList();
-    }
-
     /// <summary>Fills in the item and account last used with this payee, if those are still unset.</summary>
     public void ApplyHint(string payee)
     {
@@ -474,6 +480,27 @@ public sealed partial class TransactionsViewModel : ObservableObject
             NewItem = ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? NoItem;
         if (AccountId is null)
             NewAccount = EntryAccounts.FirstOrDefault(a => a.Id == hint.AccountId) ?? NewAccount;
+    }
+
+    private void AddPayeeName(string name)
+    {
+        if (name == "" || Payees.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase))) return;
+        var index = 0;
+        while (index < Payees.Count && string.Compare(Payees[index], name, StringComparison.OrdinalIgnoreCase) < 0) index++;
+        Payees.Insert(index, name);
+    }
+
+    /// <summary>Saves a payee typed into the drop-down, so it is in the list from now on.</summary>
+    public async Task CreatePayeeAsync(string name)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var payee = await _store.EnsurePayeeAsync(name);
+            AddPayeeName(payee.Name);
+        }
+        catch (Exception ex) { Message = $"Could not add the payee: {ex.Message}"; }
+        finally { _gate.Release(); }
     }
 
     /// <summary>Returns true when the transaction was added.</summary>
@@ -498,12 +525,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 {
                     AccountId = accountId, Date = date, DayOrder = await _store.NextDayOrderAsync(date),
                     Payee = NewPayee.Trim(), Memo = string.IsNullOrWhiteSpace(NewMemo) ? null : NewMemo.Trim(), Amount = amount,
+                    IsCleared = NewIsCleared,
                 },
                 new[] { new SplitLineEntity { BudgetItemId = NewItem?.Id, Amount = amount } });
 
             _hints = await _store.GetPayeeHintsAsync();
+            AddPayeeName(NewPayee.Trim());
             NewPayee = "";
             NewMemo = "";
+            NewIsCleared = false;
             NewOutflow = double.NaN;
             NewInflow = double.NaN;
             Message = "";
