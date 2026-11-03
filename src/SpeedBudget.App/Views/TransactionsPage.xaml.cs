@@ -58,6 +58,13 @@ public sealed partial class TransactionsPage : Page
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteSelectedAsync();
     }
 
+    private async void Split_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.Selected is not { } row) return;
+        var dialog = new SplitDialog(ViewModel, row, await ViewModel.GetLinesAsync(row)) { XamlRoot = XamlRoot };
+        await dialog.ShowAsync();
+    }
+
     private async void Transfer_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new TransferDialog(ViewModel) { XamlRoot = XamlRoot };

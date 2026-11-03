@@ -386,6 +386,69 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Splitting_a_transaction_spreads_it_across_items_in_the_engine()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        var petrol = AddItem("Petrol", ItemKind.Expense);
+        var tx = await AddTx(cheque, new(2027, 1, 4), -500_00, food.Id, "Shoprite");
+
+        await _store.SetSplitsAsync(tx.Id, new (Guid?, long, string?)[] { (food.Id, -350_00, null), (petrol.Id, -150_00, "fuel") });
+
+        var detail = Assert.Single(await _store.GetTransactionsAsync());
+        Assert.Equal(2, detail.Lines.Count);
+        var month = BudgetEngine.Calculate(await _store.LoadSnapshotAsync()).Single();
+        Assert.Equal(-350_00, month.Items.Single(i => i.ItemId == food.Id).Activity);
+        Assert.Equal(-150_00, month.Items.Single(i => i.ItemId == petrol.Id).Activity);
+    }
+
+    [Fact]
+    public async Task Splits_that_do_not_add_up_or_are_empty_are_rejected_and_leave_the_old_lines()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        var tx = await AddTx(cheque, new(2027, 1, 4), -100_00, food.Id);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _store.SetSplitsAsync(tx.Id, new (Guid?, long, string?)[] { (food.Id, -60_00, null) }));
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.SetSplitsAsync(tx.Id, Array.Empty<(Guid?, long, string?)>()));
+
+        Assert.Equal(-100_00, Assert.Single((await _store.GetTransactionsAsync()).Single().Lines).Amount);
+    }
+
+    [Fact]
+    public async Task Statement_balance_is_remembered_per_account_and_can_be_cleared()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+
+        Assert.Null(await _store.GetStatementBalanceAsync(a.Id));
+        await _store.SetStatementBalanceAsync(a.Id, 9_054_75);
+        await _store.SetStatementBalanceAsync(a.Id, 9_100_00);
+
+        Assert.Equal(9_100_00, await _store.GetStatementBalanceAsync(a.Id));
+        Assert.Null(await _store.GetStatementBalanceAsync(b.Id));
+
+        await _store.SetStatementBalanceAsync(a.Id, null);
+        Assert.Null(await _store.GetStatementBalanceAsync(a.Id));
+    }
+
+    [Fact]
+    public async Task Payment_method_and_heading_are_stored_on_items()
+    {
+        var group = await _store.AddGroupAsync("Utilities", ItemKind.Expense);
+        var item = await _store.AddItemAsync(group.Id, null, "Rates", ItemKind.Expense);
+
+        item.PaymentMethod = PaymentMethod.Eft;
+        item.ReportHeading = "Utilities";
+        await _store.SaveAsync();
+
+        var reloaded = (await _store.GetItemsAsync()).Single();
+        Assert.Equal(PaymentMethod.Eft, reloaded.PaymentMethod);
+        Assert.Equal("Utilities", reloaded.ReportHeading);
+    }
+
+    [Fact]
     public async Task First_month_label_defaults_then_can_be_changed_without_duplicating_the_row()
     {
         Assert.Equal(BudgetStore.DefaultFirstMonthLabel, await _store.GetFirstMonthLabelAsync());

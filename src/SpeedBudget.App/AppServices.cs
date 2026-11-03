@@ -7,11 +7,13 @@ public static class AppServices
 {
     public static SpeedBudgetDb Db { get; private set; } = null!;
     public static BudgetStore Store { get; private set; } = null!;
+    public static WatcherService Watcher { get; private set; } = null!;
 
     public static void Initialize()
     {
         Db = LocalDatabase.Open();
         Store = new BudgetStore(Db);
+        Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
     }
 
     /// <summary>The app shows money in rands but stores whole cents.</summary>

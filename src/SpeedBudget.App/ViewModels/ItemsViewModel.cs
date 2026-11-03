@@ -48,6 +48,19 @@ public sealed partial class NodeVm(GroupEntity? group, ItemEntity? item, Func<Ta
         set { if (Item is null || AccountRef == value) return; Item.AccountRef = value; Changed(nameof(AccountRef)); }
     }
 
+    /// <summary>Index into the payment method list on the page, which follows the enum's order.</summary>
+    public int PaymentMethodIndex
+    {
+        get => Item is null ? 0 : (int)Item.PaymentMethod;
+        set { if (Item is null || value < 0 || (int)Item.PaymentMethod == value) return; Item.PaymentMethod = (PaymentMethod)value; Changed(nameof(PaymentMethodIndex)); }
+    }
+
+    public string ReportHeading
+    {
+        get => Item?.ReportHeading ?? "";
+        set { if (Item is null || ReportHeading == value) return; Item.ReportHeading = string.IsNullOrWhiteSpace(value) ? null : value.Trim(); Changed(nameof(ReportHeading)); }
+    }
+
     public bool IsPinned
     {
         get => Item?.IsPinned ?? false;

@@ -13,13 +13,18 @@ public sealed record ItemOption(Guid? Id, string Name, ItemKind? Kind);
 public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
 
 /// <summary>One transaction in the list. Edits go straight to the entity and are saved by the owner.</summary>
-public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, TransactionsViewModel owner)
+public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, int lineCount, TransactionsViewModel owner)
     : ObservableObject
 {
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
+    public int LineCount { get; } = lineCount;
     public bool IsTransfer => Entity.TransferPairId is not null;
-    public bool CanEditAmount => !IsTransfer;
+    public bool IsSplit => LineCount > 1;
+
+    /// <summary>Amount and item are fixed for transfers (the other side depends on them) and split lines (they must add up).</summary>
+    public bool CanEditAmount => !IsTransfer && !IsSplit;
+    public bool CanSplit => !IsTransfer;
 
     private ItemOption _item = item;
 
@@ -92,10 +97,12 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     }
 
     public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
-    public string ItemName => _item.Id is null ? "" : _item.Name;
+    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? "" : _item.Name;
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
     public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : Entity.Payee;
+
+    public override string ToString() => $"{DateText} {Entity.Payee}";
 
     private void SetAmount(long cents, string source)
     {
@@ -293,7 +300,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         {
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
-            var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), this);
+            var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count, this);
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
 
@@ -484,6 +491,26 @@ public sealed partial class TransactionsViewModel : ObservableObject
             return true;
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; return false; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Budget accounts need an item on every line; tracked accounts may leave lines unassigned.</summary>
+    public bool RequiresItem(TransactionRow row) => _accounts.FirstOrDefault(a => a.Id == row.Entity.AccountId)?.IsOnBudget ?? false;
+
+    public Task<List<SplitLineEntity>> GetLinesAsync(TransactionRow row) => _store.GetSplitLinesAsync(row.Entity.Id);
+
+    /// <summary>Returns an error sentence, or null when the split was saved.</summary>
+    public async Task<string?> SaveSplitsAsync(TransactionRow row, IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await _store.SetSplitsAsync(row.Entity.Id, lines);
+            await LoadRowsAsync(row.Entity.Id);
+            return null;
+        }
+        catch (ArgumentException ex) { return ex.Message; }
+        catch (Exception ex) { return $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
     }
 

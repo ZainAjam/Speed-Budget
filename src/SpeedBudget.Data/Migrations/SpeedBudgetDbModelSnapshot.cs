@@ -198,6 +198,12 @@ namespace SpeedBudget.Data.Migrations
                     b.Property<Guid?>("ParentItemId")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReportHeading")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("INTEGER");
 

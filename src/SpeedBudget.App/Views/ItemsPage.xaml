@@ -53,6 +53,17 @@
             <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
             <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsItemSelected, Mode=OneWay}">
                 <TextBox Header="Account number or reference" Text="{x:Bind ViewModel.Selected.AccountRef, Mode=TwoWay, FallbackValue=''}" />
+                <ComboBox Header="How it is paid" HorizontalAlignment="Stretch"
+                          SelectedIndex="{x:Bind ViewModel.Selected.PaymentMethodIndex, Mode=TwoWay, FallbackValue=0}">
+                    <ComboBoxItem Content="Not specified" />
+                    <ComboBoxItem Content="EFT" />
+                    <ComboBoxItem Content="Cash or card" />
+                    <ComboBoxItem Content="Debit order" />
+                    <ComboBoxItem Content="Transfer" />
+                    <ComboBoxItem Content="Savings" />
+                </ComboBox>
+                <TextBox Header="Heading on the Payments page (for EFT and transfers)" PlaceholderText="e.g. Utilities"
+                         Text="{x:Bind ViewModel.Selected.ReportHeading, Mode=TwoWay, FallbackValue=''}" />
                 <TextBox Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"
                          Text="{x:Bind ViewModel.Selected.Notes, Mode=TwoWay, FallbackValue=''}" />
                 <ToggleSwitch Header="Pinned to the watcher strip" IsOn="{x:Bind ViewModel.Selected.IsPinned, Mode=TwoWay, FallbackValue=false}" />

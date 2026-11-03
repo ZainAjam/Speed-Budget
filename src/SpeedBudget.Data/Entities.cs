@@ -34,8 +34,15 @@ public class GroupEntity : SyncEntity
     public int SortOrder { get; set; }
 }
 
+public enum PaymentMethod { None, Eft, CashOrCard, DebitOrder, Transfer, Savings }
+
 public class ItemEntity : SyncEntity
 {
+    public PaymentMethod PaymentMethod { get; set; }
+
+    /// <summary>The heading this item is listed under on the Payments page, such as "Utilities".</summary>
+    public string? ReportHeading { get; set; }
+
     public Guid GroupId { get; set; }
     public Guid? ParentItemId { get; set; }
     public string Name { get; set; } = "";

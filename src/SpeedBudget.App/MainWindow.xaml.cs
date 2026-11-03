@@ -6,6 +6,8 @@ namespace SpeedBudget.App;
 
 public sealed partial class MainWindow : Window
 {
+    public WatcherService Watcher => AppServices.Watcher;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -20,6 +22,8 @@ public sealed partial class MainWindow : Window
             case "Budget": ContentFrame.Navigate(typeof(BudgetPage)); break;
             case "Transactions": ContentFrame.Navigate(typeof(TransactionsPage)); break;
             case "Accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
+            case "Reconcile": ContentFrame.Navigate(typeof(ReconcilePage)); break;
+            case "Payments": ContentFrame.Navigate(typeof(PaymentsPage)); break;
             case "Items": ContentFrame.Navigate(typeof(ItemsPage)); break;
             default: ContentFrame.Navigate(typeof(PlaceholderPage), tag); break;
         }

@@ -29,14 +29,25 @@ public static class LocalDatabase
 
     public static SpeedBudgetDb Open(string? directory = null)
     {
+        var db = OpenWithoutMigrating(directory);
+        db.Database.Migrate();
+        return db;
+    }
+
+    /// <summary>
+    /// A second context on the same file, for background reads (such as the pinned-items strip) that must not
+    /// share a context with whatever the user is editing. Call after Open has migrated the database.
+    /// </summary>
+    public static SpeedBudgetDb OpenForReading(string? directory = null) => OpenWithoutMigrating(directory);
+
+    private static SpeedBudgetDb OpenWithoutMigrating(string? directory)
+    {
         directory ??= DefaultDirectory;
         var clock = new HlcClock(GetOrCreateDeviceId(directory));
         var options = new DbContextOptionsBuilder<SpeedBudgetDb>()
             .UseSqlite($"Data Source={Path.Combine(directory, "budget.db")}")
             .Options;
-        var db = new SpeedBudgetDb(options, clock);
-        db.Database.Migrate();
-        return db;
+        return new SpeedBudgetDb(options, clock);
     }
 }
 
@@ -72,16 +83,50 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public const string DefaultFirstMonthLabel = "January 2027";
     private const string FirstMonthLabelKey = "firstMonthLabel";
 
-    public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
-        (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == FirstMonthLabelKey, ct))?.Value
-        ?? DefaultFirstMonthLabel;
+    public async Task<string?> GetSettingAsync(string key, CancellationToken ct = default) =>
+        (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, ct))?.Value;
 
-    public async Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default)
+    /// <summary>Saves a synced setting. A null value removes it.</summary>
+    public async Task SetSettingAsync(string key, string? value, CancellationToken ct = default)
     {
-        var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == FirstMonthLabelKey, ct);
-        if (row is null)
-            db.Settings.Add(new SettingEntity { Id = SettingEntity.IdFor(FirstMonthLabelKey), Key = FirstMonthLabelKey, Value = label });
-        else row.Value = label;
+        var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, ct);
+        if (value is null) { if (row is not null) db.Settings.Remove(row); }
+        else if (row is null) db.Settings.Add(new SettingEntity { Id = SettingEntity.IdFor(key), Key = key, Value = value });
+        else row.Value = value;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
+        await GetSettingAsync(FirstMonthLabelKey, ct) ?? DefaultFirstMonthLabel;
+
+    public Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default) => SetSettingAsync(FirstMonthLabelKey, label, ct);
+
+    /// <summary>The balance printed on the account's latest bank statement, in cents, if one was entered.</summary>
+    public async Task<long?> GetStatementBalanceAsync(Guid accountId, CancellationToken ct = default) =>
+        long.TryParse(await GetSettingAsync($"statement:{accountId}", ct), out var cents) ? cents : null;
+
+    public Task SetStatementBalanceAsync(Guid accountId, long? cents, CancellationToken ct = default) =>
+        SetSettingAsync($"statement:{accountId}", cents?.ToString(), ct);
+
+    public Task<List<SplitLineEntity>> GetSplitLinesAsync(Guid transactionId, CancellationToken ct = default) =>
+        db.SplitLines.AsNoTracking().Where(l => l.TransactionId == transactionId).OrderBy(l => l.Id).ToListAsync(ct);
+
+    /// <summary>Ids of items pinned to the watcher strip, in the order they were set up.</summary>
+    public async Task<List<Guid>> GetPinnedItemIdsAsync(CancellationToken ct = default) =>
+        await db.Items.AsNoTracking().Where(i => i.IsPinned && !i.IsArchived && i.Kind == ItemKind.Expense)
+            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => i.Id).ToListAsync(ct);
+
+    /// <summary>Replaces a transaction's split lines. They must add up to the transaction's amount.</summary>
+    public async Task SetSplitsAsync(Guid transactionId, IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines, CancellationToken ct = default)
+    {
+        var transaction = await db.Transactions.SingleAsync(t => t.Id == transactionId, ct);
+        if (lines.Count == 0) throw new ArgumentException("A transaction needs at least one line.");
+        if (lines.Sum(l => l.Amount) != transaction.Amount)
+            throw new ArgumentException("Split lines must add up to the transaction amount.");
+
+        db.SplitLines.RemoveRange(await db.SplitLines.Where(l => l.TransactionId == transactionId).ToListAsync(ct));
+        foreach (var (itemId, amount, memo) in lines)
+            db.SplitLines.Add(new SplitLineEntity { TransactionId = transactionId, BudgetItemId = itemId, Amount = amount, Memo = memo });
         await db.SaveChangesAsync(ct);
     }
 

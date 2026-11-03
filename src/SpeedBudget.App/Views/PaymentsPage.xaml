@@ -1,0 +1,66 @@
+<Page x:Class="SpeedBudget.App.Views.PaymentsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:SpeedBudget.App.ViewModels">
+    <Page.Resources>
+        <DataTemplate x:Key="PaymentRowTemplate" x:DataType="vm:PaymentRow">
+            <Grid ColumnSpacing="12" Padding="0,6" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="32" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="140" />
+                </Grid.ColumnDefinitions>
+                <CheckBox IsChecked="{x:Bind IsPaid, Mode=OneWay}" IsHitTestVisible="False" IsTabStop="False" MinWidth="0"
+                          AutomationProperties.Name="Paid" />
+                <TextBlock Grid.Column="1" Text="{x:Bind Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Text="{x:Bind AccountRef}" VerticalAlignment="Center" Opacity="0.7" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="{x:Bind PaidText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="5" Text="{x:Bind StatusText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                <Button Grid.Column="6" Content="Record payment" Click="Record_Click" Tag="{x:Bind}" HorizontalAlignment="Right" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SectionTemplate" x:DataType="vm:PaymentSection">
+            <StackPanel Margin="0,0,0,12" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+                <TextBlock Text="{x:Bind Heading}" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,8,0,4" />
+                <ItemsControl ItemsSource="{x:Bind Rows}" ItemTemplate="{StaticResource PaymentRowTemplate}" />
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer>
+        <StackPanel Margin="32,24" Spacing="16" MaxWidth="1000" HorizontalAlignment="Left">
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Payments" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" Margin="0,0,24,0" />
+                <Button Grid.Column="1" Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
+                        IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Previous month" />
+                <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.MonthLabel, Mode=OneWay}" MinWidth="170" TextAlignment="Center"
+                           Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                <Button Grid.Column="3" Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"
+                        IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" AutomationProperties.Name="Next month" />
+            </Grid>
+            <TextBlock TextWrapping="Wrap" Opacity="0.7"
+                       Text="The EFT and transfer items you have budgeted for this month, ready to pay. Mark an item as EFT or Transfer under Manage items to list it here." />
+            <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Still to pay this month:" VerticalAlignment="Center" Opacity="0.7" />
+                <TextBlock Text="{x:Bind ViewModel.TotalToPayText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
+            </StackPanel>
+            <TextBlock x:Name="EmptyHint" Opacity="0.8" TextWrapping="Wrap" Visibility="Collapsed"
+                       Text="Nothing to pay this month yet. Budget an amount for an EFT or transfer item on the Budget page." />
+            <ItemsControl ItemsSource="{x:Bind ViewModel.Sections}" ItemTemplate="{StaticResource SectionTemplate}" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>
