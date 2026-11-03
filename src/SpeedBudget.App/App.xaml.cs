@@ -10,6 +10,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        AppServices.Initialize();
         _window = new MainWindow();
         _window.Activate();
     }

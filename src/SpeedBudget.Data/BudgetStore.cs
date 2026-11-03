@@ -59,6 +59,130 @@ public sealed class BudgetStore(SpeedBudgetDb db)
             holds.Select(h => new IncomeHold(h.MonthId, h.IncomeItemId, h.Amount)).ToList());
     }
 
+    public Task SaveAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+
+    /// <summary>True when nothing has been set up yet, so the first-run welcome should show.</summary>
+    public async Task<bool> IsEmptyAsync(CancellationToken ct = default) =>
+        !await db.Accounts.AnyAsync(ct) && !await db.Groups.AnyAsync(ct);
+
+    public Task<List<AccountEntity>> GetAccountsAsync(CancellationToken ct = default) =>
+        db.Accounts.OrderBy(a => a.SortOrder).ThenBy(a => a.Name).ToListAsync(ct);
+
+    public Task<List<GroupEntity>> GetGroupsAsync(CancellationToken ct = default) =>
+        db.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name).ToListAsync(ct);
+
+    public Task<List<ItemEntity>> GetItemsAsync(CancellationToken ct = default) =>
+        db.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).ToListAsync(ct);
+
+    public async Task<AccountEntity> AddAccountAsync(string name, AccountType type, bool isOnBudget, long openingBalance = 0, CancellationToken ct = default)
+    {
+        var next = await db.Accounts.AnyAsync(ct) ? await db.Accounts.MaxAsync(a => a.SortOrder, ct) + 1 : 0;
+        var account = new AccountEntity { Name = name, Type = type, IsOnBudget = isOnBudget, OpeningBalance = openingBalance, SortOrder = next };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync(ct);
+        return account;
+    }
+
+    public async Task<GroupEntity> AddGroupAsync(string name, ItemKind kind, CancellationToken ct = default)
+    {
+        var next = await db.Groups.AnyAsync(ct) ? await db.Groups.MaxAsync(g => g.SortOrder, ct) + 1 : 0;
+        var group = new GroupEntity { Name = name, Kind = kind, SortOrder = next };
+        db.Groups.Add(group);
+        await db.SaveChangesAsync(ct);
+        return group;
+    }
+
+    /// <summary>Adds an item to a group, or under another item of that group when parentId is given.</summary>
+    public async Task<ItemEntity> AddItemAsync(Guid groupId, Guid? parentId, string name, ItemKind kind, CancellationToken ct = default)
+    {
+        var siblings = db.Items.Where(i => i.GroupId == groupId && i.ParentItemId == parentId);
+        var next = await siblings.AnyAsync(ct) ? await siblings.MaxAsync(i => i.SortOrder, ct) + 1 : 0;
+        var item = new ItemEntity { GroupId = groupId, ParentItemId = parentId, Name = name, Kind = kind, SortOrder = next };
+        db.Items.Add(item);
+        await db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    /// <summary>Deletes an account, or closes it instead when it already has transactions. Returns true if deleted.</summary>
+    public async Task<bool> DeleteOrCloseAccountAsync(AccountEntity account, CancellationToken ct = default)
+    {
+        if (await db.Transactions.AnyAsync(t => t.AccountId == account.Id, ct))
+        {
+            account.IsClosed = true;
+            await db.SaveChangesAsync(ct);
+            return false;
+        }
+        db.Accounts.Remove(account);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>Deletes an item, or archives it instead when it is in use or has sub-items. Returns true if deleted.</summary>
+    public async Task<bool> DeleteOrArchiveItemAsync(ItemEntity item, CancellationToken ct = default)
+    {
+        var inUse = await db.SplitLines.AnyAsync(s => s.BudgetItemId == item.Id, ct)
+            || await db.Allocations.AnyAsync(a => a.BudgetItemId == item.Id, ct)
+            || await db.Holds.AnyAsync(h => h.IncomeItemId == item.Id, ct)
+            || await db.Items.AnyAsync(i => i.ParentItemId == item.Id, ct);
+        if (inUse)
+        {
+            item.IsArchived = true;
+            await db.SaveChangesAsync(ct);
+            return false;
+        }
+        db.Items.Remove(item);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>Deletes a group. Refused (false) while it still has items.</summary>
+    public async Task<bool> DeleteGroupAsync(GroupEntity group, CancellationToken ct = default)
+    {
+        if (await db.Items.AnyAsync(i => i.GroupId == group.Id, ct)) return false;
+        db.Groups.Remove(group);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>Swaps an item with its previous or next sibling. Returns false at the end of the list.</summary>
+    public async Task<bool> MoveItemAsync(ItemEntity item, bool up, CancellationToken ct = default)
+    {
+        var siblings = await db.Items.Where(i => i.GroupId == item.GroupId && i.ParentItemId == item.ParentItemId)
+            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).ToListAsync(ct);
+        return await SwapAsync(siblings, item, up, (i, order) => i.SortOrder = order, i => i.SortOrder, ct);
+    }
+
+    public async Task<bool> MoveGroupAsync(GroupEntity group, bool up, CancellationToken ct = default)
+    {
+        var all = await GetGroupsAsync(ct);
+        return await SwapAsync(all, group, up, (g, order) => g.SortOrder = order, g => g.SortOrder, ct);
+    }
+
+    private async Task<bool> SwapAsync<T>(List<T> ordered, T moving, bool up, Action<T, int> setOrder, Func<T, int> getOrder, CancellationToken ct)
+        where T : SyncEntity
+    {
+        var index = ordered.IndexOf(moving);
+        var target = up ? index - 1 : index + 1;
+        if (index < 0 || target < 0 || target >= ordered.Count) return false;
+
+        (ordered[index], ordered[target]) = (ordered[target], ordered[index]);
+        // Renumber the whole list so ties (equal sort orders) never leave the swap looking like a no-op.
+        for (var n = 0; n < ordered.Count; n++)
+            if (getOrder(ordered[n]) != n) setOrder(ordered[n], n);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>Creates the starter groups and items, based on a typical household budget.</summary>
+    public async Task SeedStarterItemsAsync(CancellationToken ct = default)
+    {
+        foreach (var (groupName, kind, items) in StarterItems.Groups)
+        {
+            var group = await AddGroupAsync(groupName, kind, ct);
+            foreach (var name in items) await AddItemAsync(group.Id, null, name, kind, ct);
+        }
+    }
+
     /// <summary>Sets the budgeted amount for an item in a month, creating the row if needed.</summary>
     public async Task SetAllocationAsync(Guid monthId, Guid itemId, long amount, CancellationToken ct = default)
     {

@@ -11,8 +11,9 @@
             <NavigationViewItem Content="Budget" Tag="Budget" Icon="Calculator" />
             <NavigationViewItem Content="Transactions" Tag="Transactions" Icon="List" />
             <NavigationViewItem Content="Accounts" Tag="Accounts" Icon="Library" />
+            <NavigationViewItem Content="Manage items" Tag="Items" Icon="Edit" />
             <NavigationViewItem Content="Payments" Tag="Payments" Icon="Send" />
         </NavigationView.MenuItems>
-        <TextBlock x:Name="PageTitle" Text="Budget" Style="{StaticResource TitleTextBlockStyle}" Margin="32" />
+        <Frame x:Name="ContentFrame" />
     </NavigationView>
 </Window>

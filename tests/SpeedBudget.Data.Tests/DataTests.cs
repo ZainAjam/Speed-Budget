@@ -161,6 +161,74 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Fresh_database_is_empty_until_something_is_added()
+    {
+        Assert.True(await _store.IsEmptyAsync());
+        await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        Assert.False(await _store.IsEmptyAsync());
+    }
+
+    [Fact]
+    public async Task Starter_items_create_income_and_expense_groups_with_matching_item_kinds()
+    {
+        await _store.SeedStarterItemsAsync();
+
+        var groups = await _store.GetGroupsAsync();
+        var items = await _store.GetItemsAsync();
+
+        Assert.Equal(StarterItems.Groups.Count, groups.Count);
+        Assert.Equal(StarterItems.Groups.Sum(g => g.Items.Length), items.Count);
+        var income = groups.Single(g => g.Kind == ItemKind.Income);
+        Assert.All(items.Where(i => i.GroupId == income.Id), i => Assert.Equal(ItemKind.Income, i.Kind));
+    }
+
+    [Fact]
+    public async Task Account_with_transactions_is_closed_not_deleted()
+    {
+        var used = await _store.AddAccountAsync("Used", AccountType.Cheque, true);
+        var unused = await _store.AddAccountAsync("Unused", AccountType.Cash, false);
+        await _store.AddTransactionAsync(
+            new TransactionEntity { AccountId = used.Id, Date = new(2027, 1, 5), Amount = 10_00 },
+            new[] { new SplitLineEntity { Amount = 10_00 } });
+
+        Assert.False(await _store.DeleteOrCloseAccountAsync(used));
+        Assert.True(await _store.DeleteOrCloseAccountAsync(unused));
+
+        var left = await _store.GetAccountsAsync();
+        Assert.Equal("Used", Assert.Single(left).Name);
+        Assert.True(left[0].IsClosed);
+    }
+
+    [Fact]
+    public async Task Item_in_use_or_with_sub_items_is_archived_not_deleted()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var parent = await _store.AddItemAsync(group.Id, null, "Parent", ItemKind.Expense);
+        await _store.AddItemAsync(group.Id, parent.Id, "Child", ItemKind.Expense);
+        var plain = await _store.AddItemAsync(group.Id, null, "Plain", ItemKind.Expense);
+
+        Assert.False(await _store.DeleteOrArchiveItemAsync(parent));
+        Assert.True(await _store.DeleteOrArchiveItemAsync(plain));
+        Assert.True(parent.IsArchived);
+        Assert.False(await _store.DeleteGroupAsync(group));
+    }
+
+    [Fact]
+    public async Task Moving_an_item_swaps_it_with_its_neighbour_and_stops_at_the_ends()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var a = await _store.AddItemAsync(group.Id, null, "A", ItemKind.Expense);
+        var b = await _store.AddItemAsync(group.Id, null, "B", ItemKind.Expense);
+        var c = await _store.AddItemAsync(group.Id, null, "C", ItemKind.Expense);
+
+        Assert.False(await _store.MoveItemAsync(a, up: true));
+        Assert.True(await _store.MoveItemAsync(c, up: true));
+
+        var order = (await _store.GetItemsAsync()).Select(i => i.Name).ToArray();
+        Assert.Equal(new[] { "A", "C", "B" }, order);
+    }
+
+    [Fact]
     public async Task Stored_data_feeds_the_budget_engine()
     {
         var cheque = AddAccount("Cheque", true);

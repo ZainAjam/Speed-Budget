@@ -1,0 +1,66 @@
+<Page x:Class="SpeedBudget.App.Views.ItemsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:SpeedBudget.App.ViewModels">
+    <Grid Margin="32,24" ColumnSpacing="32">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.ColumnSpan="2" Spacing="4" Margin="0,0,0,16">
+            <TextBlock Text="Manage items" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Style="{StaticResource BodyTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
+                       Text="Groups hold the things you budget for and the income you expect. Items can have sub-items." />
+            <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Error" Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Add expense group" Click="AddExpenseGroup_Click" />
+                <Button Content="Add income group" Click="AddIncomeGroup_Click" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Add item" Click="AddItem_Click" IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
+                        ToolTipService.ToolTip="Adds to the selected group, or as a sub-item of the selected item" />
+                <Button Content="Move up" Click="MoveUp_Click" IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
+                <Button Content="Move down" Click="MoveDown_Click" IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}" />
+            </StackPanel>
+            <TreeView Grid.Row="2" x:Name="Tree" ItemsSource="{x:Bind ViewModel.Roots}" SelectionMode="Single"
+                      ItemInvoked="Tree_ItemInvoked">
+                <TreeView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:NodeVm">
+                        <TreeViewItem ItemsSource="{x:Bind Children}" IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                                      Content="{x:Bind Display, Mode=OneWay}" />
+                    </DataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="16" MaxWidth="480" HorizontalAlignment="Left"
+                    Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
+            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}"
+                       Text="{x:Bind ViewModel.Selected.KindText, Mode=OneWay, FallbackValue=''}" />
+            <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
+            <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsItemSelected, Mode=OneWay}">
+                <TextBox Header="Account number or reference" Text="{x:Bind ViewModel.Selected.AccountRef, Mode=TwoWay, FallbackValue=''}" />
+                <TextBox Header="Notes" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80"
+                         Text="{x:Bind ViewModel.Selected.Notes, Mode=TwoWay, FallbackValue=''}" />
+                <ToggleSwitch Header="Pinned to the watcher strip" IsOn="{x:Bind ViewModel.Selected.IsPinned, Mode=TwoWay, FallbackValue=false}" />
+                <ToggleSwitch Header="Archived" OnContent="Archived, hidden from new entries" OffContent="Active"
+                              IsOn="{x:Bind ViewModel.Selected.IsArchived, Mode=TwoWay, FallbackValue=false}" />
+            </StackPanel>
+            <Button Content="Delete" Click="Delete_Click" />
+            <TextBlock x:Name="Note" TextWrapping="Wrap" Opacity="0.8" />
+        </StackPanel>
+    </Grid>
+</Page>

@@ -16,8 +16,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SpeedBudget.Core\SpeedBudget.Core.csproj" />
+    <ProjectReference Include="..\SpeedBudget.Data\SpeedBudget.Data.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
   </ItemGroup>
 </Project>
