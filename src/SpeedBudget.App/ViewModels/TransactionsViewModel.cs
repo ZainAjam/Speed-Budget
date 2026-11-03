@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SpeedBudget.Core;
 using SpeedBudget.Data;
+using SortKey = SpeedBudget.Core.SortKey;
 
 namespace SpeedBudget.App.ViewModels;
 
@@ -116,6 +117,45 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     }
 }
 
+/// <summary>
+/// A "Let's start a new month" line in the list, or the heading of the first month, which has no entity and
+/// can't be dragged. The line is a point in time: everything after it belongs to the month it starts.
+/// </summary>
+public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, string label, TransactionsViewModel owner)
+    : ObservableObject
+{
+    public MonthMarkerEntity? Entity { get; } = entity;
+    public Guid MonthId { get; } = monthId;
+    public bool IsFirst => Entity is null;
+    public bool CanDrag => !IsFirst;
+    public string DateText => Entity is null ? "" : Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+
+    private string _label = label;
+    public string Label
+    {
+        get => _label;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value) || _label == value.Trim()) return;
+            _label = value.Trim();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Heading));
+            _ = owner.MarkerLabelChangedAsync(this);
+        }
+    }
+
+    public string Heading => $"{_label} starts here";
+
+    public override string ToString() => Heading;
+
+    private string _subtotals = "";
+    public string Subtotals
+    {
+        get => _subtotals;
+        set => SetProperty(ref _subtotals, value);
+    }
+}
+
 public sealed partial class TransactionsViewModel : ObservableObject
 {
     private readonly BudgetStore _store = AppServices.Store;
@@ -123,16 +163,29 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private List<AccountEntity> _accounts = new();
     private IReadOnlyList<PayeeHint> _hints = Array.Empty<PayeeHint>();
     private bool _loaded;
+    private string _lastMonthLabel = "";
 
-    public ObservableCollection<TransactionRow> Rows { get; } = new();
+    /// <summary>Transaction rows and month lines, interleaved in time order.</summary>
+    public ObservableCollection<object> Rows { get; } = new();
     public ObservableCollection<AccountOption> FilterAccounts { get; } = new();
     public ObservableCollection<AccountOption> EntryAccounts { get; } = new();
     public ObservableCollection<ItemOption> ItemOptions { get; } = new();
     public ItemOption NoItem { get; } = new(null, "(no item)", null);
 
+    /// <summary>The selected list entry: a transaction or a month line.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection))]
-    public partial TransactionRow? Selected { get; set; }
+    public partial object? SelectedEntry { get; set; }
+
+    public TransactionRow? Selected => SelectedEntry as TransactionRow;
+    public MarkerRow? SelectedMarker => SelectedEntry as MarkerRow;
+    public bool HasMarkerSelected => SelectedMarker is not null;
+    public bool CanChangeSelectedMarker => SelectedMarker is { IsFirst: false };
+
+    partial void OnSelectedEntryChanged(object? value)
+    {
+        foreach (var name in new[] { nameof(Selected), nameof(SelectedMarker), nameof(HasSelection), nameof(HasMarkerSelected), nameof(CanChangeSelectedMarker) })
+            OnPropertyChanged(name);
+    }
 
     [ObservableProperty]
     public partial AccountOption? FilterAccount { get; set; }
@@ -217,22 +270,61 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private async Task LoadRowsAsync(Guid? select)
     {
         var details = await _store.GetTransactionsAsync(FilterAccount?.Id);
-        if (SortIndex == 0) details.Reverse();
+        var snapshot = await _store.LoadSnapshotAsync();
+        var months = BudgetEngine.Calculate(snapshot);
+        _lastMonthLabel = months[^1].Label;
+
+        // Month lines are budget-wide, so they are hidden while looking at a tracked account.
+        var showLines = FilterAccount?.Id is null || FilterAccount.IsOnBudget;
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
         var itemsById = ItemOptions.Where(o => o.Id is not null).ToDictionary(o => o.Id!.Value);
 
-        Rows.Clear();
-        TransactionRow? toSelect = null;
+        // At equal keys a line sorts before a transaction, matching the engine: a transaction level with a line is after it.
+        var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
+        if (showLines)
+        {
+            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, snapshot.FirstMonthLabel, this);
+            entries.Add((new SortKey(DateOnly.MinValue, int.MinValue), 0, Guid.Empty, first));
+            foreach (var m in await _store.GetMarkersAsync())
+                entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this)));
+        }
         foreach (var d in details)
         {
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
             var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), this);
-            Rows.Add(row);
-            if (d.Transaction.Id == select) toSelect = row;
+            entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
-        Selected = toSelect;
+
+        var ordered = entries.OrderBy(e => e.Key).ThenBy(e => e.Rank).ThenBy(e => e.Id).Select(e => e.Row).ToList();
+        if (SortIndex == 0) ordered.Reverse();
+
+        Rows.Clear();
+        object? toSelect = null;
+        foreach (var row in ordered)
+        {
+            if (row is MarkerRow marker) marker.Subtotals = SubtotalsFor(months, marker.MonthId);
+            Rows.Add(row);
+            var id = row switch { TransactionRow t => t.Entity.Id, MarkerRow { Entity: { } m } => m.Id, _ => Guid.Empty };
+            if (select is { } wanted && id == wanted) toSelect = row;
+        }
+        SelectedEntry = toSelect;
+    }
+
+    private static string SubtotalsFor(IReadOnlyList<MonthSummary> months, Guid monthId)
+    {
+        var month = months.First(m => m.MonthId == monthId);
+        var spent = -month.Items.Sum(i => i.Activity);
+        string Money(long cents) => AppServices.ToRands(cents).ToString("N2");
+        return $"Income {Money(month.Income)}   ·   Spent {Money(spent)}   ·   Available to budget {Money(month.Available)}";
+    }
+
+    /// <summary>Recalculates the totals shown on the month lines after an edit that does not reload the list.</summary>
+    private async Task RefreshSubtotalsAsync()
+    {
+        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+        foreach (var marker in Rows.OfType<MarkerRow>()) marker.Subtotals = SubtotalsFor(months, marker.MonthId);
     }
 
     public async Task RowChangedAsync(TransactionRow row, bool dateChanged, bool splitChanged)
@@ -245,8 +337,97 @@ public sealed partial class TransactionsViewModel : ObservableObject
             else await _store.SaveAsync();
             Message = "";
             if (dateChanged) await LoadRowsAsync(row.Entity.Id);
+            else if (splitChanged) await RefreshSubtotalsAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    public async Task MarkerLabelChangedAsync(MarkerRow marker)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            if (marker.Entity is null) await _store.SetFirstMonthLabelAsync(marker.Label);
+            else
+            {
+                marker.Entity.Label = marker.Label;
+                await _store.SaveAsync();
+            }
+            Message = "";
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>The label to suggest for a month starting on the given date: the month after the latest one.</summary>
+    public string SuggestMonthLabel(DateTimeOffset date) => MonthLabels.Next(_lastMonthLabel, DateOnly.FromDateTime(date.DateTime));
+
+    public async Task AddMonthAsync(string label, DateTimeOffset date, bool copyPreviousBudget)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var marker = await _store.AddMarkerAsync(label.Trim(), DateOnly.FromDateTime(date.DateTime), copyPreviousBudget);
+            Message = "";
+            await LoadRowsAsync(marker.Id);
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Called after a month line was dragged to a new place in the list. Works out the line's new date and order from
+    /// the transactions now above and below it, then reloads so the list shows where it really landed.
+    /// </summary>
+    public async Task MarkerDroppedAsync(MarkerRow marker)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            if (marker.Entity is { } entity)
+            {
+                var index = Rows.IndexOf(marker);
+                TransactionRow? above = null, below = null;
+                for (var i = index - 1; i >= 0 && above is null; i--) above = Rows[i] as TransactionRow;
+                for (var i = index + 1; i < Rows.Count && below is null; i++) below = Rows[i] as TransactionRow;
+
+                // Newest-first lists run backwards in time, so "above" is later.
+                var newestFirst = SortIndex == 0;
+                var earlier = newestFirst ? below : above;
+                var later = newestFirst ? above : below;
+                static SortKey? KeyOf(TransactionRow? t) => t is null ? null : new SortKey(t.Entity.Date, t.Entity.DayOrder);
+
+                if (MarkerPlacement.Place(KeyOf(earlier), KeyOf(later)) is { } key)
+                    Message = await _store.MoveMarkerAsync(entity, key) ? "" : "A month line can't be dragged past another month line.";
+            }
+            await LoadRowsAsync(marker.Entity?.Id);
+        }
+        catch (Exception ex) { Message = $"Could not move the line: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Moves a month line one transaction up or down the list, for keyboard use.</summary>
+    public async Task MoveMarkerByRowAsync(MarkerRow marker, int delta)
+    {
+        var index = Rows.IndexOf(marker);
+        var target = index + delta;
+        if (marker.IsFirst || index < 0 || target < 0 || target >= Rows.Count || Rows[target] is MarkerRow) return;
+        Rows.Move(index, target);
+        await MarkerDroppedAsync(marker);
+    }
+
+    public async Task DeleteSelectedMarkerAsync()
+    {
+        if (SelectedMarker is not { Entity: { } entity }) return;
+        await _gate.WaitAsync();
+        try
+        {
+            await _store.DeleteMarkerAsync(entity);
+            Message = "";
+            await LoadRowsAsync(null);
+        }
+        catch (Exception ex) { Message = $"Could not delete: {ex.Message}"; }
         finally { _gate.Release(); }
     }
 

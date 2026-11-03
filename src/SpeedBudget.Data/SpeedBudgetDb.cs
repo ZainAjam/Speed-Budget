@@ -17,6 +17,7 @@ public class SpeedBudgetDb : DbContext
     public DbSet<IncomeHoldEntity> Holds => Set<IncomeHoldEntity>();
     public DbSet<TransactionEntity> Transactions => Set<TransactionEntity>();
     public DbSet<SplitLineEntity> SplitLines => Set<SplitLineEntity>();
+    public DbSet<SettingEntity> Settings => Set<SettingEntity>();
     public DbSet<SyncStateEntity> SyncState => Set<SyncStateEntity>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -34,6 +35,7 @@ public class SpeedBudgetDb : DbContext
         b.Entity<TransactionEntity>().HasIndex(e => e.UpdatedAt);
         b.Entity<SplitLineEntity>().HasQueryFilter(e => !e.IsDeleted).HasIndex(e => e.TransactionId);
         b.Entity<SplitLineEntity>().HasIndex(e => e.UpdatedAt);
+        b.Entity<SettingEntity>().HasQueryFilter(e => !e.IsDeleted).HasIndex(e => e.UpdatedAt);
         b.Entity<SyncStateEntity>().HasKey(e => e.Key);
     }
 

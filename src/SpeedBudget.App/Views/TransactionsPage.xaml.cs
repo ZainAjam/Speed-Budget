@@ -63,4 +63,68 @@ public sealed partial class TransactionsPage : Page
         var dialog = new TransferDialog(ViewModel) { XamlRoot = XamlRoot };
         await dialog.ShowAsync();
     }
+
+    private async void NewMonth_Click(object sender, RoutedEventArgs e) => await StartNewMonthAsync();
+
+    private async void NewMonth_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await StartNewMonthAsync();
+    }
+
+    private async Task StartNewMonthAsync()
+    {
+        var dialog = new NewMonthDialog(ViewModel) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            await ViewModel.AddMonthAsync(dialog.MonthName, dialog.StartDate, dialog.CopyBudget);
+    }
+
+    // Only a month line may be dragged; transactions stay where their date puts them.
+    private void List_DragItemsStarting(object sender, DragItemsStartingEventArgs e)
+    {
+        if (e.Items.Count != 1 || e.Items[0] is not MarkerRow { CanDrag: true }) e.Cancel = true;
+    }
+
+    private async void List_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        if (args.DropResult != Windows.ApplicationModel.DataTransfer.DataPackageOperation.None
+            && args.Items.Count == 1 && args.Items[0] is MarkerRow marker)
+            await ViewModel.MarkerDroppedAsync(marker);
+    }
+
+    private async void MoveLineUp_Click(object sender, RoutedEventArgs e) => await MoveSelectedLineAsync(-1);
+
+    private async void MoveLineDown_Click(object sender, RoutedEventArgs e) => await MoveSelectedLineAsync(1);
+
+    private async void MoveLineUp_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await MoveSelectedLineAsync(-1);
+    }
+
+    private async void MoveLineDown_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await MoveSelectedLineAsync(1);
+    }
+
+    private async Task MoveSelectedLineAsync(int delta)
+    {
+        if (ViewModel.SelectedMarker is { } marker) await ViewModel.MoveMarkerByRowAsync(marker, delta);
+    }
+
+    private async void DeleteLine_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedMarker is not { IsFirst: false } marker) return;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = $"Delete the line for {marker.Label}?",
+            Content = "Its transactions move into the month before. The budgeted amounts of the two months are added together.",
+            PrimaryButtonText = "Delete line",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteSelectedMarkerAsync();
+    }
 }

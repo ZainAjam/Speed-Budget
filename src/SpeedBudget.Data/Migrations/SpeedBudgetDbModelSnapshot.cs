@@ -250,6 +250,38 @@ namespace SpeedBudget.Data.Migrations
                     b.ToTable("Markers");
                 });
 
+            modelBuilder.Entity("SpeedBudget.Data.SettingEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("Settings");
+                });
+
             modelBuilder.Entity("SpeedBudget.Data.SplitLineEntity", b =>
                 {
                     b.Property<Guid>("Id")

@@ -371,6 +371,102 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task First_month_label_defaults_then_can_be_changed_without_duplicating_the_row()
+    {
+        Assert.Equal(BudgetStore.DefaultFirstMonthLabel, await _store.GetFirstMonthLabelAsync());
+
+        await _store.SetFirstMonthLabelAsync("March 2027");
+        await _store.SetFirstMonthLabelAsync("April 2027");
+
+        Assert.Equal("April 2027", await _store.GetFirstMonthLabelAsync());
+        Assert.Single(_db.Settings.ToList());
+        Assert.Equal(SettingEntity.IdFor("firstMonthLabel"), _db.Settings.Single().Id);
+        Assert.Equal("April 2027", (await _store.LoadSnapshotAsync()).FirstMonthLabel);
+    }
+
+    [Fact]
+    public async Task Adding_a_marker_puts_later_entries_in_the_new_month_and_copies_the_budget()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 800_00);
+        await AddTx(cheque, new(2027, 1, 20), -100_00, food.Id);
+
+        var marker = await _store.AddMarkerAsync("February 2027", new(2027, 1, 25), copyPreviousBudget: true);
+        await AddTx(cheque, new(2027, 1, 25), -30_00, food.Id);   // same day, entered after the line
+        await AddTx(cheque, new(2027, 1, 26), -20_00, food.Id);
+
+        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+
+        Assert.Equal(2, months.Count);
+        Assert.Equal(marker.Id, months[1].MonthId);
+        Assert.Equal(800_00, months[1].Items.Single(i => i.ItemId == food.Id).Budgeted);
+        Assert.Equal(-50_00, months[1].Items.Single(i => i.ItemId == food.Id).Activity);
+        Assert.Equal(-100_00, months[0].Items.Single(i => i.ItemId == food.Id).Activity);
+    }
+
+    [Fact]
+    public async Task Copying_a_budget_does_not_overwrite_amounts_already_set()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        var petrol = AddItem("Petrol", ItemKind.Expense);
+        var marker = await _store.AddMarkerAsync("Feb", new(2027, 2, 1), copyPreviousBudget: false);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 500_00);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, petrol.Id, 300_00);
+        await _store.SetAllocationAsync(marker.Id, food.Id, 999_00);
+
+        await _store.CopyBudgetAsync(BudgetEngine.FirstMonthId, marker.Id);
+
+        var feb = _db.Allocations.Where(a => a.MonthId == marker.Id).ToList();
+        Assert.Equal(999_00, feb.Single(a => a.BudgetItemId == food.Id).Amount);
+        Assert.Equal(300_00, feb.Single(a => a.BudgetItemId == petrol.Id).Amount);
+    }
+
+    [Fact]
+    public async Task Moving_a_marker_moves_rows_between_months_and_refuses_to_pass_another_line()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        await AddTx(cheque, new(2027, 1, 10), -10_00, food.Id);
+        await AddTx(cheque, new(2027, 1, 20), -20_00, food.Id);
+        var feb = await _store.AddMarkerAsync("Feb", new(2027, 1, 25), false);
+        var mar = await _store.AddMarkerAsync("Mar", new(2027, 2, 25), false);
+
+        Assert.True(await _store.MoveMarkerAsync(feb, new SortKey(new(2027, 1, 15), 0)));
+        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+        Assert.Equal(-10_00, months[0].Items.Single(i => i.ItemId == food.Id).Activity);
+        Assert.Equal(-20_00, months[1].Items.Single(i => i.ItemId == food.Id).Activity);
+
+        Assert.False(await _store.MoveMarkerAsync(feb, new SortKey(new(2027, 3, 1), 0)));
+        Assert.Equal(new DateOnly(2027, 1, 15), feb.Date);
+    }
+
+    [Fact]
+    public async Task Deleting_a_marker_merges_its_month_into_the_previous_one()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        var petrol = AddItem("Petrol", ItemKind.Expense);
+        var salary = AddItem("Salary", ItemKind.Income);
+        var feb = await _store.AddMarkerAsync("Feb", new(2027, 1, 25), false);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 500_00);
+        await _store.SetAllocationAsync(feb.Id, food.Id, 400_00);
+        await _store.SetAllocationAsync(feb.Id, petrol.Id, 100_00);
+        await _store.SetIncomeHoldAsync(feb.Id, salary.Id, 50_00);
+        await AddTx(cheque, new(2027, 1, 26), -60_00, food.Id);
+
+        await _store.DeleteMarkerAsync(feb);
+
+        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+        var merged = Assert.Single(months);
+        Assert.Equal(900_00, merged.Items.Single(i => i.ItemId == food.Id).Budgeted);
+        Assert.Equal(100_00, merged.Items.Single(i => i.ItemId == petrol.Id).Budgeted);
+        Assert.Equal(-60_00, merged.Items.Single(i => i.ItemId == food.Id).Activity);
+        Assert.Equal(50_00, merged.HeldOut);
+        Assert.Empty(await _store.GetMarkersAsync());
+    }
+
+    [Fact]
     public async Task Stored_data_feeds_the_budget_engine()
     {
         var cheque = AddAccount("Cheque", true);

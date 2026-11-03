@@ -47,6 +47,19 @@ public class ItemEntity : SyncEntity
     public int SortOrder { get; set; }
 }
 
+/// <summary>
+/// A synced key/value setting. The id is derived from the key, so every device uses the same row
+/// and two devices setting the same key edit one row instead of creating duplicates.
+/// </summary>
+public class SettingEntity : SyncEntity
+{
+    public string Key { get; set; } = "";
+    public string Value { get; set; } = "";
+
+    public static Guid IdFor(string key) =>
+        new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes("setting:" + key)));
+}
+
 public class MonthMarkerEntity : SyncEntity
 {
     public DateOnly Date { get; set; }

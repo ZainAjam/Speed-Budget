@@ -10,8 +10,11 @@ public sealed record PayeeHint(string Payee, Guid? BudgetItemId, Guid AccountId)
 /// <summary>Opens the local database and gives this installation a stable device id.</summary>
 public static class LocalDatabase
 {
+    /// <summary>Where the database lives. The SPEEDBUDGET_DATA environment variable overrides it, for testing.</summary>
     public static string DefaultDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SpeedBudget");
+        Environment.GetEnvironmentVariable("SPEEDBUDGET_DATA") is { Length: > 0 } custom
+            ? custom
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SpeedBudget");
 
     /// <summary>Reads or creates the device id kept beside the database file.</summary>
     public static string GetOrCreateDeviceId(string directory)
@@ -55,12 +58,105 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return new BudgetSnapshot(
             accounts.Select(a => new Account(a.Id, a.Name, a.IsOnBudget)).ToList(),
             items.Select(i => new BudgetItem(i.Id, i.Name, i.Kind)).ToList(),
-            markers.Select(m => new MonthMarker(m.Id, m.Date, m.DayOrder, m.Label)).ToList(),
+            markers.Select(ToCore).ToList(),
             transactions.Select(t => new Core.Transaction(
                 t.Id, t.AccountId, t.Date, t.DayOrder, t.Amount,
                 splitsByTransaction[t.Id].Select(s => new SplitLine(s.BudgetItemId, s.Amount)).ToList())).ToList(),
             allocations.Select(a => new Allocation(a.MonthId, a.BudgetItemId, a.Amount)).ToList(),
-            holds.Select(h => new IncomeHold(h.MonthId, h.IncomeItemId, h.Amount)).ToList());
+            holds.Select(h => new IncomeHold(h.MonthId, h.IncomeItemId, h.Amount)).ToList(),
+            await GetFirstMonthLabelAsync(ct));
+    }
+
+    private static MonthMarker ToCore(MonthMarkerEntity m) => new(m.Id, m.Date, m.DayOrder, m.Label);
+
+    public const string DefaultFirstMonthLabel = "January 2027";
+    private const string FirstMonthLabelKey = "firstMonthLabel";
+
+    public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
+        (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == FirstMonthLabelKey, ct))?.Value
+        ?? DefaultFirstMonthLabel;
+
+    public async Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default)
+    {
+        var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == FirstMonthLabelKey, ct);
+        if (row is null)
+            db.Settings.Add(new SettingEntity { Id = SettingEntity.IdFor(FirstMonthLabelKey), Key = FirstMonthLabelKey, Value = label });
+        else row.Value = label;
+        await db.SaveChangesAsync(ct);
+    }
+
+    public Task<List<MonthMarkerEntity>> GetMarkersAsync(CancellationToken ct = default) =>
+        db.Markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ThenBy(m => m.Id).ToListAsync(ct);
+
+    /// <summary>
+    /// Adds a "Let's start a new month" line at the end of the given date, so everything entered after it
+    /// belongs to the new month. Optionally copies the budgeted amounts of the month it interrupts.
+    /// </summary>
+    public async Task<MonthMarkerEntity> AddMarkerAsync(string label, DateOnly date, bool copyPreviousBudget, CancellationToken ct = default)
+    {
+        var order = await NextDayOrderAsync(date, ct);
+        var existing = BudgetEngine.SortMarkers((await GetMarkersAsync(ct)).Select(ToCore));
+        var previousMonth = BudgetEngine.MonthOf(existing, date, order);
+
+        var marker = new MonthMarkerEntity { Date = date, DayOrder = order, Label = label };
+        db.Markers.Add(marker);
+        await db.SaveChangesAsync(ct);
+        if (copyPreviousBudget) await CopyBudgetAsync(previousMonth, marker.Id, ct);
+        return marker;
+    }
+
+    /// <summary>Copies one month's budgeted and expected amounts into another, skipping items already set there.</summary>
+    public async Task CopyBudgetAsync(Guid fromMonthId, Guid toMonthId, CancellationToken ct = default)
+    {
+        var source = await db.Allocations.Where(a => a.MonthId == fromMonthId).ToListAsync(ct);
+        var alreadySet = (await db.Allocations.Where(a => a.MonthId == toMonthId).ToListAsync(ct))
+            .Select(a => a.BudgetItemId).ToHashSet();
+        foreach (var a in source.Where(a => !alreadySet.Contains(a.BudgetItemId)))
+            db.Allocations.Add(new AllocationEntity { MonthId = toMonthId, BudgetItemId = a.BudgetItemId, Amount = a.Amount });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Moves a month line to a new spot. Refused (false) if that would take it past or onto another line.
+    /// </summary>
+    public async Task<bool> MoveMarkerAsync(MonthMarkerEntity marker, SortKey key, CancellationToken ct = default)
+    {
+        var others = (await GetMarkersAsync(ct)).Where(m => m.Id != marker.Id).Select(m => new SortKey(m.Date, m.DayOrder));
+        if (!MarkerPlacement.FitsBetweenOtherLines(key, new SortKey(marker.Date, marker.DayOrder), others)) return false;
+        marker.Date = key.Date;
+        marker.DayOrder = key.DayOrder;
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Deletes a month line, merging its month into the one before. The budgeted amounts and income holds of the
+    /// two months are added together.
+    /// </summary>
+    public async Task DeleteMarkerAsync(MonthMarkerEntity marker, CancellationToken ct = default)
+    {
+        var sorted = BudgetEngine.SortMarkers((await GetMarkersAsync(ct)).Select(ToCore)).ToList();
+        var index = sorted.FindIndex(m => m.Id == marker.Id);
+        var previousMonth = index > 0 ? sorted[index - 1].Id : BudgetEngine.FirstMonthId;
+
+        var previousAllocations = await db.Allocations.Where(a => a.MonthId == previousMonth).ToListAsync(ct);
+        foreach (var a in await db.Allocations.Where(a => a.MonthId == marker.Id).ToListAsync(ct))
+        {
+            var target = previousAllocations.FirstOrDefault(p => p.BudgetItemId == a.BudgetItemId);
+            if (target is null) a.MonthId = previousMonth;
+            else { target.Amount += a.Amount; db.Allocations.Remove(a); }
+        }
+
+        var previousHolds = await db.Holds.Where(h => h.MonthId == previousMonth).ToListAsync(ct);
+        foreach (var h in await db.Holds.Where(h => h.MonthId == marker.Id).ToListAsync(ct))
+        {
+            var target = previousHolds.FirstOrDefault(p => p.IncomeItemId == h.IncomeItemId);
+            if (target is null) h.MonthId = previousMonth;
+            else { target.Amount += h.Amount; db.Holds.Remove(h); }
+        }
+
+        db.Markers.Remove(marker);
+        await db.SaveChangesAsync(ct);
     }
 
     public Task SaveAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
@@ -346,6 +442,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         changes.AddRange(await db.Holds.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.Transactions.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.SplitLines.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
+        changes.AddRange(await db.Settings.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         return changes.OrderBy(c => c.UpdatedAt, StringComparer.Ordinal).ToList();
     }
 }
