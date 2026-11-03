@@ -189,7 +189,7 @@ Each file in `spec/golden/*.json` contains accounts, items, transactions, marker
 **First run (fresh 2027 start):**
 1. Create the budget.
 2. Add accounts and mark each as Budget or Tracked, with opening balances.
-3. Optionally create the starter item list from the sheet's groups and items. These are typed into a seed file, not imported live.
+3. A guided setup wizard (first run, or Settings) offers a template (Household, Minimal or empty), then lets the user tick accounts, budget groups and items, and common counterparties. It only adds what is missing, so it can be run again.
 4. Set up the first month.
 
 ---

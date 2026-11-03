@@ -13,6 +13,12 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
+                <TextBlock Text="Setup" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Button Content="Run the setup wizard" Click="Setup_Click" />
+                <TextBlock Text="Adds accounts, budget groups and items, and common counterparties from a template. Anything you already have is left as it is." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
                 <TextBlock Text="Backups" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="BackupInfo" TextWrapping="Wrap" Opacity="0.8" />
                 <StackPanel Orientation="Horizontal" Spacing="8">

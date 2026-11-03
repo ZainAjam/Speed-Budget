@@ -30,6 +30,14 @@ public sealed partial class SettingsPage : Page
         Status.IsOpen = true;
     }
 
+    private async void Setup_Click(object sender, RoutedEventArgs e)
+    {
+        var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };
+        await wizard.ShowAsync();
+        if (wizard.Result is { } r)
+            Report($"Added {r.Accounts} accounts, {r.Groups} groups, {r.Items} items and {r.Counterparties} counterparties.", InfoBarSeverity.Success);
+    }
+
     private void BackUp_Click(object sender, RoutedEventArgs e)
     {
         try

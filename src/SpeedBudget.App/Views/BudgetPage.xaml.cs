@@ -39,7 +39,16 @@ public sealed partial class BudgetPage : Page
         var firstRun = await AppServices.Store.IsEmptyAsync() && !FirstRunDismissed.Value;
         Welcome.Visibility = firstRun ? Visibility.Visible : Visibility.Collapsed;
         BudgetContent.Visibility = firstRun ? Visibility.Collapsed : Visibility.Visible;
-        if (firstRun) return;
+        if (firstRun)
+        {
+            // The guided setup opens by itself the first time; closing it leaves the welcome buttons to reopen it.
+            if (!SetupOffered.Value)
+            {
+                SetupOffered.Value = true;
+                await RunSetupAsync();
+            }
+            return;
+        }
 
         FitMonths(ActualWidth);
         await ViewModel.LoadAsync();
@@ -64,10 +73,13 @@ public sealed partial class BudgetPage : Page
 
     private void Page_SizeChanged(object sender, SizeChangedEventArgs e) => FitMonths(e.NewSize.Width);
 
-    private async void Starter_Click(object sender, RoutedEventArgs e)
+    private async void Setup_Click(object sender, RoutedEventArgs e) => await RunSetupAsync();
+
+    private async Task RunSetupAsync()
     {
-        await AppServices.Store.SeedStarterItemsAsync();
-        await RefreshAsync();
+        var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };
+        await wizard.ShowAsync();
+        if (wizard.Result is not null) await RefreshAsync();
     }
 
     private async void Empty_Click(object sender, RoutedEventArgs e)
@@ -262,6 +274,12 @@ public sealed partial class BudgetPage : Page
         else menu.ShowAt(target);
         args.Handled = true;
     }
+}
+
+/// <summary>Remembers, for this run, that the guided setup has already been shown on its own.</summary>
+internal static class SetupOffered
+{
+    public static bool Value { get; set; }
 }
 
 /// <summary>Remembers, for this run, that the user chose to start empty.</summary>

@@ -493,14 +493,59 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return true;
     }
 
-    /// <summary>Creates the starter groups and items, based on a typical household budget.</summary>
-    public async Task SeedStarterItemsAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Creates what the setup wizard collected. Only adds: an account, group, item or counterparty that already exists
+    /// (same name, ignoring case) is left alone, so running the wizard again never duplicates anything.
+    /// </summary>
+    public async Task<SetupResult> ApplySetupAsync(SetupPlan plan, CancellationToken ct = default)
     {
-        foreach (var (groupName, kind, items) in StarterItems.Groups)
+        static bool Same(string a, string b) => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+        int accounts = 0, groups = 0, items = 0;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var existingAccounts = await GetAccountsAsync(ct);
+        foreach (var account in plan.Accounts.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
         {
-            var group = await AddGroupAsync(groupName, kind, ct);
-            foreach (var name in items) await AddItemAsync(group.Id, null, name, kind, ct);
+            if (existingAccounts.Any(a => Same(a.Name, account.Name))) continue;
+            existingAccounts.Add(await AddAccountAsync(account.Name.Trim(), account.Type, account.IsOnBudget, account.OpeningBalance, ct));
+            accounts++;
         }
+
+        var existingGroups = await GetGroupsAsync(ct);
+        var existingItems = await GetItemsAsync(ct);
+        foreach (var group in plan.Groups.Where(g => !string.IsNullOrWhiteSpace(g.Name)))
+        {
+            var chosen = group.Items.Where(i => i.Selected && !string.IsNullOrWhiteSpace(i.Name)).ToList();
+            var entity = existingGroups.FirstOrDefault(g => g.Kind == group.Kind && Same(g.Name, group.Name));
+            if (entity is null)
+            {
+                if (chosen.Count == 0) continue;   // a group with nothing ticked is not worth creating
+                entity = await AddGroupAsync(group.Name.Trim(), group.Kind, ct);
+                existingGroups.Add(entity);
+                groups++;
+            }
+            foreach (var item in chosen)
+            {
+                if (existingItems.Any(i => i.GroupId == entity.Id && i.ParentItemId == null && Same(i.Name, item.Name))) continue;
+                var created = await AddItemAsync(entity.Id, null, item.Name.Trim(), group.Kind, ct);
+                if (!string.IsNullOrEmpty(item.Emoji))
+                {
+                    created.Emoji = item.Emoji;
+                    await db.SaveChangesAsync(ct);
+                }
+                existingItems.Add(created);
+                items++;
+            }
+        }
+
+        var known = (await GetPayeesAsync(ct)).Count;
+        foreach (var counterparty in plan.Counterparties.Where(c => c.Selected && !string.IsNullOrWhiteSpace(c.Name)))
+            await EnsurePayeeAsync(counterparty.Name, ct);
+        var counterparties = (await GetPayeesAsync(ct)).Count - known;
+
+        await transaction.CommitAsync(ct);
+        return new SetupResult(accounts, groups, items, counterparties);
     }
 
     /// <summary>Sets the budgeted amount for an item in a month, creating the row if needed.</summary>

@@ -169,15 +169,16 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
-    public async Task Starter_items_create_income_and_expense_groups_with_matching_item_kinds()
+    public async Task Household_template_creates_income_and_expense_groups_with_matching_item_kinds()
     {
-        await _store.SeedStarterItemsAsync();
+        var plan = SetupTemplates.Create("Household");
+        await _store.ApplySetupAsync(plan);
 
         var groups = await _store.GetGroupsAsync();
         var items = await _store.GetItemsAsync();
 
-        Assert.Equal(StarterItems.Groups.Count, groups.Count);
-        Assert.Equal(StarterItems.Groups.Sum(g => g.Items.Length), items.Count);
+        Assert.Equal(plan.Groups.Count, groups.Count);
+        Assert.Equal(plan.Groups.Sum(g => g.Items.Count), items.Count);
         var income = groups.Single(g => g.Kind == ItemKind.Income);
         Assert.All(items.Where(i => i.GroupId == income.Id), i => Assert.Equal(ItemKind.Income, i.Kind));
     }
@@ -530,6 +531,52 @@ public sealed class DataTests : IDisposable
         for (var i = 1; i <= 5; i++)
             await _store.SetPinnedAsync((await _store.AddItemAsync(group.Id, null, $"Item {i}", ItemKind.Expense)).Id, true);
         Assert.Equal(BudgetStore.MaxPinnedItems, (await _store.GetPinnedItemIdsAsync()).Count);
+    }
+
+    [Fact]
+    public async Task Setup_creates_the_chosen_accounts_groups_items_and_counterparties()
+    {
+        var plan = SetupTemplates.Create("Minimal");
+        plan.Accounts.Add(new SetupAccount { Name = "Retirement", Type = AccountType.Investment, IsOnBudget = false, OpeningBalance = 5_000_00 });
+        plan.Groups[1].Items[1].Selected = false;                      // Utilities unticked
+        plan.Counterparties.Add(new SetupCounterparty("Woolworths"));
+        plan.Counterparties.Add(new SetupCounterparty("Checkers", selected: false));
+
+        var result = await _store.ApplySetupAsync(plan);
+
+        Assert.Equal(new SetupResult(2, 4, 6, 1), result);
+        Assert.Equal(new[] { "Cheque account", "Retirement" }, (await _store.GetAccountsAsync()).Select(a => a.Name));
+        Assert.False((await _store.GetAccountsAsync()).Single(a => a.Name == "Retirement").IsOnBudget);
+        var items = await _store.GetItemsAsync();
+        Assert.DoesNotContain(items, i => i.Name == "Utilities");
+        Assert.Equal("🛒", items.Single(i => i.Name == "Groceries").Emoji);
+        Assert.Equal(ItemKind.Income, items.Single(i => i.Name == "Salary").Kind);
+        Assert.Equal(new[] { "Woolworths" }, (await _store.GetPayeesAsync()).Select(p => p.Name));
+    }
+
+    [Fact]
+    public async Task Running_setup_again_adds_only_what_is_missing()
+    {
+        await _store.ApplySetupAsync(SetupTemplates.Create("Household"));
+        var again = SetupTemplates.Create("Household");
+        again.Groups[0].Items.Add(new SetupItem("Bonus"));
+        again.Groups[0].Name = "income";   // same group, different case
+
+        var result = await _store.ApplySetupAsync(again);
+
+        Assert.Equal(new SetupResult(0, 0, 1, 0), result);
+        Assert.Single(await _store.GetAccountsAsync());
+        Assert.Equal(8, (await _store.GetGroupsAsync()).Count);
+    }
+
+    [Fact]
+    public async Task Setup_skips_a_new_group_with_nothing_ticked()
+    {
+        var plan = new SetupPlan();
+        plan.Groups.Add(new SetupGroup("Pets", ItemKind.Expense, [new SetupItem("Food", selected: false)]));
+
+        Assert.Equal(new SetupResult(0, 0, 0, 0), await _store.ApplySetupAsync(plan));
+        Assert.Empty(await _store.GetGroupsAsync());
     }
 
     [Fact]

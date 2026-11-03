@@ -141,13 +141,13 @@
         <StackPanel x:Name="Welcome" Visibility="Collapsed" Spacing="16" MaxWidth="560" HorizontalAlignment="Left">
             <TextBlock Text="Welcome to Speed Budget" Style="{StaticResource TitleTextBlockStyle}" />
             <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
-                       Text="Let's set up your 2027 budget. First choose what you budget for, then add your bank accounts and mark each as a budget account or a tracked account." />
+                       Text="Let's set up your budget. A short guided setup creates your bank accounts, budget groups and items, and the counterparties you deal with most. You can change all of it afterwards." />
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="Start with starter items" Style="{StaticResource AccentButtonStyle}" Click="Starter_Click" />
+                <Button Content="Set up my budget" Style="{StaticResource AccentButtonStyle}" Click="Setup_Click" />
                 <Button Content="Start empty" Click="Empty_Click" />
             </StackPanel>
             <TextBlock TextWrapping="Wrap" Opacity="0.7"
-                       Text="The starter list is a typical household set of groups and items. You can rename, move or delete any of it later." />
+                       Text="The setup offers a typical household list, a short minimal list, or an empty start. You can run it again later from Settings." />
         </StackPanel>
 
         <Grid x:Name="BudgetContent" Visibility="Collapsed" RowSpacing="12">
