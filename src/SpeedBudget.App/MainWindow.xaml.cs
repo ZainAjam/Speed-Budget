@@ -11,7 +11,7 @@ namespace SpeedBudget.App;
 
 public sealed partial class MainWindow : Window
 {
-    private readonly NavigationViewItem _transactions = new() { Content = "Transactions", Tag = "tx", Icon = new SymbolIcon(Symbol.List), IsExpanded = true };
+    private readonly NavigationViewItem _transactions = new() { Content = "Transactions", Tag = "tx", Icon = new SymbolIcon(Symbol.List), };
 
     private bool _onTransactions;
     private Guid? _accountPage;
@@ -62,6 +62,8 @@ public sealed partial class MainWindow : Window
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
+        Nav.PaneOpening += (_, _) => ShowHeadings(true);
+        Nav.PaneClosing += (_, _) => ShowHeadings(false);
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
         ApplyPanelMode();
         AppServices.InterfaceChanged += () => DispatcherQueue.TryEnqueue(ApplyPanelMode);
@@ -118,6 +120,7 @@ public sealed partial class MainWindow : Window
 
     private void ApplyPanelMode()
     {
+        ShowHeadings(AppServices.PanelMode == "show");
         switch (AppServices.PanelMode)
         {
             case "show":
@@ -149,11 +152,28 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
-    private static NavigationViewItemHeader Heading(string text) => new()
+    // It is an ordinary row (not a NavigationViewItemHeader) so that it keeps its place when the panel is collapsed to icons:
+    // every icon then sits in the same spot whether the panel is open or not. It cannot be selected or clicked.
+    private NavigationViewItem Heading(string text)
     {
-        Content = text, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
-    };
+        var label = new TextBlock
+        {
+            Text = text, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
+        };
+        _headingLabels.Add(label);
+        return new NavigationViewItem { Content = label, Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false };
+    }
+
+    private readonly List<TextBlock> _headingLabels = [];
+
+    /// <summary>The section titles show only while the panel is open: in the narrow strip they would be cut off.</summary>
+    private void ShowHeadings(bool open)
+    {
+        foreach (var label in _headingLabels) label.Opacity = open || AppServices.PanelMode == "show" ? 1 : 0;
+    }
+
+    private readonly List<NavigationViewItem> _accountItems = [];
 
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _balanceTimer;
     private readonly Dictionary<Guid, TextBlock> _balanceBlocks = [];
@@ -270,17 +290,24 @@ public sealed partial class MainWindow : Window
         foreach (var tracked in accounts.Where(a => !a.IsOnBudget)) _trackedAccounts.Add(tracked.Id);
         UpdateWatcherStrip();
 
-        _transactions.MenuItems.Clear();
+        // The accounts are rows of their own under Transactions (not nested in it), so their icons line up with the others.
+        foreach (var old in _accountItems) Nav.MenuItems.Remove(old);
+        _accountItems.Clear();
         _balanceBlocks.Clear();
         _accountOrder.Clear();
         _accountOrder.AddRange(accounts.Select(a => a.Id));
+        var at = Nav.MenuItems.IndexOf(_transactions) + 1;
         foreach (var account in accounts)
-            _transactions.MenuItems.Add(AccountItem(account, balances.GetValueOrDefault(account.Id)));
+        {
+            var item = AccountItem(account, balances.GetValueOrDefault(account.Id));
+            _accountItems.Add(item);
+            Nav.MenuItems.Insert(at++, item);
+        }
 
         // Keep the same page selected, or fall back to the Transactions heading if its account went away.
         if (selectedTag is not null && selectedTag.StartsWith("tx:"))
         {
-            var again = _transactions.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string?)i.Tag == selectedTag);
+            var again = _accountItems.FirstOrDefault(i => (string?)i.Tag == selectedTag);
             Nav.SelectedItem = again ?? _transactions;
         }
     }
