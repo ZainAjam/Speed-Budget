@@ -6,6 +6,30 @@ they happen, and see at a glance what is left on every budget item. Everything s
 > Speed Budget is a pre-release (version 0.9). It works and is in daily use, but expect rough edges, and keep
 > backups of anything you care about (the app makes one for you every day).
 
+## A look at the app
+
+*The pictures use made-up example data.*
+
+**Plan your spending.** Give every budget item an amount for the month, and see what was spent and what is left.
+Several months sit side by side, and the figures at the top show what you still have available to budget.
+
+![The Budget screen showing three months side by side](docs/images/budget.png)
+
+**Record your transactions.** Each bank account has its own page with its balances, month lines that show where each
+budget month starts, and a table you edit in place with the pencil at the end of a row.
+
+![A bank account's recorded transactions](docs/images/transactions.png)
+
+**Edit in the table.** Press a row's pencil and its cells become boxes. Pick a budget item from the drop-down, which
+shows what is left on each item, or split the transaction between several items.
+
+![Editing a transaction in place and choosing its budget item](docs/images/editing.png)
+
+**Track accounts outside your budget.** Accounts such as a retirement fund can be tracked without affecting the budget.
+They are labelled as tracking accounts and have no budget item column.
+
+![A tracking account's page](docs/images/tracking-account.png)
+
 ## Install
 
 1. Open the [Releases page](https://github.com/ZainAjam/Speed-Budget/releases) and download

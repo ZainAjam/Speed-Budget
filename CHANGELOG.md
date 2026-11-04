@@ -11,6 +11,7 @@ into the release.
 - Every row of the transactions table now has a yellow pencil and a bin at its end. The pencil turns edit mode on for that row; while it is being edited the pencil is a green tick that saves the row.
 - A transaction or transfer can be saved without a budget item.
 - The New Transaction, New Transfer and Start a new month buttons now sit right after the "Recorded transactions" title.
+- A row of the transactions table is edited only after you press its pencil: clicking a value now just highlights the row.
 - In money boxes you can type either a point or a comma as the decimal mark, anywhere in the app: "1.5" and "1,5" both mean one and a half. Sums such as 3.5+1.5 work too.
 - Scrolling the mouse wheel over a budget amount no longer changes it. The page scrolls instead.
 - On the Budget screen, pressing Enter in an amount saves it and leaves the cell; Esc puts the old amount back and leaves it; the Up and Down arrows move between amounts.
@@ -30,7 +31,7 @@ into the release.
 
 ## 0.9.7
 
-- Transactions are now edited right in the table: press the pencil at the end of a row and its cells turn into boxes. Clicking a value only highlights the row. There is no separate edit panel for transactions any more. A bin at the end of the row deletes it.
+- Transactions are now edited right in the table: click a row and its cells turn into boxes. There is no separate edit panel for transactions any more. A bin at the end of the row deletes it.
 - Fixed: choosing the first month could fail with "An error occurred while saving the entity changes".
 - **New Transaction** and **New Transfer** now add a new editable row to the table as the latest record, dated today, instead of opening a dialog. Press Enter to save it (or choose another row), Esc to discard it. The counterparty fills in the budget item you last used with it. The old New Transaction and New Transfer dialogs are gone.
 - Your budget now has a **start date**, shown as the first "(month) starts here" line. Select it to change the date. Nothing can be dated before it: if you add or edit a transaction dated earlier, you are asked whether to start the budget from that month, and the months in between are added to your budget. The start can move later while no transaction or month line comes before the new date. A month line can't be placed before the start. The "which month is your first transaction in" question is gone.
