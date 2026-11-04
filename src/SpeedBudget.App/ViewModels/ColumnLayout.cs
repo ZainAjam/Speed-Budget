@@ -13,18 +13,18 @@ public sealed partial class ColumnLayout : ObservableObject
 {
     public static ColumnLayout Current { get; } = new();
 
-    /// <summary>The last column of the table takes whatever room is left. It holds the delete button, and is never narrower than this.</summary>
+    /// <summary>The last column of the table holds the delete button, and is just wide enough for it.</summary>
     public const double ActionsMinimum = 44;
 
-    [ObservableProperty] public partial double Date { get; set; } = 132;
-    [ObservableProperty] public partial double BankDate { get; set; } = 132;
-    [ObservableProperty] public partial double Counterparty { get; set; } = 300;
-    [ObservableProperty] public partial double Memo { get; set; } = 170;
-    [ObservableProperty] public partial double Item { get; set; } = 170;
-    [ObservableProperty] public partial double Account { get; set; } = 160;
-    [ObservableProperty] public partial double Outflow { get; set; } = 104;
-    [ObservableProperty] public partial double Inflow { get; set; } = 104;
-    [ObservableProperty] public partial double Cleared { get; set; } = 80;
+    [ObservableProperty] public partial double Date { get; set; } = 128;
+    [ObservableProperty] public partial double BankDate { get; set; } = 128;
+    [ObservableProperty] public partial double Counterparty { get; set; } = 240;
+    [ObservableProperty] public partial double Memo { get; set; } = 160;
+    [ObservableProperty] public partial double Item { get; set; } = 200;
+    [ObservableProperty] public partial double Account { get; set; } = 140;
+    [ObservableProperty] public partial double Outflow { get; set; } = 100;
+    [ObservableProperty] public partial double Inflow { get; set; } = 100;
+    [ObservableProperty] public partial double Cleared { get; set; } = 72;
 
     /// <summary>The width of the edit panel on the right, including its left padding.</summary>
     [ObservableProperty] public partial double DetailWidth { get; set; } = 344;
@@ -109,7 +109,10 @@ public sealed partial class ColumnLayout : ObservableObject
     private static readonly string[] Keys =
         [nameof(Date), nameof(BankDate), nameof(Counterparty), nameof(Memo), nameof(Item), nameof(Account), nameof(Outflow), nameof(Inflow), nameof(Cleared), nameof(DetailWidth)];
 
-    public string Serialize() => JsonSerializer.Serialize(Keys.ToDictionary(k => k, Get));
+    // Bumped when the normal sizes change, so sizes saved by an older version (which were only ever its own defaults or tests) are dropped once.
+    private const double LayoutVersion = 2;
+
+    public string Serialize() => JsonSerializer.Serialize(Keys.ToDictionary(k => k, Get).Append(new("v", LayoutVersion)).ToDictionary());
 
     /// <summary>Puts back sizes saved by an earlier run. Anything missing or out of range keeps its normal size.</summary>
     public void Load(string? saved)
@@ -118,7 +121,7 @@ public sealed partial class ColumnLayout : ObservableObject
         try
         {
             var widths = JsonSerializer.Deserialize<Dictionary<string, double>>(saved);
-            if (widths is null) return;
+            if (widths is null || !widths.TryGetValue("v", out var version) || version != LayoutVersion) return;
             foreach (var (key, width) in widths.Where(w => Keys.Contains(w.Key)))
                 if (double.IsFinite(width)) Set(key, width);
         }

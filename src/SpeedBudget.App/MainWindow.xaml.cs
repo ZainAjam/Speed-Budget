@@ -181,6 +181,7 @@ public sealed partial class MainWindow : Window
                 await MoveAccountAsync(dragged, account.Id);
             _draggedAccount = null;
         };
+        row.Tapped += (_, _) => Nav.SelectedItem = item;   // the row takes the click while it is draggable, so it opens the page itself
         row.DropCompleted += (_, _) => _draggedAccount = null;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
         return item;

@@ -393,6 +393,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     [ObservableProperty] public partial string AccountBadgeTip { get; set; } = "";
     [ObservableProperty] public partial Microsoft.UI.Xaml.Media.Brush? AccountBadgeBrush { get; set; }
     [ObservableProperty] public partial Microsoft.UI.Xaml.Media.Brush? AccountBadgeTextBrush { get; set; }
+    [ObservableProperty] public partial Microsoft.UI.Xaml.Media.Brush? AccountBadgeBorderBrush { get; set; }
     [ObservableProperty] public partial string AvailableText { get; set; } = "";
     [ObservableProperty] public partial string ClearedText { get; set; } = "";
     [ObservableProperty] public partial string UnclearedText { get; set; } = "";
@@ -530,7 +531,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
             AccountBadgeTip = viewed is { IsOnBudget: true }
                 ? "This account is part of your budget: its transactions count against your budget items."
                 : "This account is only tracked: it sits outside your budget, so its transactions don't affect it.";
-            AccountBadgeBrush = Format.Theme(viewed is { IsOnBudget: true } ? "AccentFillColorDefaultBrush" : "ControlStrongFillColorDefaultBrush");
+            // A budget account is a solid accent label; a tracking one is a plain outlined label in the normal text colour, which reads clearly on any background.
+            AccountBadgeBrush = Format.Theme(viewed is { IsOnBudget: true } ? "AccentFillColorDefaultBrush" : "CardBackgroundFillColorDefaultBrush");
+            AccountBadgeBorderBrush = Format.Theme(viewed is { IsOnBudget: true } ? "AccentFillColorDefaultBrush" : "ControlStrongStrokeColorDefaultBrush");
             AccountBadgeTextBrush = Format.Theme(viewed is { IsOnBudget: true } ? "TextOnAccentFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
 
             EntryAccounts.Clear();

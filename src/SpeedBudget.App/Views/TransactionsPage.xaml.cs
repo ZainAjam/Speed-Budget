@@ -196,13 +196,14 @@ public sealed partial class TransactionsPage : Page
         if (index < 0) return;
         var widths = new Dictionary<string, double>(_gripWidths);
 
-        if (shift)
+        var isLast = index == _gripColumns.Count - 1;
+        if (shift || (isLast && dx >= 0))
         {
-            widths[column] = _gripWidths[column] + dx;
+            widths[column] = _gripWidths[column] + dx;   // the last column has no neighbour to trade with, so the table grows
         }
         else if (dx >= 0)
         {
-            var room = _gripFillerStart - ColumnLayout.ActionsMinimum;
+            var room = 0.0;
             for (var j = index + 1; j < _gripColumns.Count; j++) room += _gripWidths[_gripColumns[j]] - ColumnLayout.MinimumOf(_gripColumns[j]);
             var amount = Math.Min(Math.Min(dx, room), 600 - _gripWidths[column]);
             widths[column] = _gripWidths[column] + amount;
@@ -217,7 +218,7 @@ public sealed partial class TransactionsPage : Page
         else
         {
             var room = 0.0;
-            for (var j = 0; j <= index; j++) room += _gripWidths[_gripColumns[j]] - ColumnLayout.MinimumOf(_gripColumns[j]);
+            for (var j = isLast ? index : 0; j <= index; j++) room += _gripWidths[_gripColumns[j]] - ColumnLayout.MinimumOf(_gripColumns[j]);
             var amount = Math.Min(-dx, room);
             if (index + 1 < _gripColumns.Count) amount = Math.Min(amount, 600 - _gripWidths[_gripColumns[index + 1]]);
             if (index + 1 < _gripColumns.Count) widths[_gripColumns[index + 1]] = _gripWidths[_gripColumns[index + 1]] + amount;
@@ -320,7 +321,7 @@ public sealed partial class TransactionsPage : Page
 
     private void UpdateTableWidth()
     {
-        TableRegion.Width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);   // the edit panel floats over the table, so it needs no room of its own
+        TableRegion.Width = Layout.FixedTotal;   // exactly as wide as its columns; the edit panel floats over it, so it needs no room of its own
     }
 
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>

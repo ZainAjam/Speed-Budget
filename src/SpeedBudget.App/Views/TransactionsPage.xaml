@@ -159,6 +159,7 @@
             <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
             <!-- Says whether this account is part of the budget or only tracked -->
             <Border Grid.Column="1" CornerRadius="14" Padding="14,5" VerticalAlignment="Center" Background="{x:Bind ViewModel.AccountBadgeBrush, Mode=OneWay}"
+                    BorderBrush="{x:Bind ViewModel.AccountBadgeBorderBrush, Mode=OneWay}" BorderThickness="1"
                     Visibility="{x:Bind ViewModel.ShowAccountBadge, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind ViewModel.AccountBadgeTip, Mode=OneWay}">
                 <TextBlock Text="{x:Bind ViewModel.AccountBadgeText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
                            Foreground="{x:Bind ViewModel.AccountBadgeTextBrush, Mode=OneWay}" />
@@ -233,7 +234,7 @@
         <!-- The table. If the window is too narrow for it, this area scrolls sideways instead of squeezing the Counterparty column away. -->
         <ScrollViewer Grid.Row="5" x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
-        <Grid x:Name="TableRegion">
+        <Grid x:Name="TableRegion" HorizontalAlignment="Left">
             <Border CornerRadius="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
                 <Grid>
                     <Grid.RowDefinitions>
