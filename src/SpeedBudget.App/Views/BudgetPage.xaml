@@ -30,13 +30,22 @@
         </DataTemplate>
 
         <DataTemplate x:Key="SummaryLabelTemplate" x:DataType="vm:SummaryLabel">
-            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="12,0">
+            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="12,0,4,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
                 <TextBlock Text="{x:Bind Text}" VerticalAlignment="Center" Opacity="0.85" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" />
+                <!-- Shows or hides the other monthly figures; only "Available to budget" stays in view when they are hidden -->
+                <Button Grid.Column="1" Click="SummaryToggle_Click" Visibility="{x:Bind IsStrong}" Padding="8" Background="Transparent" BorderThickness="0"
+                        AutomationProperties.Name="Show or hide the monthly figures" ToolTipService.ToolTip="Show or hide the monthly figures">
+                    <FontIcon Glyph="{x:Bind ToggleGlyph, Mode=OneWay}" FontSize="12" />
+                </Button>
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="SummaryCellTemplate" x:DataType="vm:SummaryCell">
-            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="8,0">
+            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
                 <TextBlock Text="{x:Bind Text, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" HorizontalAlignment="Stretch" HorizontalTextAlignment="Center"
                            VerticalAlignment="Center" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" FontSize="{x:Bind app:Glyphs.SummarySize(IsStrong)}" />
             </Grid>

@@ -11,7 +11,8 @@ namespace SpeedBudget.App;
 
 public sealed partial class MainWindow : Window
 {
-    private readonly NavigationViewItem _transactions = new() { Content = "Transactions", Tag = "tx", Icon = new SymbolIcon(Symbol.List), };
+    // "Transactions" is only a label for the accounts listed under it: it cannot be selected, and pressing it does nothing.
+    private readonly NavigationViewItem _transactions = new() { Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false };
 
     private bool _onTransactions;
     private Guid? _accountPage;
@@ -31,6 +32,7 @@ public sealed partial class MainWindow : Window
         var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
         var items = new NavigationViewItem { Content = "Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
+        _transactions.Content = SubHeading("Transactions");
         Nav.MenuItems.Add(Heading("Activity"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
@@ -49,12 +51,12 @@ public sealed partial class MainWindow : Window
         AppServices.Db.SavedChanges += (_, _) => DispatcherQueue.TryEnqueue(() => { _balanceTimer.Stop(); _balanceTimer.Start(); });
 
         // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Counterparties and Budget Items.
-        var shortcuts = new[] { budget, _transactions, accounts, payees, items };
+        var shortcuts = new[] { budget, null, accounts, payees, items };   // the second one is the first account in the list
         for (var i = 0; i < shortcuts.Length; i++)
         {
             var target = shortcuts[i];
             var accelerator = new KeyboardAccelerator { Key = VirtualKey.Number1 + i, Modifiers = VirtualKeyModifiers.Control };
-            accelerator.Invoked += (_, args) => { Nav.SelectedItem = target; args.Handled = true; };
+            accelerator.Invoked += (_, args) => { Nav.SelectedItem = target ?? _accountItems.FirstOrDefault() ?? (object)budget; args.Handled = true; };
             Nav.KeyboardAccelerators.Add(accelerator);
         }
 
@@ -163,6 +165,14 @@ public sealed partial class MainWindow : Window
         };
         _headingLabels.Add(label);
         return new NavigationViewItem { Content = label, Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false };
+    }
+
+    /// <summary>A smaller label inside a section, such as "Transactions" above the accounts: bold, in the normal text colour.</summary>
+    private TextBlock SubHeading(string text)
+    {
+        var label = new TextBlock { Text = text, FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+        _headingLabels.Add(label);
+        return label;
     }
 
     private readonly List<TextBlock> _headingLabels = [];
@@ -304,11 +314,11 @@ public sealed partial class MainWindow : Window
             Nav.MenuItems.Insert(at++, item);
         }
 
-        // Keep the same page selected, or fall back to the Transactions heading if its account went away.
+        // Keep the same page selected, or fall back to the first account if its account went away.
         if (selectedTag is not null && selectedTag.StartsWith("tx:"))
         {
             var again = _accountItems.FirstOrDefault(i => (string?)i.Tag == selectedTag);
-            Nav.SelectedItem = again ?? _transactions;
+            Nav.SelectedItem = again ?? _accountItems.FirstOrDefault() ?? Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string?)i.Tag == "budget");
         }
     }
 

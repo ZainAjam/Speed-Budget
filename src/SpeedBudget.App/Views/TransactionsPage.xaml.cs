@@ -72,11 +72,25 @@ public sealed partial class TransactionsPage : Page
         _ = ViewModel.CancelEditAsync();
     }
 
-    /// <summary>Enter in a text or number box: save the row's edits and finish editing it.</summary>
+    /// <summary>
+    /// Enter in any field of the row being edited saves the whole row and takes it out of edit mode; Esc drops every change to
+    /// it (or the new row altogether) and takes it out of edit mode. A list that is open (a drop-down, a calendar) keeps its
+    /// own use of these keys, and so does a picker button, where Enter opens the list.
+    /// </summary>
     private void Page_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Enter || ViewModel.Selected is null) return;
-        if (FocusManager.GetFocusedElement(XamlRoot) is not TextBox box || !IsWithin(box, TableRegion)) return;
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Escape) || ViewModel.Selected is null) return;
+        if (FocusManager.GetFocusedElement(XamlRoot) is not DependencyObject focused || !IsWithin(focused, TableRegion)) return;
+
+        if (e.Key == VirtualKey.Escape)
+        {
+            e.Handled = true;
+            ClearEditing();
+            return;
+        }
+
+        var inField = focused is TextBox or CalendarDatePicker or CheckBox or ComboBox { IsDropDownOpen: false };
+        if (!inField) return;
         e.Handled = true;
         EntryList.Focus(FocusState.Programmatic);   // the box hands over what was typed
         // A number box finishes reading its text a moment after it loses focus, so save once that has happened.

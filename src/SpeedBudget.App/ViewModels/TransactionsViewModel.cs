@@ -908,7 +908,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
     {
         var e = row.Entity;
         var onBudget = IsOnBudget(e.AccountId);
-        if (e.Amount == 0) { Message = "Enter either an outflow or an inflow."; return false; }
         if (row.IsTransfer)
         {
             if (row.OtherAccountId is null) { Message = "Choose the other account for this transfer."; return false; }
@@ -942,10 +941,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
             Guid newId;
             if (row.IsTransfer)
             {
-                var (from, to) = e.Amount < 0 ? (e.AccountId, row.OtherAccountId!.Value) : (row.OtherAccountId!.Value, e.AccountId);
+                var (from, to) = e.Amount <= 0 ? (e.AccountId, row.OtherAccountId!.Value) : (row.OtherAccountId!.Value, e.AccountId);   // with nothing typed, this account is the one paying
                 var (outgoing, incoming) = await _store.AddTransferAsync(from, to, e.Date, Math.Abs(e.Amount),
                     string.IsNullOrWhiteSpace(e.Memo) ? null : e.Memo.Trim(), row.Item.Id, dayOrder);
-                var mine = e.Amount < 0 ? outgoing : incoming;
+                var mine = e.Amount <= 0 ? outgoing : incoming;
                 mine.IsCleared = e.IsCleared;
                 mine.BankDate = e.BankDate;
                 await _store.SaveAsync();

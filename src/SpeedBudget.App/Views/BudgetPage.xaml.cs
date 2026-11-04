@@ -144,6 +144,15 @@ public sealed partial class BudgetPage : Page
         if (ViewModel.ShowManyMonths) ManyButton.IsChecked = true;
     }
 
+    /// <summary>The arrow beside "Available to budget": shows or hides the monthly figures above it, and remembers the choice.</summary>
+    private async void SummaryToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var expanded = !SummaryView.Expanded;
+        ViewModel.SetSummaryExpanded(expanded);
+        try { await AppServices.Store.SetLocalSettingAsync("budgetSummary", expanded ? "1" : "0"); }
+        catch { /* the choice still applies for this run */ }
+    }
+
     // ---- Editing budgeted amounts from the keyboard ----
 
     /// <summary>On entering a cell: remember its value for Esc, and select it so typing replaces it.</summary>
@@ -155,7 +164,7 @@ public sealed partial class BudgetPage : Page
     }
 
     /// <summary>
-    /// Enter saves and moves down to the next cell; Esc cancels the edit; Up and Down move between cells. The press is
+    /// Enter saves the amount and leaves the cell; Esc puts the old amount back and leaves it; Up and Down move between cells. The press is
     /// seen before the box's own handling (which would otherwise step the number up or down on the arrow keys).
     /// Leaving a cell is what saves it, so every route out of the cell commits what was typed.
     /// </summary>
@@ -166,8 +175,7 @@ public sealed partial class BudgetPage : Page
         {
             case VirtualKey.Enter:
                 e.Handled = true;
-                if (NeighbourBox(box, down: true) is { } below) below.Focus(FocusState.Keyboard);
-                else BudgetScroll.Focus(FocusState.Programmatic);
+                BudgetScroll.Focus(FocusState.Programmatic);   // leaving the cell is what saves it
                 break;
             case VirtualKey.Down:
             case VirtualKey.Up:

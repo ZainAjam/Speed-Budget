@@ -98,7 +98,7 @@ to bring you back to it.
 **Hold income for next month.** Right-click an income item and choose **Hold for next month** to keep part of
 this month's pay for next month, so you budget with money you already have.
 
-**Watch the items that matter.** The strip at the top of the Transactions screens can show up to three budget items
+**Watch the items that matter.** The strip at the top of the Transactions screens can show up to five budget items
 with what is left on each. Press **+** to add one, click one to jump to it on the Budget screen, and right-click one to
 remove it.
 

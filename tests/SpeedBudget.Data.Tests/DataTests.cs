@@ -381,8 +381,8 @@ public sealed class DataTests : IDisposable
         var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
         var (from, _) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 40_00, null, null);
 
-        from.Amount = 0;
-        await Assert.ThrowsAsync<ArgumentException>(() => _store.UpdateTransferAsync(from.Id, null, null));
+        from.Amount = -10_00;
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.UpdateTransferAsync(from.Id, a.Id, null));   // to its own account
 
         Assert.Equal(-40_00, from.Amount);
     }
@@ -499,13 +499,32 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task A_transfer_can_have_nothing_in_it_and_keeps_its_direction()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+        var (from, to) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 0, null, null);
+        Assert.Equal(0, from.Amount);
+        Assert.Equal(0, to.Amount);
+
+        from.Amount = -25_00;
+        await _store.UpdateTransferAsync(from.Id, null, null);
+        from.Amount = 0;
+        await _store.UpdateTransferAsync(from.Id, null, null);   // back to nothing: each side keeps its role
+
+        Assert.Equal(0, to.Amount);
+        Assert.Equal("Transfer to B", from.Payee);
+        Assert.Equal("Transfer from A", to.Payee);
+    }
+
+    [Fact]
     public async Task Invalid_transfers_are_rejected()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
         var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
 
         await Assert.ThrowsAsync<ArgumentException>(() => _store.AddTransferAsync(a.Id, a.Id, new(2027, 1, 5), 10_00, null, null));
-        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 0, null, null));
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), -1, null, null));
     }
 
     [Fact]

@@ -4,6 +4,18 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.9
+
+- In money boxes you can type either a point or a comma as the decimal mark, anywhere in the app: "1.5" and "1,5" both mean one and a half. Sums such as 3.5+1.5 work too.
+- Scrolling the mouse wheel over a budget amount no longer changes it. The page scrolls instead.
+- On the Budget screen, pressing Enter in an amount saves it and leaves the cell; Esc puts the old amount back and leaves it; the Up and Down arrows move between amounts.
+- The monthly figures at the top of the Budget screen start collapsed, with only **Available to budget** showing. Press the arrow beside it to show or hide the rest; the app remembers your choice.
+- In the left panel, **Transactions** is now just a heading for the accounts under it. It can't be pressed and opens nothing.
+- In a transaction or transfer, pressing Enter in a field saves the whole record and takes it out of edit mode (new or existing). Pressing Esc drops every change to it, or the new record altogether, and takes it out of edit mode.
+- A transaction or transfer no longer needs an outflow or an inflow: both can be empty.
+- On a transactions screen, the balances now sit in the middle of the top line, between the account name and the account type, in the order Cleared, Uncleared, Available. The New Transaction, New Transfer and Start a new month buttons sit in the middle of the Recorded transactions line. This leaves more room for the table.
+- The strip of watched budget items can now hold up to five items instead of three.
+
 ## 0.9.8
 
 - The button that hid the left panel is gone. In App Settings, under **User Interface**, **Side panel** now has three choices: **Expanded** (the full panel), **Expand on hover only** (the default: a narrow strip of icons that opens while the pointer is over it) and **Collapsed** (always the narrow strip of icons). App Settings also has a line between each of its sections.

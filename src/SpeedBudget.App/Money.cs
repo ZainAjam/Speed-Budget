@@ -1,4 +1,6 @@
+using System.Globalization;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.Globalization.NumberFormatting;
@@ -25,7 +27,7 @@ public static class Money
 
     public static void Apply(NumberBox box)
     {
-        box.NumberFormatter = new DecimalFormatter { FractionDigits = 2, IntegerDigits = 1, IsGrouped = true };
+        box.NumberFormatter = new MoneyFormatter();
         box.Loaded -= RightAlign;
         box.Loaded += RightAlign;
     }
@@ -33,7 +35,51 @@ public static class Money
     // NumberBox has no alignment of its own, so reach the text box inside its template once it is loaded.
     private static void RightAlign(object sender, RoutedEventArgs e)
     {
-        if (sender is NumberBox box && FindTextBox(box) is { } input) input.TextAlignment = Microsoft.UI.Xaml.TextAlignment.Right;
+        if (sender is NumberBox box && FindTextBox(box) is { } input)
+        {
+            input.TextAlignment = Microsoft.UI.Xaml.TextAlignment.Right;
+            input.PreviewKeyDown -= DecimalKey;
+            input.PreviewKeyDown += DecimalKey;
+            input.PointerWheelChanged -= IgnoreWheel;
+            input.PointerWheelChanged += IgnoreWheel;
+        }
+    }
+
+    /// <summary>
+    /// Scrolling the mouse wheel over a money box must never step its amount up or down, so the box does not get to see it.
+    /// The page behind it scrolls instead, as it would anywhere else.
+    /// </summary>
+    private static void IgnoreWheel(object sender, PointerRoutedEventArgs e)
+    {
+        e.Handled = true;
+        var delta = e.GetCurrentPoint(null).Properties.MouseWheelDelta;
+        for (var node = VisualTreeHelper.GetParent((DependencyObject)sender); node is not null; node = VisualTreeHelper.GetParent(node))
+        {
+            if (node is ScrollViewer { ScrollableHeight: > 0, VerticalScrollMode: not ScrollMode.Disabled } viewer)
+            {
+                viewer.ChangeView(null, viewer.VerticalOffset - delta, null, disableAnimation: true);
+                break;
+            }
+        }
+    }
+
+    /// <summary>Typing a point or a comma gives the decimal separator this PC uses, whichever of the two is pressed.</summary>
+    private static void DecimalKey(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not TextBox input) return;
+        var key = (int)e.Key;
+        if (key is not (188 or 190 or 110 or 194)) return;   // comma, full stop, numpad decimal, numpad separator
+        var down = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread;
+        if (down(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)
+            || down(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
+
+        var separator = CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
+        if (key == 188 && separator == ",") return;   // already what it would type
+        if (key == 190 && separator == ".") return;
+        e.Handled = true;
+        input.SelectedText = separator;
+        input.SelectionStart += input.SelectionLength;
+        input.SelectionLength = 0;
     }
 
     internal static TextBox? FindTextBox(DependencyObject parent)
@@ -45,5 +91,54 @@ public static class Money
             if (FindTextBox(child) is { } found) return found;
         }
         return null;
+    }
+}
+
+/// <summary>
+/// Formats money with two decimals and thousands separators, and reads what was typed with either a point or a comma as the
+/// decimal mark. Text such as "1 250,50", "1250.5" or "1,250.50" all give the amount that was meant.
+/// </summary>
+internal sealed class MoneyFormatter : INumberFormatter2, INumberParser
+{
+    private readonly DecimalFormatter _inner = new() { FractionDigits = 2, IntegerDigits = 1, IsGrouped = true };
+
+    public string FormatInt(long value) => _inner.FormatInt(value);
+    public string FormatUInt(ulong value) => _inner.FormatUInt(value);
+    public string FormatDouble(double value) => _inner.FormatDouble(value);
+
+    public long? ParseInt(string text) => ParseDouble(text) is { } d ? (long)Math.Round(d) : null;
+    public ulong? ParseUInt(string text) => ParseDouble(text) is { } d and >= 0 ? (ulong)Math.Round(d) : null;
+
+    public double? ParseDouble(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var t = new string(text.Where(c => !char.IsWhiteSpace(c) && c != '\u00A0' && c != '\u202F').ToArray());
+        var negative = t.StartsWith('-') || t.StartsWith('\u2212');
+        t = t.TrimStart('-', '\u2212', '+');
+
+        var dot = t.LastIndexOf('.');
+        var comma = t.LastIndexOf(',');
+        int decimalAt;
+        if (dot >= 0 && comma >= 0) decimalAt = Math.Max(dot, comma);                       // both marks: the last one is the decimal
+        else if (dot < 0 && comma < 0) decimalAt = -1;
+        else
+        {
+            var mark = dot >= 0 ? '.' : ',';
+            var count = t.Count(c => c == mark);
+            var after = t.Length - Math.Max(dot, comma) - 1;
+            var groupsHere = CultureInfo.CurrentCulture.NumberFormat.NumberGroupSeparator.Contains(mark);
+            // A mark that appears more than once, or that this PC uses for thousands and has three digits after it, groups digits.
+            decimalAt = count > 1 || (groupsHere && after == 3) ? -1 : Math.Max(dot, comma);
+        }
+
+        var whole = decimalAt < 0 ? t : t[..decimalAt];
+        var fraction = decimalAt < 0 ? "" : t[(decimalAt + 1)..];
+        whole = new string(whole.Where(char.IsDigit).ToArray());
+        fraction = new string(fraction.Where(char.IsDigit).ToArray());
+        if (whole.Length == 0 && fraction.Length == 0) return null;
+
+        var invariant = (whole.Length == 0 ? "0" : whole) + (fraction.Length > 0 ? "." + fraction : "");
+        if (!double.TryParse(invariant, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)) return null;
+        return negative ? -value : value;
     }
 }

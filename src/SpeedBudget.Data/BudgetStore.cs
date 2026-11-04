@@ -356,7 +356,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
 
     /// <summary>Ids of items pinned to the watcher strip, in the order they were set up.</summary>
     /// <summary>The watcher strip shows at most this many budget items.</summary>
-    public const int MaxPinnedItems = 3;
+    public const int MaxPinnedItems = 5;
 
     public async Task<List<Guid>> GetPinnedItemIdsAsync(CancellationToken ct = default) =>
         await db.Items.AsNoTracking().Where(i => i.IsPinned && !i.IsArchived && i.Kind == ItemKind.Expense)
@@ -915,7 +915,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         Guid fromAccountId, Guid toAccountId, DateOnly date, long amount, string? memo, Guid? budgetItemId,
         int? dayOrder = null, CancellationToken ct = default)
     {
-        if (amount <= 0) throw new ArgumentException("A transfer amount must be more than zero.");
+        if (amount < 0) throw new ArgumentException("A transfer amount can't be negative.");
         if (fromAccountId == toAccountId) throw new ArgumentException("Choose two different accounts.");
 
         var from = await db.Accounts.SingleAsync(a => a.Id == fromAccountId, ct);
@@ -977,7 +977,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var partner = await db.Transactions.SingleAsync(t => t.TransferPairId == pair && t.Id != sourceId, ct);
         try
         {
-            if (source.Amount == 0) throw new ArgumentException("A transfer amount must be more than zero.");
             if (otherAccountId is { } other) partner.AccountId = other;
             if (source.AccountId == partner.AccountId) throw new ArgumentException("Choose two different accounts.");
 
@@ -986,7 +985,9 @@ public sealed class BudgetStore(SpeedBudgetDb db)
             partner.Memo = source.Memo;
             partner.Amount = -source.Amount;
 
-            var (outgoing, incoming) = source.Amount < 0 ? (source, partner) : (partner, source);
+            // With an amount of nothing there is no sign to say which side is paying, so each side keeps the role its name gives it.
+            var sourceIsOutgoing = source.Amount < 0 || (source.Amount == 0 && source.Payee.StartsWith("Transfer to", StringComparison.Ordinal));
+            var (outgoing, incoming) = sourceIsOutgoing ? (source, partner) : (partner, source);
             var from = await db.Accounts.SingleAsync(a => a.Id == outgoing.AccountId, ct);
             var to = await db.Accounts.SingleAsync(a => a.Id == incoming.AccountId, ct);
             outgoing.Payee = $"Transfer to {to.Name}";

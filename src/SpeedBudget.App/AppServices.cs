@@ -45,6 +45,8 @@ public static class AppServices
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not set the start of the budget: {ex.Message}"); }
         try { var saved = Store.GetLocalSettingAsync("panelMode").GetAwaiter().GetResult(); if (saved is "show" or "hover" or "hide") PanelMode = saved; }
         catch { /* the panel just uses the normal mode */ }
+        try { SpeedBudget.App.ViewModels.SummaryView.Expanded = Store.GetLocalSettingAsync("budgetSummary").GetAwaiter().GetResult() == "1"; }
+        catch { /* the figures just start hidden */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.

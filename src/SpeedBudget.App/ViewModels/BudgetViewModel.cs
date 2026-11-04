@@ -146,11 +146,29 @@ public sealed partial class OutflowCell : LineCell
 }
 
 /// <summary>A label in the summary block. The emphasised one is taller, to match its larger figures.</summary>
-public sealed record SummaryLabel(string Text, bool IsStrong = false);
+/// <summary>Whether the monthly figures above "Available to budget" are showing. They start hidden.</summary>
+public static class SummaryView
+{
+    public static bool Expanded { get; set; }
+}
+
+public sealed partial class SummaryLabel(string text, bool isStrong = false) : ObservableObject
+{
+    public string Text { get; } = text;
+    public bool IsStrong { get; } = isStrong;
+
+    /// <summary>Only "Available to budget" is always visible; the rest show while the figures are expanded.</summary>
+    [ObservableProperty] public partial bool IsVisible { get; set; } = isStrong || SummaryView.Expanded;
+
+    /// <summary>The arrow on the "Available to budget" row that shows or hides the other figures.</summary>
+    [ObservableProperty] public partial string ToggleGlyph { get; set; } = Glyphs.Chevron(SummaryView.Expanded);
+}
 
 public sealed partial class SummaryCell(bool isStrong) : ObservableObject
 {
     public bool IsStrong { get; } = isStrong;
+
+    [ObservableProperty] public partial bool IsVisible { get; set; } = isStrong || SummaryView.Expanded;
 
     [ObservableProperty] public partial string Text { get; set; } = "";
     [ObservableProperty] public partial Brush Brush { get; set; } = Format.Theme("TextFillColorPrimaryBrush");
@@ -214,7 +232,7 @@ public sealed partial class BudgetViewModel : ObservableObject
     {
         new SummaryLabel("Income this month"), new SummaryLabel("Held for next month"), new SummaryLabel("Released from last month"),
         new SummaryLabel("Overflow from last month"), new SummaryLabel("Carried over"), new SummaryLabel("Budgeted"),
-        new SummaryLabel("Available to budget", IsStrong: true),
+        new SummaryLabel("Available to budget", isStrong: true),
     };
 
     private readonly BudgetStore _store = AppServices.Store;
@@ -229,6 +247,19 @@ public sealed partial class BudgetViewModel : ObservableObject
     public ObservableCollection<BudgetLine> IncomeLines { get; } = new();
     public ObservableCollection<BudgetLine> OutflowLines { get; } = new();
     public ObservableCollection<MonthColumn> Columns { get; } = new();
+
+    /// <summary>Shows or hides the monthly figures above "Available to budget", in every month and in the labels.</summary>
+    public void SetSummaryExpanded(bool expanded)
+    {
+        SummaryView.Expanded = expanded;
+        foreach (var label in SummaryLabels)
+        {
+            if (!label.IsStrong) label.IsVisible = expanded;
+            else label.ToggleGlyph = Glyphs.Chevron(expanded);
+        }
+        foreach (var column in Columns)
+            foreach (var cell in column.Summary.Where(c => !c.IsStrong)) cell.IsVisible = expanded;
+    }
 
     [ObservableProperty] public partial bool CanGoBack { get; set; }
     [ObservableProperty] public partial bool CanGoForward { get; set; }
