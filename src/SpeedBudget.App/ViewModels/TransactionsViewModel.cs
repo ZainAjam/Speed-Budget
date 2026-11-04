@@ -627,7 +627,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
             Message = "";
             await LoadRowsAsync(Guid.Empty);
         }
-        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            Message = $"Could not save: {ex.Message}";
+            await LoadRowsAsync(Guid.Empty);   // show the month as it really is, not the one that was refused
+        }
         finally { _gate.Release(); }
     }
 

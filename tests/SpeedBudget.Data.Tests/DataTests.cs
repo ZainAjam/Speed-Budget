@@ -406,6 +406,26 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task A_setting_can_be_set_again_after_it_was_removed()
+    {
+        await _store.SetSettingAsync("k", "1");
+        await _store.SetSettingAsync("k", null);
+        Assert.Null(await _store.GetSettingAsync("k"));
+
+        await _store.SetSettingAsync("k", "2");
+        Assert.Equal("2", await _store.GetSettingAsync("k"));
+    }
+
+    [Fact]
+    public async Task The_first_month_can_be_chosen_after_it_was_set_by_a_transaction()
+    {
+        await _store.SetFirstMonthLabelAsync("March 2024");   // removes the "renamed" setting
+        await _store.RenameFirstMonthAsync("November 2025");   // sets it again
+
+        Assert.Equal("November 2025", await _store.GetFirstMonthLabelAsync());
+    }
+
+    [Fact]
     public async Task Invalid_transfers_are_rejected()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

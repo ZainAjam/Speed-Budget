@@ -130,10 +130,16 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// <summary>Saves a synced setting. A null value removes it.</summary>
     public async Task SetSettingAsync(string key, string? value, CancellationToken ct = default)
     {
-        var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, ct);
-        if (value is null) { if (row is not null) db.Settings.Remove(row); }
+        // A removed setting stays behind as a hidden tombstone with the same id, so look for it too: adding a second row
+        // with that id would fail. Setting it again brings the tombstone back.
+        var row = await db.Settings.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Key == key, ct);
+        if (value is null) { if (row is { IsDeleted: false }) db.Settings.Remove(row); }
         else if (row is null) db.Settings.Add(new SettingEntity { Id = SettingEntity.IdFor(key), Key = key, Value = value });
-        else row.Value = value;
+        else
+        {
+            row.Value = value;
+            row.IsDeleted = false;
+        }
         await db.SaveChangesAsync(ct);
     }
 

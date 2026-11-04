@@ -7,6 +7,7 @@ into the release.
 ## 0.9.7
 
 - Transactions are now edited right in the table: click a row and its cells turn into boxes. There is no separate edit panel for transactions any more. A bin at the end of the row deletes it.
+- Fixed: choosing which month the first month is could fail with "An error occurred while saving the entity changes". It saves now, and if a change is ever refused the screen shows the month as it really is.
 - **New Transaction** and **New Transfer** now add a new editable row to the table as the latest record, dated today, instead of opening a dialog. Press Enter to save it (or choose another row), Esc to discard it. The counterparty fills in the budget item you last used with it. The old New Transaction and New Transfer dialogs are gone.
 - The first month of the budget is now simply the month of your first budget transaction, and is no longer asked about. If it is wrong, select the first "(month) starts here" line and change it.
 - Transfers can be edited in the table too. Every field is editable on both transactions and transfers, including the account. For a transfer, the Counterparty box picks the account on the other side; the date, memo and amount are shared by both sides, and the names and budget item follow along.
