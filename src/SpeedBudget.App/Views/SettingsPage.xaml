@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer>
         <StackPanel Margin="32,24" Spacing="20" MaxWidth="760" HorizontalAlignment="Left">
-            <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Text="App Settings" Style="{StaticResource TitleTextBlockStyle}" />
             <InfoBar x:Name="Status" IsOpen="False" IsClosable="True" />
 
             <StackPanel Spacing="8">

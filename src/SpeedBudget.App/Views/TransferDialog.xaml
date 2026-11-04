@@ -10,7 +10,8 @@
                   SelectionChanged="Accounts_SelectionChanged" />
         <ComboBox x:Name="ToBox" Header="To account" HorizontalAlignment="Stretch" DisplayMemberPath="Name"
                   SelectionChanged="Accounts_SelectionChanged" />
-        <CalendarDatePicker x:Name="DateBox" Header="Date" />
+        <CalendarDatePicker x:Name="DateBox" Header="Date" DateChanged="DateBox_DateChanged" />
+        <local:MonthChoicePanel x:Name="MonthChoice" />
         <NumberBox app:Money.Format="True" x:Name="AmountBox" Header="Amount (R)" PlaceholderText="0.00" SpinButtonPlacementMode="Hidden" />
         <local:ItemPicker x:Name="ItemBox" Header="Budget item" Visibility="Collapsed" AllowCreate="False" />
         <TextBlock x:Name="ItemHelp" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}" />

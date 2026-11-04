@@ -18,19 +18,37 @@ public sealed partial class TransactionsPage : Page
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(TransactionsViewModel.HasSelection) or nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
-            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) ShowFirstMonth();
+            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) { ShowFirstMonth(); ShowMarkerDate(); }
         };
         FirstMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
     }
 
-    // The fixed columns need about 700 pixels and the Counterparty column at least 160 more. The side panel adds its own width.
-    private const double TableMinWidth = 860;
+    // The fixed columns need about 800 pixels and the Counterparty column at least 160 more. The side panel adds its own width.
+    private const double TableMinWidth = 964;
     private const double DetailPanelWidth = 344;
 
     private void UpdateDetailPanel()
     {
         DetailHost.Visibility = ViewModel.HasSelection || ViewModel.HasMarkerSelected ? Visibility.Visible : Visibility.Collapsed;
         UpdateTableWidth();
+    }
+
+    // ---- The date a month line sits at ----
+
+    private bool _showingMarkerDate;
+
+    private void ShowMarkerDate()
+    {
+        if (ViewModel.SelectedMarker is not { Entity: { } line }) return;
+        _showingMarkerDate = true;
+        MarkerDateBox.Date = new DateTimeOffset(line.Date.ToDateTime(TimeOnly.MinValue));
+        _showingMarkerDate = false;
+    }
+
+    private async void MarkerDate_Changed(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
+    {
+        if (_showingMarkerDate || args.NewDate is not { } date) return;
+        await ViewModel.MoveSelectedMarkerToDateAsync(DateOnly.FromDateTime(date.DateTime));
     }
 
     // ---- Choosing which month the first month is ----

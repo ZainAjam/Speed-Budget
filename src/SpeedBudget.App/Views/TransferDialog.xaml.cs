@@ -23,6 +23,11 @@ public sealed partial class TransferDialog : ContentDialog
         if (vm.EntryAccounts.Count > 0) FromBox.SelectedIndex = 0;
     }
 
+    private async void DateBox_DateChanged(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
+    {
+        if (args.NewDate is { } date) await MonthChoice.ShowForAsync(DateOnly.FromDateTime(date.DateTime));
+    }
+
     private void Accounts_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         var from = FromBox.SelectedItem as AccountOption;
@@ -49,7 +54,7 @@ public sealed partial class TransferDialog : ContentDialog
         var deferral = args.GetDeferral();
         var error = await _vm.AddTransferAsync(
             FromBox.SelectedItem as AccountOption, ToBox.SelectedItem as AccountOption,
-            DateBox.Date ?? DateTimeOffset.Now, AmountBox.Value, MemoBox.Text, ItemBox.SelectedItem);
+            DateBox.Date ?? DateTimeOffset.Now, AmountBox.Value, MemoBox.Text, ItemBox.SelectedItem, MonthChoice.SelectedDayOrder);
         Error.Text = error ?? "";
         args.Cancel = error is not null;
         deferral.Complete();

@@ -147,7 +147,7 @@
                 <Button Content="Start empty" Click="Empty_Click" />
             </StackPanel>
             <TextBlock TextWrapping="Wrap" Opacity="0.7"
-                       Text="The setup offers a typical household list, a short minimal list, or an empty start. You can run it again later from Settings." />
+                       Text="The setup offers a typical household list, a short minimal list, or an empty start. You can run it again later from App Settings." />
         </StackPanel>
 
         <Grid x:Name="BudgetContent" Visibility="Collapsed" RowSpacing="12">

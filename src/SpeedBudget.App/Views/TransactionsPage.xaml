@@ -33,6 +33,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="104" />
                     <ColumnDefinition Width="*" MinWidth="160" />
                     <ColumnDefinition Width="{x:Bind ItemColumnWidth}" />
                     <ColumnDefinition Width="{x:Bind AccountColumnWidth}" />
@@ -43,23 +44,26 @@
                 <Border Style="{StaticResource CellBorder}">
                     <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
                 </Border>
-                <Border Grid.Column="1" Style="{StaticResource CellBorder}" Background="Transparent" ContextRequested="Counterparty_ContextRequested">
+                <Border Grid.Column="1" Style="{StaticResource CellBorder}">
+                    <TextBlock Text="{x:Bind BankDateText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.85" />
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource CellBorder}" Background="Transparent" ContextRequested="Counterparty_ContextRequested">
                     <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Border>
-                <Border Grid.Column="2" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
+                <Border Grid.Column="3" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
                     <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                 </Border>
-                <Border Grid.Column="3" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
+                <Border Grid.Column="4" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
                     <TextBlock Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                 </Border>
-                <Border Grid.Column="4" Style="{StaticResource CellBorder}">
+                <Border Grid.Column="5" Style="{StaticResource CellBorder}">
                     <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 </Border>
-                <Border Grid.Column="5" Style="{StaticResource CellBorder}">
+                <Border Grid.Column="6" Style="{StaticResource CellBorder}">
                     <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 </Border>
                 <!-- A reconciled transaction shows a padlock instead of the Cleared tick; pressing it offers to unreconcile. -->
-                <Border Grid.Column="6" Style="{StaticResource CellBorder}" BorderThickness="0,0,0,1" Padding="0,2">
+                <Border Grid.Column="7" Style="{StaticResource CellBorder}" BorderThickness="0,0,0,1" Padding="0,2">
                     <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
                         <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" Visibility="{x:Bind IsEditable, Mode=OneWay}" MinWidth="0"
                                   AutomationProperties.Name="Cleared" />
@@ -188,6 +192,7 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="104" />
+                            <ColumnDefinition Width="104" />
                             <ColumnDefinition Width="*" MinWidth="160" />
                             <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind ViewModel.AccountColumnWidth, Mode=OneWay}" />
@@ -196,16 +201,17 @@
                             <ColumnDefinition Width="80" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Counterparty" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
+                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><TextBlock Text="Counterparty" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
                             <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
                         </Border>
-                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
+                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
                             <TextBlock Text="Account" Style="{StaticResource HeadingText}" />
                         </Border>
-                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="7" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
                     </Grid>
                     <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
                               ItemTemplateSelector="{StaticResource EntrySelector}"
@@ -266,8 +272,8 @@
 
             <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Opacity="0.7"
-                           Text="{x:Bind ViewModel.SelectedMarker.DateText, Mode=OneWay, FallbackValue=''}" />
+                <CalendarDatePicker x:Name="MarkerDateBox" Header="This month starts on" DateChanged="MarkerDate_Changed"
+                                    Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}" />
                 <TextBlock TextWrapping="Wrap" Opacity="0.8" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}"
                            Text="Everything after this line belongs to this month. Drag the line, or use the buttons, to change where the month starts." />
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}">

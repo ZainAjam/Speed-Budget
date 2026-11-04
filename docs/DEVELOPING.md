@@ -62,7 +62,7 @@ against earlier releases), and publishes them as the GitHub Release for that tag
 0.9.0), and versions must always go up. While the major version is 0 the release is marked as a **pre-release**. No
 token is needed on your PC; the workflow uses GitHub's own.
 
-Installed copies look at this repository (the default under **Settings > Updates**, set by `DefaultSource` in
+Installed copies look at this repository (the default under **App Settings > Updates**, set by `DefaultSource` in
 `AppUpdates.cs`) when they open and every six hours, and show an **Update and restart** bar when a newer release
 exists. The repository has to be public for other people's copies to see releases. Before tagging a release that
 changes the database, install the previous release, update it to the new one, and check your data still opens.

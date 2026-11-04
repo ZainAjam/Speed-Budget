@@ -752,6 +752,34 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task A_transaction_on_a_month_lines_date_can_be_placed_in_either_month_by_its_position_in_the_day()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var line = await _store.AddMarkerAsync("February 2027", new(2027, 2, 1), copyPreviousBudget: false);
+        var lines = BudgetEngine.SortMarkers((await _store.GetMarkersAsync()).Select(m => new MonthMarker(m.Id, m.Date, m.DayOrder, m.Label)));
+
+        // Just before the line's own position: in the month that ends that day. At it, or after: in the month that starts that day.
+        Assert.Equal(BudgetEngine.FirstMonthId, BudgetEngine.MonthOf(lines, line.Date, line.DayOrder - 1));
+        Assert.Equal(line.Id, BudgetEngine.MonthOf(lines, line.Date, line.DayOrder));
+
+        var transfer = await _store.AddTransferAsync(cheque.Id, (await _store.AddAccountAsync("Savings", AccountType.Savings, true)).Id,
+            line.Date, 100_00, null, null, dayOrder: line.DayOrder - 1);
+        Assert.Equal(line.DayOrder - 1, transfer.From.DayOrder);
+        Assert.Equal(line.DayOrder - 1, transfer.To.DayOrder);
+    }
+
+    [Fact]
+    public async Task Moving_a_month_line_to_a_new_date_is_allowed_between_its_neighbours_only()
+    {
+        var feb = await _store.AddMarkerAsync("February 2027", new(2027, 2, 1), copyPreviousBudget: false);
+        var mar = await _store.AddMarkerAsync("March 2027", new(2027, 3, 1), copyPreviousBudget: false);
+
+        Assert.True(await _store.MoveMarkerAsync(feb, new SortKey(new(2027, 2, 15), await _store.NextDayOrderAsync(new(2027, 2, 15)))));
+        Assert.Equal(new DateOnly(2027, 2, 15), (await _store.GetMarkersAsync()).Single(m => m.Id == feb.Id).Date);
+        Assert.False(await _store.MoveMarkerAsync(feb, new SortKey(new(2027, 3, 10), 0)));   // past March's line: refused
+    }
+
+    [Fact]
     public async Task Balances_cover_one_account_or_all_of_them()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true, openingBalance: 1_000_00);

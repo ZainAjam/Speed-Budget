@@ -31,15 +31,22 @@ public sealed partial class MainWindow : Window
         var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
         var items = new NavigationViewItem { Content = "Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
-        Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Activity" });
+        Nav.MenuItems.Add(Heading("Activity"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
         Nav.MenuItems.Add(new NavigationViewItemSeparator());
-        Nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Manage" });
+        Nav.MenuItems.Add(Heading("Configurations"));
         Nav.MenuItems.Add(accounts);
         Nav.MenuItems.Add(payees);
         Nav.MenuItems.Add(items);
-        Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
+        Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
+
+        // The available balance beside each account follows every change to the data.
+        _balanceTimer = DispatcherQueue.CreateTimer();
+        _balanceTimer.Interval = TimeSpan.FromMilliseconds(300);
+        _balanceTimer.IsRepeating = false;
+        _balanceTimer.Tick += (_, _) => _ = RefreshBalancesAsync();
+        AppServices.Db.SavedChanges += (_, _) => DispatcherQueue.TryEnqueue(() => { _balanceTimer.Stop(); _balanceTimer.Start(); });
 
         // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Counterparties and Budget Items.
         var shortcuts = new[] { budget, _transactions, accounts, payees, items };
@@ -95,16 +102,67 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { UpdateBar.Message = $"The update failed: {ex.Message}"; }
     }
 
+    /// <summary>A section title in the left panel: bold and a little larger than the items, so it reads as a heading.</summary>
+    private static NavigationViewItemHeader Heading(string text) => new()
+    {
+        Content = text, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+    };
+
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _balanceTimer;
+    private readonly Dictionary<Guid, TextBlock> _balanceBlocks = [];
+
+    /// <summary>An account in the left panel: its name, and its available balance on the right.</summary>
+    private NavigationViewItem AccountItem(AccountEntity account, long balance)
+    {
+        var amount = new TextBlock { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+        ShowBalance(amount, balance);
+        _balanceBlocks[account.Id] = amount;
+
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var name = new TextBlock { Text = account.Name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        Grid.SetColumn(amount, 1);
+        row.Children.Add(name);
+        row.Children.Add(amount);
+
+        var item = new NavigationViewItem { Content = row, Tag = $"tx:{account.Id}", Icon = new SymbolIcon(Symbol.Contact2) };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
+        return item;
+    }
+
+    private static void ShowBalance(TextBlock block, long balance)
+    {
+        block.Text = ViewModels.Format.Money(balance);
+        block.Foreground = ViewModels.Format.Signed(balance);   // green above zero, red below, normal text at zero
+    }
+
+    /// <summary>Brings each account's balance up to date without rebuilding the menu.</summary>
+    private async Task RefreshBalancesAsync()
+    {
+        try
+        {
+            using var reader = LocalDatabase.OpenForReading();
+            var store = new BudgetStore(reader);
+            foreach (var (id, block) in _balanceBlocks.ToList())
+                ShowBalance(block, (await store.GetBalancesAsync(id)).BookBalance);
+        }
+        catch { /* the balances are a convenience; a failed refresh leaves the old figures */ }
+    }
+
     /// <summary>Lists "All accounts" and each open account under Transactions, so each can be viewed on its own.</summary>
     private async void RebuildAccountPages()
     {
         var selectedTag = (Nav.SelectedItem as NavigationViewItem)?.Tag as string;
         // Read on a context of its own: this runs while pages are loading and saving on the main one, which can only do one thing at a time.
         List<AccountEntity> accounts;
+        var balances = new Dictionary<Guid, long>();
         try
         {
             using var reader = LocalDatabase.OpenForReading();
-            accounts = (await new BudgetStore(reader).GetAccountsAsync()).Where(a => !a.IsClosed).ToList();
+            var readStore = new BudgetStore(reader);
+            accounts = (await readStore.GetAccountsAsync()).Where(a => !a.IsClosed).ToList();
+            foreach (var account in accounts) balances[account.Id] = (await readStore.GetBalancesAsync(account.Id)).BookBalance;
         }
         catch (Exception ex)
         {
@@ -117,8 +175,9 @@ public sealed partial class MainWindow : Window
 
         _transactions.MenuItems.Clear();
         _transactions.MenuItems.Add(new NavigationViewItem { Content = "All accounts", Tag = "tx:all", Icon = new SymbolIcon(Symbol.AllApps) });
+        _balanceBlocks.Clear();
         foreach (var account in accounts)
-            _transactions.MenuItems.Add(new NavigationViewItem { Content = account.Name, Tag = $"tx:{account.Id}", Icon = new SymbolIcon(Symbol.Contact2) });
+            _transactions.MenuItems.Add(AccountItem(account, balances.GetValueOrDefault(account.Id)));
 
         // Keep the same page selected, or fall back to the Transactions heading if its account went away.
         if (selectedTag is not null && selectedTag.StartsWith("tx:"))

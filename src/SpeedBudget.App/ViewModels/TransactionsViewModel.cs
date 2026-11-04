@@ -82,7 +82,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
             Entity.BankDate = date;
             // As in the sheet, entering a bank date clears the transaction.
             if (date is not null) Entity.IsCleared = true;
-            Changed(new[] { nameof(BankDateOffset), nameof(IsCleared) });
+            Changed(new[] { nameof(BankDateOffset), nameof(BankDateText), nameof(IsCleared) });
         }
     }
 
@@ -128,6 +128,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     }
 
     public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+    public string BankDateText => Entity.BankDate is { } bank ? bank.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : "";
     public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? "" : _item.Name;
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
@@ -462,6 +463,22 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>Changes the date a month line sits at, so the month starts on that day. Refused if it would pass another line.</summary>
+    public async Task MoveSelectedMarkerToDateAsync(DateOnly date)
+    {
+        if (SelectedMarker is not { Entity: { } entity }) return;
+        if (entity.Date == date) return;
+        await _gate.WaitAsync();
+        try
+        {
+            var order = await _store.NextDayOrderAsync(date);
+            Message = await _store.MoveMarkerAsync(entity, new SortKey(date, order)) ? "" : "A month line can't be moved past another month line.";
+            await LoadRowsAsync(entity.Id);   // also puts the date shown back if the move was refused
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>The label to suggest for a month starting on the given date: the month after the latest one.</summary>
     public string SuggestMonthLabel(DateTimeOffset date) => MonthLabels.Next(_lastMonthLabel, DateOnly.FromDateTime(date.DateTime));
 
@@ -589,7 +606,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>Returns true when the transaction was added.</summary>
-    public async Task<bool> AddAsync()
+    /// <param name="dayOrder">Where in its day the transaction sits. Only given when the date is a month line's date, to say which month it is in.</param>
+    public async Task<bool> AddAsync(int? dayOrder = null)
     {
         var accountOption = NewAccount;
         if (accountOption?.Id is not { } accountId) { Message = "Choose an account."; return false; }
@@ -608,7 +626,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var tx = await _store.AddTransactionAsync(
                 new TransactionEntity
                 {
-                    AccountId = accountId, Date = date, DayOrder = await _store.NextDayOrderAsync(date),
+                    AccountId = accountId, Date = date, DayOrder = dayOrder ?? await _store.NextDayOrderAsync(date),
                     Payee = NewPayee.Trim(), Memo = string.IsNullOrWhiteSpace(NewMemo) ? null : NewMemo.Trim(), Amount = amount,
                     IsCleared = NewIsCleared,
                 },
@@ -678,14 +696,14 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>Returns an error sentence, or null when the transfer was saved.</summary>
-    public async Task<string?> AddTransferAsync(AccountOption? from, AccountOption? to, DateTimeOffset date, double amount, string memo, ItemOption? item)
+    public async Task<string?> AddTransferAsync(AccountOption? from, AccountOption? to, DateTimeOffset date, double amount, string memo, ItemOption? item, int? dayOrder = null)
     {
         if (from?.Id is not { } fromId || to?.Id is not { } toId) return "Choose both accounts.";
         await _gate.WaitAsync();
         try
         {
             await _store.AddTransferAsync(fromId, toId, DateOnly.FromDateTime(date.DateTime), AppServices.ToCents(amount),
-                string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(), item?.Id);
+                string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(), item?.Id, dayOrder);
             await LoadRowsAsync(null);
             return null;
         }

@@ -762,7 +762,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// </summary>
     public async Task<(TransactionEntity From, TransactionEntity To)> AddTransferAsync(
         Guid fromAccountId, Guid toAccountId, DateOnly date, long amount, string? memo, Guid? budgetItemId,
-        CancellationToken ct = default)
+        int? dayOrder = null, CancellationToken ct = default)
     {
         if (amount <= 0) throw new ArgumentException("A transfer amount must be more than zero.");
         if (fromAccountId == toAccountId) throw new ArgumentException("Choose two different accounts.");
@@ -781,7 +781,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         }
 
         var pair = Guid.CreateVersion7();
-        var order = await NextDayOrderAsync(date, ct);
+        var order = dayOrder ?? await NextDayOrderAsync(date, ct);
         var outgoing = new TransactionEntity
         {
             AccountId = from.Id, Date = date, DayOrder = order, Payee = $"Transfer to {to.Name}",

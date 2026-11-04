@@ -33,6 +33,7 @@
             </Grid>
         </Border>
         <CalendarDatePicker x:Name="DateBox" Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
+        <local:MonthChoicePanel x:Name="MonthChoice" />
         <ComboBox Header="Account" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
                   SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />
         <local:PayeePicker x:Name="PayeeBox" Header="Counterparty" ItemsSource="{x:Bind ViewModel.Payees}"

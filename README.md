@@ -32,7 +32,7 @@ A short setup wizard starts by itself. It helps you create:
 - the **counterparties** you deal with most, such as shops and your employer.
 
 Nothing is saved until the last step, you can change everything later, and you can run the wizard again from
-**Settings** (it only adds what is missing).
+**App Settings** (it only adds what is missing).
 
 The budget starts on the **current calendar month**. The first time you add a transaction to a budget account, Speed
 Budget asks which month that transaction belongs to (it can be a month in the past, if you are bringing in older
@@ -63,8 +63,11 @@ Tick **Cleared** once the transaction has shown on your bank statement.
 **Move money between accounts.** Press **New Transfer**. A transfer between a budget account and a tracked account counts
 as spending or income against a budget item you choose.
 
+**Bank date.** The table shows each transaction's date and, beside it, the date it showed on your bank statement. Entering a
+bank date on a transaction also marks it as cleared.
+
 **Start a new month.** When your month rolls over, press **Start a new month** (or `Ctrl+M`), give the month a name and a
-start date, and a line appears in the list. Drag it up or down to fine-tune, or select it and use `Alt+Up` / `Alt+Down`.
+start date, and a line appears in the list. Drag it up or down to fine-tune, select it and use `Alt+Up` / `Alt+Down`, or select it and change the date it starts on. If you add a transaction or transfer on the very day a month starts, the app asks which month it belongs to, because that day could be either.
 
 **Plan your budget.** Open **Budget**. Click an amount to edit it: `Enter` saves and moves down, `Esc` cancels, the arrow
 keys move between cells, and you can type sums such as `1200+350`. Months ahead are shown as planned, so you can fill
@@ -82,7 +85,10 @@ remove it.
 **Match your bank statement.** On an account's screen, press **Reconcile**, enter the balance your bank shows, and
 cleared transactions are locked with a padlock once everything agrees. A padlock can be released if you need to change one.
 
-**Tidy up.** The **Manage** section lists Accounts, Counterparties and Budget Items. Right-click a budget item or a
+**Balances at a glance.** Under Transactions in the left panel, each account shows its available balance: green when it is above
+zero, red when below, and plain when zero.
+
+**Tidy up.** The **Configurations** section lists Accounts, Counterparties and Budget Items. Right-click a budget item or a
 counterparty anywhere to edit it, drag items to reorder them, and pick an icon for each item.
 
 ## Keyboard shortcuts
@@ -98,7 +104,7 @@ counterparty anywhere to edit it, drag items to reorder them, and pick an icon f
 ## Your data, backups and settings
 
 Everything is kept in a single file on your PC, in `%LocalAppData%\SpeedBudget`. There is no account and nothing is sent
-anywhere. The **Settings** screen (bottom left) lets you:
+anywhere. The **App Settings** screen (bottom left) lets you:
 
 - **Back up now.** A backup is also made automatically each day the app opens, and the newest 14 are kept.
   To restore one, close the app and copy it over `budget.db` in the data folder.

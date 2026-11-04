@@ -20,11 +20,13 @@ public sealed partial class NewTransactionDialog : ContentDialog
         {
             _firstBudgetTransaction = !await AppServices.Store.HasBudgetTransactionsAsync();
             UpdateFirstMonthPanel();
+            await MonthChoice.ShowForAsync(DateOnly.FromDateTime(ViewModel.NewDate.DateTime));
         };
         // The panel follows the account chosen (only budget accounts count) and starts on the transaction's own month.
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(TransactionsViewModel.NewAccount) or nameof(TransactionsViewModel.NewDate)) UpdateFirstMonthPanel();
+            if (e.PropertyName is nameof(TransactionsViewModel.NewDate)) _ = MonthChoice.ShowForAsync(DateOnly.FromDateTime(ViewModel.NewDate.DateTime));
         };
     }
 
@@ -92,7 +94,7 @@ public sealed partial class NewTransactionDialog : ContentDialog
         // Hold the dialog open until the transaction has been saved.
         var deferral = args.GetDeferral();
         if (AskForMonth) await AppServices.Store.SetFirstMonthLabelAsync(MonthLabels.For(new DateOnly(_year, _month, 1)));
-        var saved = await ViewModel.AddAsync();
+        var saved = await ViewModel.AddAsync(MonthChoice.SelectedDayOrder);
         Error.Text = saved ? "" : ViewModel.Message;
         if (!saved) ViewModel.Message = "";
         args.Cancel = !saved;
