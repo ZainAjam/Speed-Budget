@@ -255,17 +255,16 @@
                         <Border Grid.Column="7" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="8" Style="{StaticResource HeadingBorder}"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="9" Style="{StaticResource HeadingBorder}" BorderThickness="0" />
-                        <!-- Drag the right edge of a heading to resize that column. The Counterparty edge trades room with the Memo column. -->
+                        <!-- Drag the edge of a heading to resize. Columns left of Counterparty have the handle on their right edge: drag right to widen. Columns right of it sit against the right side of the table, so their handle is on the left edge: drag left to widen. Counterparty takes up the difference. -->
                         <local:ResizeGrip Grid.Column="0" Tag="Date" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="1" Tag="BankDate" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="2" Tag="Counterparty" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="3" Tag="Memo" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="4" Tag="Item" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="5" Tag="Account" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="6" Tag="Outflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="7" Tag="Inflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="8" Tag="Cleared" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="9" Tag="Actions" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="3" Tag="Memo" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="4" Tag="Item" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="5" Tag="Account" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="6" Tag="Outflow" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="7" Tag="Inflow" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="8" Tag="Cleared" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="9" Tag="Actions" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
                     <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
                               ItemTemplateSelector="{StaticResource EntrySelector}"

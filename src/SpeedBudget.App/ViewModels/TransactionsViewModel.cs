@@ -184,7 +184,10 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
     public string BankDateText => Entity.BankDate is { } bank ? bank.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : "";
-    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? "" : _item.Name;
+    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? (NeedsItem ? "⚠ Choose a budget item" : "") : _item.Name;
+
+    /// <summary>A budget account's transaction counts against an item, and so does a transfer between a budget account and a tracked one.</summary>
+    private bool NeedsItem => AccountOnBudget && !(IsTransfer && OtherOnBudget);
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
     public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : Entity.Payee;

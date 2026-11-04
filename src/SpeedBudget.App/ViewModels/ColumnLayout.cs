@@ -106,9 +106,6 @@ public sealed partial class ColumnLayout : ObservableObject
         }
     }
 
-    /// <summary>The column whose width the Counterparty edge changes: the Memo column beside it.</summary>
-    public string NextAfterCounterparty() => nameof(Memo);
-
     private static readonly string[] Keys =
         [nameof(Date), nameof(BankDate), nameof(Memo), nameof(Item), nameof(Account), nameof(Outflow), nameof(Inflow), nameof(Cleared), nameof(Actions), nameof(DetailWidth)];
 

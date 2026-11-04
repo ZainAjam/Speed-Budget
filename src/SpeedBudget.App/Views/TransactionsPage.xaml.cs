@@ -80,16 +80,15 @@ public sealed partial class TransactionsPage : Page
 
     private void Grip_Started(object? sender, EventArgs e)
     {
-        var column = ColumnOf(sender);
-        _gripStart = Layout.Get(column == "Counterparty" ? Layout.NextAfterCounterparty() : column);
+        _gripStart = Layout.Get(ColumnOf(sender));
     }
 
     private void Grip_Moved(object? sender, double dx)
     {
         var column = ColumnOf(sender);
-        if (column == "Counterparty") Layout.Set(Layout.NextAfterCounterparty(), _gripStart - dx);   // it takes the room the next column gives up
-        else if (column == nameof(ColumnLayout.DetailWidth)) Layout.Set(column, _gripStart - dx);     // the panel's edge is on its left
-        else Layout.Set(column, _gripStart + dx);
+        // Columns right of Counterparty and the side panel are resized from their left edge, so dragging left widens them.
+        if (column is nameof(ColumnLayout.Date) or nameof(ColumnLayout.BankDate)) Layout.Set(column, _gripStart + dx);
+        else Layout.Set(column, _gripStart - dx);
     }
 
     private async void Grip_Completed(object? sender, EventArgs e)

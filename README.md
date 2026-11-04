@@ -71,8 +71,9 @@ bin at the end of the row deletes the transaction. The table has a **Memo** colu
 each item its share; the shares must add up to the transaction's amount. A split transaction shows "Split (2 lines)", and
 pressing that opens the split again. You can also split while adding a new transaction.
 
-**Resize the table.** Drag the right edge of any column heading in the recorded transactions table to make that column wider
-or narrower. Your sizes are remembered. Selecting a month line opens a panel over the table from the right edge, for
+**Resize the table.** Drag the edge of a column heading in the recorded transactions table to make that column wider or narrower:
+the right edge for columns left of Counterparty (drag right to widen), the left edge for columns to its right (drag left to
+widen). Your sizes are remembered. Selecting a month line opens a panel over the table from the right edge, for
 changing its date; drag its left edge to resize it, and close it with the X or Esc.
 
 **Bank date.** The table shows each transaction's date and, beside it, the date it showed on your bank statement. Entering a
