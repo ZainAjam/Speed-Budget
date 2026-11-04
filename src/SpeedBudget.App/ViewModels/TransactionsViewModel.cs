@@ -51,6 +51,36 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public bool ShowAccountColumn { get; } = showAccountColumn;
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
+
+    /// <summary>For a transfer: the account on its other side, and whether that account is part of the budget.</summary>
+    public Guid? OtherAccountId { get; set; }
+    public bool OtherOnBudget { get; init; }
+
+    public ObservableCollection<AccountOption> Accounts => owner.EntryAccounts;
+
+    /// <summary>The account this row's transaction is in, for the Account box.</summary>
+    public AccountOption? AccountChoice
+    {
+        get => Accounts.FirstOrDefault(a => a.Id == Entity.AccountId);
+        set
+        {
+            if (value?.Id is not { } id || id == Entity.AccountId) return;
+            Entity.AccountId = id;
+            Changed(new[] { nameof(AccountChoice) }, structural: true);
+        }
+    }
+
+    /// <summary>For a transfer: the account on the other side, for the Counterparty box.</summary>
+    public AccountOption? OtherAccountChoice
+    {
+        get => Accounts.FirstOrDefault(a => a.Id == OtherAccountId);
+        set
+        {
+            if (value?.Id is not { } id || id == OtherAccountId) return;
+            OtherAccountId = id;
+            Changed(new[] { nameof(OtherAccountChoice) }, structural: true);
+        }
+    }
     public int LineCount { get; } = lineCount;
     public bool IsTransfer => Entity.TransferPairId is not null;
     public bool IsSplit => LineCount > 1;
@@ -60,24 +90,26 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     partial void OnIsEditingChanged(bool value)
     {
-        foreach (var n in new[] { nameof(ShowPayeeEditor), nameof(ShowPayeeText), nameof(ShowAmountEditor), nameof(ShowAmountText),
+        foreach (var n in new[] { nameof(ShowPayeeEditor), nameof(ShowTransferEditor), nameof(ShowPayeeText), nameof(ShowAmountEditor), nameof(ShowAmountText),
                                   nameof(ShowItemEditor), nameof(ShowSplitButton), nameof(ShowItemText), nameof(NotEditing) })
             OnPropertyChanged(n);
     }
 
     public bool NotEditing => !IsEditing;
 
-    // Which cells show a box and which show text while the row is being edited. A transfer's name and a split's amounts are fixed.
+    // Which cells show a box and which show text while the row is being edited. A transfer's counterparty is the account on
+    // its other side; it has a budget item only when exactly one of its two accounts is in the budget.
     public bool ShowPayeeEditor => IsEditing && !IsTransfer;
-    public bool ShowPayeeText => !ShowPayeeEditor;
+    public bool ShowTransferEditor => IsEditing && IsTransfer;
+    public bool ShowPayeeText => !IsEditing;
     public bool ShowAmountEditor => IsEditing && CanEditAmount;
     public bool ShowAmountText => !ShowAmountEditor;
-    public bool ShowItemEditor => IsEditing && CanEditAmount && AccountOnBudget;
+    public bool ShowItemEditor => IsEditing && CanEditAmount && AccountOnBudget && !(IsTransfer && OtherOnBudget);
     public bool ShowSplitButton => IsEditing && IsSplit;
     public bool ShowItemText => !ShowItemEditor && !ShowSplitButton;
 
-    /// <summary>Amount and item are fixed for transfers (the other side depends on them) and split lines (they must add up).</summary>
-    public bool CanEditAmount => !IsTransfer && !IsSplit;
+    /// <summary>A split's amount is fixed by its lines, which must add up. A transfer's amount is shared by its two sides.</summary>
+    public bool CanEditAmount => !IsSplit;
     public bool CanSplit => !IsTransfer;
 
     private ItemOption _item = item;
@@ -171,11 +203,12 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     private void Changed(string name, bool dateChanged = false, bool splitChanged = false) =>
         Changed(new[] { name }, dateChanged, splitChanged);
 
-    private void Changed(string[] names, bool dateChanged = false, bool splitChanged = false)
+    /// <param name="structural">An account changed, so the row has to be rebuilt from the saved data.</param>
+    private void Changed(string[] names, bool dateChanged = false, bool splitChanged = false, bool structural = false)
     {
         foreach (var n in names) OnPropertyChanged(n);
         if (names.Contains(nameof(Payee))) OnPropertyChanged(nameof(PayeeText));
-        _ = owner.RowChangedAsync(this, dateChanged, splitChanged);
+        _ = owner.RowChangedAsync(this, dateChanged, splitChanged, structural);
     }
 }
 
@@ -439,6 +472,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
         var accountsOnBudget = _accounts.ToDictionary(a => a.Id, a => a.IsOnBudget);
         var itemsById = ItemOptions.Where(o => o.Id is not null).ToDictionary(o => o.Id!.Value);
+        var transferSides = (await _store.GetTransferLinksAsync()).ToLookup(t => t.PairId);
 
         // At equal keys a line sorts before a transaction, matching the engine: a transaction level with a line is after it.
         var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
@@ -454,8 +488,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
             if (HideCleared && d.Transaction.IsCleared) continue;
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
+            var otherSide = d.Transaction.TransferPairId is { } pair
+                ? transferSides[pair].FirstOrDefault(t => t.TransactionId != d.Transaction.Id)
+                : default;
             var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count,
-                accountsOnBudget.GetValueOrDefault(d.Transaction.AccountId, true), ShowItemColumn, ShowAccountColumn, this);
+                accountsOnBudget.GetValueOrDefault(d.Transaction.AccountId, true), ShowItemColumn, ShowAccountColumn, this)
+            {
+                OtherAccountId = otherSide.TransactionId == Guid.Empty ? null : otherSide.AccountId,
+                OtherOnBudget = otherSide.TransactionId != Guid.Empty && accountsOnBudget.GetValueOrDefault(otherSide.AccountId, true),
+            };
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
 
@@ -473,19 +514,39 @@ public sealed partial class TransactionsViewModel : ObservableObject
         SelectedEntry = toSelect;
     }
 
-    public async Task RowChangedAsync(TransactionRow row, bool dateChanged, bool splitChanged)
+    public async Task RowChangedAsync(TransactionRow row, bool dateChanged, bool splitChanged, bool structural)
     {
         await _gate.WaitAsync();
         try
         {
             if (dateChanged) row.Entity.DayOrder = await _store.NextDayOrderAsync(row.Entity.Date);
-            if (splitChanged) await _store.SetSingleSplitAsync(row.Entity.Id, row.Item.Id, row.Entity.Amount);
-            else await _store.SaveAsync();
-            Message = "";
+            string? note = null;
 
-            // Clearing a row can make it drop out of a filtered list.
+            if (row.IsTransfer)
+            {
+                // The edit is shared with the other side of the transfer, which also renames both sides.
+                try { note = await _store.UpdateTransferAsync(row.Entity.Id, row.OtherAccountId, row.Item.Id); }
+                catch (ArgumentException ex)
+                {
+                    Message = ex.Message;
+                    await LoadRowsAsync(row.Entity.Id);   // shows the saved values again
+                    return;
+                }
+            }
+            else
+            {
+                var onBudget = _accounts.FirstOrDefault(a => a.Id == row.Entity.AccountId)?.IsOnBudget ?? true;
+                if (!onBudget && row.IsSplit) await _store.ClearLineItemsAsync(row.Entity.Id);   // a tracked account has no budget items
+                else if (splitChanged || (structural && !onBudget)) await _store.SetSingleSplitAsync(row.Entity.Id, onBudget ? row.Item.Id : null, row.Entity.Amount);
+                else await _store.SaveAsync();
+                if (structural && onBudget && !row.IsSplit && row.Item.Id is null) note = "Choose a budget item for this transaction.";
+            }
+            Message = note ?? "";
+
+            // Clearing a row can make it drop out of a filtered list. A transfer's names and item depend on its accounts and amount.
             var disappears = HideCleared && row.IsCleared;
-            if (dateChanged || disappears) await LoadRowsAsync(disappears ? null : row.Entity.Id);
+            if (dateChanged || structural || disappears || (row.IsTransfer && splitChanged))
+                await LoadRowsAsync(disappears ? null : row.Entity.Id);
             else await RefreshBalancesAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }

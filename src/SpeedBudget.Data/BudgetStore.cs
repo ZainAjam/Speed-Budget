@@ -810,15 +810,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var from = await db.Accounts.SingleAsync(a => a.Id == fromAccountId, ct);
         var to = await db.Accounts.SingleAsync(a => a.Id == toAccountId, ct);
 
-        Guid? fromItem = null, toItem = null;
-        if (from.IsOnBudget != to.IsOnBudget)
-        {
-            var wantedKind = from.IsOnBudget ? ItemKind.Expense : ItemKind.Income;
-            var item = budgetItemId is { } id ? await db.Items.SingleOrDefaultAsync(i => i.Id == id, ct) : null;
-            if (item is null || item.Kind != wantedKind)
-                throw new ArgumentException($"Choose an {wantedKind.ToString().ToLowerInvariant()} item for this transfer.");
-            if (from.IsOnBudget) fromItem = item.Id; else toItem = item.Id;
-        }
+        var (fromItem, toItem) = await TransferItemsAsync(from, to, budgetItemId, itemRequired: true, ct);
 
         var pair = Guid.CreateVersion7();
         var order = dayOrder ?? await NextDayOrderAsync(date, ct);
@@ -837,6 +829,95 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         db.SplitLines.Add(new SplitLineEntity { TransactionId = incoming.Id, BudgetItemId = toItem, Amount = amount });
         await db.SaveChangesAsync(ct);
         return (outgoing, incoming);
+    }
+
+    /// <summary>
+    /// Which side of a transfer carries a budget item. Only a transfer with exactly one budget account has one: an
+    /// expense item when money leaves the budget, an income item when it comes in. A wrong kind of item is refused;
+    /// a missing one is refused only when <paramref name="itemRequired"/>.
+    /// </summary>
+    private async Task<(Guid? FromItem, Guid? ToItem)> TransferItemsAsync(
+        AccountEntity from, AccountEntity to, Guid? budgetItemId, bool itemRequired, CancellationToken ct)
+    {
+        if (from.IsOnBudget == to.IsOnBudget) return (null, null);
+
+        var wantedKind = from.IsOnBudget ? ItemKind.Expense : ItemKind.Income;
+        var item = budgetItemId is { } id ? await db.Items.SingleOrDefaultAsync(i => i.Id == id, ct) : null;
+        if (item is null ? itemRequired : item.Kind != wantedKind)
+            throw new ArgumentException($"Choose an {wantedKind.ToString().ToLowerInvariant()} item for this transfer.");
+        return from.IsOnBudget ? (item?.Id, null) : (null, item?.Id);
+    }
+
+    /// <summary>The two sides of every transfer: which transaction is in which account.</summary>
+    public async Task<List<(Guid PairId, Guid TransactionId, Guid AccountId)>> GetTransferLinksAsync(CancellationToken ct = default) =>
+        (await db.Transactions.AsNoTracking().Where(t => t.TransferPairId != null).Select(t => new { t.TransferPairId, t.Id, t.AccountId }).ToListAsync(ct))
+        .Select(t => (t.TransferPairId!.Value, t.Id, t.AccountId)).ToList();
+
+    /// <summary>
+    /// Applies an edit made to one side of a transfer to the pair. The edited side (whose values have already been
+    /// changed) sets the date, memo and amount of both; the other account may be changed; the pair's counterparty names
+    /// and the item on the budget side are brought into line. Returns a note for the user when something is still
+    /// to be filled in, or null. An invalid edit is undone and refused with an <see cref="ArgumentException"/>.
+    /// </summary>
+    public async Task<string?> UpdateTransferAsync(Guid sourceId, Guid? otherAccountId, Guid? budgetItemId, CancellationToken ct = default)
+    {
+        var source = await db.Transactions.SingleAsync(t => t.Id == sourceId, ct);
+        var pair = source.TransferPairId ?? throw new ArgumentException("This is not a transfer.");
+        var partner = await db.Transactions.SingleAsync(t => t.TransferPairId == pair && t.Id != sourceId, ct);
+        try
+        {
+            if (source.Amount == 0) throw new ArgumentException("A transfer amount must be more than zero.");
+            if (otherAccountId is { } other) partner.AccountId = other;
+            if (source.AccountId == partner.AccountId) throw new ArgumentException("Choose two different accounts.");
+
+            partner.Date = source.Date;
+            partner.DayOrder = source.DayOrder;
+            partner.Memo = source.Memo;
+            partner.Amount = -source.Amount;
+
+            var (outgoing, incoming) = source.Amount < 0 ? (source, partner) : (partner, source);
+            var from = await db.Accounts.SingleAsync(a => a.Id == outgoing.AccountId, ct);
+            var to = await db.Accounts.SingleAsync(a => a.Id == incoming.AccountId, ct);
+            outgoing.Payee = $"Transfer to {to.Name}";
+            incoming.Payee = $"Transfer from {from.Name}";
+
+            var lines = await db.SplitLines.Where(l => l.TransactionId == source.Id || l.TransactionId == partner.Id).ToListAsync(ct);
+            var item = budgetItemId ?? lines.Select(l => l.BudgetItemId).FirstOrDefault(i => i is not null);
+            var (fromItem, toItem) = await TransferItemsAsync(from, to, item, itemRequired: false, ct);
+
+            foreach (var (tx, itemId) in new[] { (outgoing, fromItem), (incoming, toItem) })
+            {
+                var own = lines.Where(l => l.TransactionId == tx.Id).ToList();
+                if (own.Count == 1)
+                {
+                    own[0].BudgetItemId = itemId;
+                    own[0].Amount = tx.Amount;
+                }
+                else
+                {
+                    db.SplitLines.RemoveRange(own);
+                    db.SplitLines.Add(new SplitLineEntity { TransactionId = tx.Id, BudgetItemId = itemId, Amount = tx.Amount });
+                }
+            }
+            await db.SaveChangesAsync(ct);
+
+            return from.IsOnBudget != to.IsOnBudget && (from.IsOnBudget ? fromItem : toItem) is null
+                ? $"Choose an {(from.IsOnBudget ? "expense" : "income")} item for this transfer."
+                : null;
+        }
+        catch
+        {
+            await db.Entry(source).ReloadAsync(ct);   // undo the edit that was refused
+            await db.Entry(partner).ReloadAsync(ct);
+            throw;
+        }
+    }
+
+    /// <summary>Takes the budget item off every line of a transaction, as when it moves to an account outside the budget.</summary>
+    public async Task ClearLineItemsAsync(Guid transactionId, CancellationToken ct = default)
+    {
+        foreach (var line in await db.SplitLines.Where(l => l.TransactionId == transactionId).ToListAsync(ct)) line.BudgetItemId = null;
+        await db.SaveChangesAsync(ct);
     }
 
     /// <summary>For each payee used before, the item and account of its most recent transaction.</summary>

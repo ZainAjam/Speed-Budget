@@ -349,6 +349,63 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Editing_one_side_of_a_transfer_updates_both_sides()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var pocket = await _store.AddAccountAsync("Pocket", AccountType.Savings, false);
+        var other = await _store.AddAccountAsync("Other", AccountType.Savings, false);
+        var saving = AddItem("Savings", ItemKind.Expense);
+        var (from, to) = await _store.AddTransferAsync(cheque.Id, pocket.Id, new(2027, 1, 5), 200_00, null, saving.Id);
+
+        from.Amount = -350_00;
+        from.Date = new(2027, 1, 9);
+        from.Memo = "top up";
+        var note = await _store.UpdateTransferAsync(from.Id, other.Id, saving.Id);
+
+        Assert.Null(note);
+        Assert.Equal(350_00, to.Amount);
+        Assert.Equal(new DateOnly(2027, 1, 9), to.Date);
+        Assert.Equal("top up", to.Memo);
+        Assert.Equal(other.Id, to.AccountId);
+        Assert.Equal("Transfer to Other", from.Payee);
+        Assert.Equal("Transfer from Cheque", to.Payee);
+        var lines = await _store.GetSplitLinesAsync(from.Id);
+        Assert.Equal(saving.Id, lines.Single().BudgetItemId);
+        Assert.Equal(-350_00, lines.Single().Amount);
+    }
+
+    [Fact]
+    public async Task A_refused_transfer_edit_is_undone()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+        var (from, _) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 40_00, null, null);
+
+        from.Amount = 0;
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.UpdateTransferAsync(from.Id, null, null));
+
+        Assert.Equal(-40_00, from.Amount);
+    }
+
+    [Fact]
+    public async Task Making_a_transfer_cross_the_budget_asks_for_an_item_and_reversing_it_flips_the_names()
+    {
+        var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
+        var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
+        var tracked = await _store.AddAccountAsync("T", AccountType.Savings, false);
+        var (from, to) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 40_00, null, null);
+
+        var note = await _store.UpdateTransferAsync(from.Id, tracked.Id, null);
+        Assert.Contains("expense", note);
+
+        from.Amount = 40_00;   // the money now comes the other way
+        await _store.UpdateTransferAsync(from.Id, null, null);
+        Assert.Equal(-40_00, to.Amount);
+        Assert.Equal("Transfer from T", from.Payee);
+        Assert.Equal("Transfer to A", to.Payee);
+    }
+
+    [Fact]
     public async Task Invalid_transfers_are_rejected()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

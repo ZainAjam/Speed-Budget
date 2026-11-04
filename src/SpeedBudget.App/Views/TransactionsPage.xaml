@@ -45,7 +45,7 @@
                     <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
-                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="{x:Bind Layout.ActionsColumn, Mode=OneWay}" />
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource CellBorder}">
                     <Grid>
@@ -66,6 +66,9 @@
                 <Border Grid.Column="2" Style="{StaticResource CellBorder}" Background="Transparent" ContextRequested="Counterparty_ContextRequested">
                     <Grid>
                         <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ShowPayeeText, Mode=OneWay}" />
+                        <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind OtherAccountChoice, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind ShowTransferEditor, Mode=OneWay}"
+                                  AutomationProperties.Name="The other account in this transfer" ToolTipService.ToolTip="The other account in this transfer" />
                         <local:PayeePicker ItemsSource="{x:Bind Payees}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested"
                                            Visibility="{x:Bind ShowPayeeEditor, Mode=OneWay}"
                                            ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." />
@@ -81,13 +84,17 @@
                     <Grid>
                         <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}" />
                         <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
-                                          AllowSplit="True" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}" />
+                                          AllowSplit="{x:Bind CanSplit}" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}" />
                         <Button Content="{x:Bind ItemName, Mode=OneWay}" Click="Split_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                 Visibility="{x:Bind ShowSplitButton, Mode=OneWay}" ToolTipService.ToolTip="This transaction is split. Press to change its lines." />
                     </Grid>
                 </Border>
                 <Border Grid.Column="5" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
-                    <TextBlock Text="{x:Bind AccountName}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+                    <Grid>
+                        <TextBlock Text="{x:Bind AccountName}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind AccountChoice, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Account" />
+                    </Grid>
                 </Border>
                 <Border Grid.Column="6" Style="{StaticResource CellBorder}">
                     <Grid>
@@ -232,7 +239,7 @@
                             <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
-                            <ColumnDefinition Width="44" />
+                            <ColumnDefinition Width="{x:Bind Layout.ActionsColumn, Mode=OneWay}" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>
@@ -257,6 +264,8 @@
                         <local:ResizeGrip Grid.Column="5" Tag="Account" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="6" Tag="Outflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="7" Tag="Inflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="8" Tag="Cleared" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="9" Tag="Actions" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
                     <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
                               ItemTemplateSelector="{StaticResource EntrySelector}"

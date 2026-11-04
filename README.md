@@ -64,14 +64,14 @@ Tick **Cleared** once the transaction has shown on your bank statement.
 as spending or income against a budget item you choose.
 
 **Edit a transaction in place.** Click a row in the recorded transactions table and its cells turn into boxes: change the
-date, counterparty, memo, budget item, outflow, inflow or bank date right there. Changes save as you leave a box. The
+date, counterparty, memo, budget item, account, outflow, inflow or bank date right there. This works for transfers too: their Counterparty box picks the account on the other side, and the date, memo and amount change on both sides together. Changes save as you leave a box. The
 bin at the end of the row deletes the transaction. The table has a **Memo** column for a note on each transaction.
 
 **Split a transaction.** Open a transaction's budget item drop-down and choose **Split between several items**, then give
 each item its share; the shares must add up to the transaction's amount. A split transaction shows "Split (2 lines)", and
 pressing that opens the split again. You can also split while adding a new transaction.
 
-**Resize the table.** Drag the right edge of a column heading in the recorded transactions table to make that column wider
+**Resize the table.** Drag the right edge of any column heading in the recorded transactions table to make that column wider
 or narrower. Your sizes are remembered. Selecting a month line opens a panel over the table from the right edge, for
 changing its date; drag its left edge to resize it, and close it with the X or Esc.
 
