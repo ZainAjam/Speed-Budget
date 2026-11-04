@@ -17,6 +17,9 @@ internal static class Format
     /// <summary>A soft wash of the accent colour, to draw the eye to a row for a moment.</summary>
     public static Brush Highlight => new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColor"]) { Opacity = 0.35 };
 
+    /// <summary>A tint of the accent colour behind a budget group's heading row, so groups stand out from the items under them.</summary>
+    public static Brush GroupHeader => new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColor"]) { Opacity = 0.2 };
+
     /// <summary>Green when positive, red when negative, and the normal text colour at zero.</summary>
     public static Brush Signed(long cents) => Theme(cents > 0 ? "SystemFillColorSuccessBrush"
         : cents < 0 ? "SystemFillColorCriticalBrush" : "TextFillColorPrimaryBrush");

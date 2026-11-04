@@ -151,7 +151,19 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+            <!-- Says whether this account is part of the budget or only tracked -->
+            <Border Grid.Column="1" CornerRadius="14" Padding="14,5" VerticalAlignment="Center" Background="{x:Bind ViewModel.AccountBadgeBrush, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.ShowAccountBadge, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind ViewModel.AccountBadgeTip, Mode=OneWay}">
+                <TextBlock Text="{x:Bind ViewModel.AccountBadgeText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
+                           Foreground="{x:Bind ViewModel.AccountBadgeTextBrush, Mode=OneWay}" />
+            </Border>
+        </Grid>
 
         <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                  Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />

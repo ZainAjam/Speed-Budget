@@ -41,7 +41,7 @@ public sealed partial class BudgetLine(Guid? itemId, string name, int depth, boo
     /// <summary>True for a few seconds after the user is taken to this item, so it can be found on a long page.</summary>
     [ObservableProperty] public partial bool IsHighlighted { get; set; }
 
-    public Brush HighlightBrush => IsHighlighted ? Format.Highlight : Format.Clear;
+    public Brush HighlightBrush => IsHighlighted ? Format.Highlight : IsHeader ? Format.GroupHeader : Format.Clear;
 
     partial void OnIsHighlightedChanged(bool value) => OnPropertyChanged(nameof(HighlightBrush));
 }
