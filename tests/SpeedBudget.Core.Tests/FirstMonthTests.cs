@@ -42,10 +42,18 @@ public class FirstMonthTests
     }
 
     [Fact]
-    public void A_transaction_after_the_chosen_month_does_not_move_it()
+    public void Once_there_are_transactions_they_decide_the_first_month_not_the_setup_choice()
     {
         var s = Snapshot("March 2024", transactions: [(Budget, new DateOnly(2024, 5, 1))]);
-        Assert.Equal("March 2024", First(s));
+        Assert.Equal("May 2024", First(s));
+    }
+
+    [Fact]
+    public void A_stale_stored_month_never_forces_the_first_month()
+    {
+        // A stored "June 2025" (left over from an earlier session) must not hold the first month back once the lines say otherwise.
+        var line = new MonthMarker(Guid.NewGuid(), new DateOnly(2025, 8, 1), 0, "August 2025");
+        Assert.Equal("July 2025", First(Snapshot("June 2025", markers: [line])));
     }
 
     [Fact]

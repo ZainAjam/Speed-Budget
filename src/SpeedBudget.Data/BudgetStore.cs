@@ -97,14 +97,14 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>The month the budget was set up to begin with (or renamed to), if one was ever chosen.</summary>
+    /// <summary>The month chosen when setting up (or a name typed by the user). It only matters while there is no data to work the first month out from.</summary>
     private async Task<string?> GetStoredFirstMonthLabelAsync(CancellationToken ct = default) => await GetSettingAsync(FirstMonthLabelKey, ct);
 
     /// <summary>The name of the first month as the budget now shows it, worked out from the setup choice, the transactions and the month lines.</summary>
     public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
         BudgetEngine.FirstMonthLabelFor(await LoadSnapshotAsync(ct));
 
-    /// <summary>The month the budget begins with, chosen in the setup wizard. Earlier transactions or month lines can still move it back.</summary>
+    /// <summary>The month the budget begins with, chosen in the setup wizard. It is used until there are transactions or month lines, which decide the first month from then on.</summary>
     public async Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default)
     {
         await SetSettingAsync(FirstMonthLabelKey, label, ct);
@@ -158,7 +158,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         foreach (var h in await db.Holds.Where(h => h.MonthId == BudgetEngine.FirstMonthId).ToListAsync(ct)) h.MonthId = marker.Id;
         await db.SaveChangesAsync(ct);
 
-        await SetSettingAsync(FirstMonthLabelKey, MonthLabels.For(before), ct);
+        // The new first month needs no setting of its own: it is the month before the line just added.
         await SetSettingAsync(FirstMonthRenamedKey, null, ct);
         await transaction.CommitAsync(ct);
         return marker;

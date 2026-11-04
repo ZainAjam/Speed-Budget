@@ -24,10 +24,11 @@ public static class BudgetEngine
         markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
 
     /// <summary>
-    /// The name of the first month. It is never fixed: it is the earliest of the month the budget was set up to begin with,
-    /// the month of the first transaction in a budget account, and the month before the first month line. So a
-    /// transaction or a line dated earlier moves the first month back. A first month the user has renamed by hand
-    /// keeps its name. With nothing to go on, it is the current month.
+    /// The name of the first month, worked out from the data so it can never be stale. It is the earlier of the month of
+    /// the first transaction in a budget account (before the first month line) and the month before the first month line.
+    /// So a transaction or a line dated earlier moves it back, and removing them moves it forward again. Only when there is
+    /// no data at all does it fall back to the month chosen in the setup wizard, or else the current month. A first month
+    /// the user renamed by hand keeps its name.
     /// </summary>
     public static string FirstMonthLabelFor(BudgetSnapshot s, DateOnly? today = null, System.Globalization.CultureInfo? culture = null)
     {
@@ -36,8 +37,6 @@ public static class BudgetEngine
         var markers = SortMarkers(s.Markers);
         var firstMarker = markers.Count > 0 ? markers[0] : null;
         var candidates = new List<DateOnly>();
-
-        if (MonthLabels.TryParse(s.FirstMonthLabel, out var chosen, culture)) candidates.Add(chosen);
 
         var onBudget = s.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
         var inFirstMonth = s.Transactions.Where(t => onBudget.Contains(t.AccountId)
@@ -55,12 +54,11 @@ public static class BudgetEngine
             candidates.Add(started.AddMonths(-1));
         }
 
-        if (candidates.Count == 0)
-        {
-            var now = today ?? DateOnly.FromDateTime(DateTime.Today);
-            return string.IsNullOrWhiteSpace(s.FirstMonthLabel) ? MonthLabels.For(now, culture) : s.FirstMonthLabel;
-        }
-        return MonthLabels.For(candidates.Min(), culture);
+        if (candidates.Count > 0) return MonthLabels.For(candidates.Min(), culture);
+
+        // Nothing to go on: the month chosen when setting up, else this month.
+        if (!string.IsNullOrWhiteSpace(s.FirstMonthLabel)) return s.FirstMonthLabel;
+        return MonthLabels.For(today ?? DateOnly.FromDateTime(DateTime.Today), culture);
     }
 
     /// <summary>How many months after the latest real one are offered for budgeting ahead.</summary>
