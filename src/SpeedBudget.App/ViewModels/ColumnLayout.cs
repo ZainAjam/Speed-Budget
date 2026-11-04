@@ -89,7 +89,8 @@ public sealed partial class ColumnLayout : ObservableObject
 
     public void Set(string column, double width)
     {
-        width = Math.Max(MinimumOf(column), Math.Min(width, column == nameof(DetailWidth) ? 800 : 600));
+        if (!double.IsFinite(width)) return;
+        width = Math.Round(Math.Max(MinimumOf(column), Math.Min(width, column == nameof(DetailWidth) ? 800 : 600)));   // whole pixels, so screens with scaling never get fractional layouts
         switch (column)
         {
             case nameof(Date): Date = width; break;

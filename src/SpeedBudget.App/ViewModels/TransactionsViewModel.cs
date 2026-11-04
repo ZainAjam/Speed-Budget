@@ -985,6 +985,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// Takes the selection off, so no row is being edited. It waits for any edit still being saved first, because
     /// saving some edits reloads the list and would select the row again.
     /// </summary>
+    /// <summary>Remembers the column widths. It takes its turn with everything else the page does to the database.</summary>
+    public async Task SaveColumnLayoutAsync(string layout)
+    {
+        await _gate.WaitAsync();
+        try { await _store.SetLocalSettingAsync("txColumns", layout); }
+        catch { /* not remembering the sizes must never get in the way */ }
+        finally { _gate.Release(); }
+    }
+
     public async Task DeselectAsync()
     {
         await _gate.WaitAsync();

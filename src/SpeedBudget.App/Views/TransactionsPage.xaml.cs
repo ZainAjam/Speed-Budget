@@ -148,7 +148,12 @@ public sealed partial class TransactionsPage : Page
 
     private void Grip_Moved(object? sender, double dx)
     {
-        var column = ColumnOf(sender);
+        try { ResizeFromGrip(ColumnOf(sender), dx); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Resizing a column failed: {ex.Message}"); }
+    }
+
+    private void ResizeFromGrip(string column, double dx)
+    {
         if (column == nameof(ColumnLayout.DetailWidth))
         {
             Layout.Set(column, _gripStart - dx);   // the side panel's edge is on its left, so dragging left widens it
@@ -202,8 +207,7 @@ public sealed partial class TransactionsPage : Page
 
     private async void Grip_Completed(object? sender, EventArgs e)
     {
-        try { await AppServices.Store.SetLocalSettingAsync("txColumns", Layout.Serialize()); }
-        catch { /* not remembering the sizes must never get in the way */ }
+        await ViewModel.SaveColumnLayoutAsync(Layout.Serialize());
     }
 
     // ---- The date a month line sits at ----

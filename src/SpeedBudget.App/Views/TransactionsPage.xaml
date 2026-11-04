@@ -261,7 +261,7 @@
                         <local:ResizeGrip Grid.Column="2" Tag="Counterparty" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="3" Tag="Memo" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="4" Tag="Item" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="5" Tag="Account" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="5" Tag="Account" Visibility="{x:Bind Layout.ShowAccount, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="6" Tag="Outflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="7" Tag="Inflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="8" Tag="Cleared" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
