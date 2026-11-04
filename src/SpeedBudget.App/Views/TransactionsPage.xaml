@@ -228,7 +228,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Grid>
+                    <Grid x:Name="HeadingGrid">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />

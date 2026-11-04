@@ -18,6 +18,7 @@ public sealed partial class TransactionsPage : Page
         // Handled presses count too: the boxes and buttons in the table handle theirs.
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
+        HeadingGrid.AddHandler(PointerPressedEvent, new PointerEventHandler(Heading_PointerPressed), true);
         StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
         ViewModel.AskMonthAsync = AskMonthAsync;
         ViewModel.AskStartEarlierAsync = AskStartEarlierAsync;
@@ -120,6 +121,31 @@ public sealed partial class TransactionsPage : Page
         catch { /* the normal sizes are fine */ }
     }
 
+    // Diagnostics for column resizing: what is under the pointer when the table's heading is pressed, and what each drag did.
+    // It is written to resize.log in the data folder, and keeps to the last few hundred lines.
+    private static void Trace(string line)
+    {
+        try
+        {
+            var path = Path.Combine(AppServices.DataDirectory, "resize.log");
+            if (File.Exists(path) && new FileInfo(path).Length > 60_000) File.Delete(path);
+            File.AppendAllText(path, $"{DateTime.Now:HH:mm:ss.fff} {line}{Environment.NewLine}");
+        }
+        catch { /* diagnostics must never get in the way */ }
+    }
+
+    private void Heading_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        try
+        {
+            var point = e.GetCurrentPoint(HeadingGrid).Position;
+            var under = Microsoft.UI.Xaml.Media.VisualTreeHelper.FindElementsInHostCoordinates(e.GetCurrentPoint(null).Position, HeadingGrid)
+                .Select(el => el is ResizeGrip g ? $"Grip[{g.Tag}]" : el.GetType().Name + (el is FrameworkElement { Tag: { } t } ? $"[{t}]" : ""));
+            Trace($"heading press x={point.X:0.#} source={(e.OriginalSource as FrameworkElement)?.GetType().Name} under=[{string.Join(", ", under)}] showItem={Layout.ShowItem} showAccount={Layout.ShowAccount}");
+        }
+        catch { }
+    }
+
     private static string ColumnOf(object? grip) => (string)((FrameworkElement)grip!).Tag;
 
     // The widths of every column on show, and the spare room at the end of the table, when the drag began.
@@ -141,6 +167,7 @@ public sealed partial class TransactionsPage : Page
     {
         _gripStart = Layout.Get(ColumnOf(sender));
         if (ColumnOf(sender) == nameof(ColumnLayout.DetailWidth)) return;
+        Trace($"grip start {ColumnOf(sender)} width={_gripStart} table={TableRegion.ActualWidth:0.#} widths={Layout.Serialize()}");
         _gripColumns = ColumnsOnShow();
         _gripWidths = _gripColumns.ToDictionary(c => c, Layout.Get);
         _gripFillerStart = Math.Max(ColumnLayout.ActionsMinimum, TableRegion.ActualWidth - (Layout.FixedTotal - ColumnLayout.ActionsMinimum));
@@ -207,6 +234,7 @@ public sealed partial class TransactionsPage : Page
 
     private async void Grip_Completed(object? sender, EventArgs e)
     {
+        Trace($"grip done {ColumnOf(sender)} width={Layout.Get(ColumnOf(sender))}");
         await ViewModel.SaveColumnLayoutAsync(Layout.Serialize());
     }
 
