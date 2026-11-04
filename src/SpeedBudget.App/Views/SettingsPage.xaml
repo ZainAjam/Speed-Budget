@@ -57,7 +57,7 @@
 
             <StackPanel Spacing="8">
                 <TextBlock Text="Updates" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <TextBox x:Name="UpdateSource" Header="Where updates are published" PlaceholderText="A web address, or a folder such as D:\SpeedBudgetReleases"
+                <TextBox x:Name="UpdateSource" Header="Where updates are published" PlaceholderText="https://github.com/ZainAjam/Speed-Budget"
                          LostFocus="UpdateSource_LostFocus" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Name="CheckButton" Content="Check for updates" Click="CheckUpdates_Click" />
@@ -65,7 +65,7 @@
                 </StackPanel>
                 <ProgressBar x:Name="UpdateProgress" Visibility="Collapsed" Maximum="100" />
                 <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" Opacity="0.8" />
-                <TextBlock Text="The app also checks when it opens. An update never changes your data: it is kept separately from the program." Opacity="0.7" TextWrapping="Wrap" />
+                <TextBlock Text="The app checks when it opens and every few hours. By default it looks at the Speed Budget releases on GitHub; a GitHub address, web address or folder can be entered above instead. An update never changes your data: it is kept separately from the program." Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
             <StackPanel Spacing="8">

@@ -1,0 +1,54 @@
+name: Release
+
+# Push a tag such as v0.2.0 and this builds the installer and update packages, and publishes them as a GitHub Release.
+# The tag is the version: v0.2.0 releases version 0.2.0.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      REPO_URL: https://github.com/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Work out the version
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Test
+        shell: pwsh
+        run: |
+          dotnet test tests/SpeedBudget.Core.Tests -c Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          dotnet test tests/SpeedBudget.Data.Tests -c Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Fetch earlier releases (so updates can be small deltas)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          dotnet tool restore
+          dotnet vpk download github --repoUrl $env:REPO_URL --outputDir artifacts/releases --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the installer and update packages
+        shell: pwsh
+        run: ./scripts/package.ps1 -Version $env:VERSION
+
+      - name: Publish the release
+        shell: pwsh
+        run: |
+          dotnet vpk upload github --repoUrl $env:REPO_URL --outputDir artifacts/releases `
+            --publish --releaseName "Speed Budget $env:VERSION" --tag "v$env:VERSION" `
+            --token ${{ secrets.GITHUB_TOKEN }}

@@ -58,18 +58,23 @@ public sealed partial class MainWindow : Window
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
         Nav.SelectedItem = budget;
 
-        _ = CheckForUpdateAtStartupAsync();
+        // Look when the app opens, then every few hours, for people who leave it running.
+        _ = CheckForUpdateAsync();
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromHours(6);
+        timer.Tick += (_, _) => _ = CheckForUpdateAsync();
+        timer.Start();
     }
 
     private UpdateCheck? _pendingUpdate;
 
-    /// <summary>Quietly looks for a newer version when the app opens, and says so only if there is one.</summary>
-    private async Task CheckForUpdateAtStartupAsync()
+    /// <summary>Quietly looks for a newer version, and says so only if there is one.</summary>
+    private async Task CheckForUpdateAsync()
     {
         try
         {
             var check = await AppUpdates.CheckAsync();
-            if (check.State != UpdateState.Available) return;
+            if (check.State != UpdateState.Available || UpdateBar.IsOpen) return;
             _pendingUpdate = check;
             UpdateBar.Message = $"Speed Budget {check.NewVersion} is available. Your data is kept as it is.";
             UpdateBar.IsOpen = true;

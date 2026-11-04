@@ -34,23 +34,32 @@ The program installs to `%LocalAppData%\SpeedBudgetApp`, separate from your data
 installing, updating and uninstalling never touch your budget. The installer is unsigned, so SmartScreen may ask you
 to confirm the first time (a code-signing certificate fixes that: pass it to `vpk pack` with `--signParams`).
 
-### Hosting on GitHub
+### Releasing on GitHub
 
-GitHub Releases can host both the download and the updates, for free:
+The project lives at <https://github.com/ZainAjam/Speed-Budget>, and releases are built by GitHub Actions
+(`.github/workflows`). Every push and pull request is built and tested (`ci.yml`). To publish a version:
 
-1. Create a repository (a separate public repository holding only releases keeps the source code private).
-2. Pack a version, then upload it as a release (needs a GitHub token with `repo` access, never committed):
+```powershell
+git checkout master
+git pull
+git tag v0.2.0
+git push origin v0.2.0
+```
 
-   ```powershell
-   ./scripts/package.ps1 -Version 0.2.0
-   dotnet vpk upload github --repoUrl https://github.com/OWNER/REPO --outputDir artifacts/releases --publish --releaseName "Speed Budget 0.2.0" --tag v0.2.0 --token $env:GITHUB_TOKEN
-   ```
+Pushing the tag starts `release.yml`, which runs the tests, packs the installer and update packages (with deltas
+against earlier releases), and publishes them as the GitHub Release for that tag. The tag is the version: `v0.2.0`
+releases 0.2.0, and versions must always go up. No token is needed on your PC; the workflow uses GitHub's own.
 
-3. Others download `SpeedBudgetApp-win-Setup.exe` from the repository's Releases page. In **Settings > Updates** they
-   enter the repository address (`https://github.com/OWNER/REPO`) and the app then finds new releases by itself.
+People install by downloading `SpeedBudgetApp-win-Setup.exe` from the Releases page. Installed copies look at the same
+repository (the default under **Settings > Updates**) when they open and every six hours, and show an
+**Update and restart** bar when a newer release exists. For that to work for other people, the repository (or a
+separate releases-only repository, with `DefaultSource` in `AppUpdates.cs` changed to match) must be public.
 
 Install with the Setup.exe from your own Windows session (double-click it in Explorer) so the shortcuts and icons
 point at real paths.
+
+Before tagging a release that changes the database, install the previous release, update it to the new one, and check
+your data still opens.
 
 `./scripts/publish.ps1` still makes a plain zip with no installer or updates.
 
