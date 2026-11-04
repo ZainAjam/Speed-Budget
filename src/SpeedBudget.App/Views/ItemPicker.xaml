@@ -26,7 +26,7 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" Foreground="{x:Bind BalanceBrush}"
                                                    Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                                     </Grid>
