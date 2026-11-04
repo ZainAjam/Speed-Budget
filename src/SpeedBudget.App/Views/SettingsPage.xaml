@@ -69,6 +69,20 @@
                 <TextBlock Text="The app checks when it opens and every few hours. By default it looks at the Speed Budget releases on GitHub; a GitHub address, web address or folder can be entered above instead. An update never changes your data: it is kept separately from the program." Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
+            <TextBlock Text="Developer" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
+
+            <StackPanel Spacing="8">
+                <StackPanel x:Name="DeveloperLocked" Spacing="8">
+                    <Button Content="Open developer tools…" Click="OpenDeveloper_Click" />
+                    <TextBlock Text="Tools for building and maintaining Speed Budget. A password is needed to open them." Opacity="0.7" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel x:Name="DeveloperOpen" Spacing="8" Visibility="Collapsed">
+                    <TextBlock Text="Developer tools" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="There are no developer tools yet. They will appear here." Opacity="0.8" TextWrapping="Wrap" />
+                    <Button Content="Lock" Click="LockDeveloper_Click" HorizontalAlignment="Left" />
+                </StackPanel>
+            </StackPanel>
+
             <StackPanel Spacing="8">
                 <TextBlock Text="About" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="AboutText" Opacity="0.8" />

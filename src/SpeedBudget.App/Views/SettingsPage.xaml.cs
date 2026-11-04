@@ -16,6 +16,7 @@ public sealed partial class SettingsPage : Page
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
         ShowBackupInfo();
+        ShowDeveloper();
         Loaded += async (_, _) => await ShowUpdateStateAsync();
     }
 
@@ -23,6 +24,29 @@ public sealed partial class SettingsPage : Page
         BackupInfo.Text = BackupService.LastBackupTime(AppServices.DataDirectory) is { } last
             ? $"Last backup: {last:d MMM yyyy, HH:mm}"
             : "No backup has been made yet.";
+
+    // The Developer section stays open for as long as the app runs, and is closed again by Lock or by restarting.
+    private static bool s_developerOpen;
+
+    private void ShowDeveloper()
+    {
+        DeveloperLocked.Visibility = s_developerOpen ? Visibility.Collapsed : Visibility.Visible;
+        DeveloperOpen.Visibility = s_developerOpen ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OpenDeveloper_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new DeveloperPasswordDialog { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        s_developerOpen = true;
+        ShowDeveloper();
+    }
+
+    private void LockDeveloper_Click(object sender, RoutedEventArgs e)
+    {
+        s_developerOpen = false;
+        ShowDeveloper();
+    }
 
     private void Report(string message, InfoBarSeverity severity)
     {

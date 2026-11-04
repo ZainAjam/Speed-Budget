@@ -26,6 +26,12 @@ Your data is one SQLite file in `%LocalAppData%\SpeedBudget`. Set the `SPEEDBUDG
 different folder, for example to try things out without touching your real budget. Database changes need an EF
 migration (`dotnet ef migrations add ...` in `src/SpeedBudget.Data`); the app applies migrations at startup.
 
+## Developer tools
+
+App Settings has a **Developer** section behind a password (it is in `DeveloperPasswordDialog.cs`; it only keeps the tools
+out of everyday use and is not a security measure). It stays open until the app closes or **Lock** is pressed. It has no
+tools yet.
+
 ## Installer and updates
 
 ```powershell
