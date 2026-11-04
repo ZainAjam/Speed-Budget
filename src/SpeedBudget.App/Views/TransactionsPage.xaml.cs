@@ -29,7 +29,6 @@ public sealed partial class TransactionsPage : Page
             UpdateDetailPanel();
             await ViewModel.LoadAsync();
         };
-        TableScroll.ViewChanged += TableScroll_ViewChanged;
         Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
         ViewModel.PropertyChanged += (_, e) =>
         {
@@ -123,11 +122,6 @@ public sealed partial class TransactionsPage : Page
 
     private static string ColumnOf(object? grip) => (string)((FrameworkElement)grip!).Tag;
 
-    // While a column is being dragged the table must not slide sideways: the scroll position is held where it was, and the
-    // table is not allowed to get narrower (which would push the scroll position back) until the drag ends.
-    private bool _tableGripActive;
-    private double _gripScroll;
-
     // The widths of every column on show, and the spare room at the end of the table, when the drag began.
     private List<string> _gripColumns = [];
     private Dictionary<string, double> _gripWidths = [];
@@ -150,24 +144,6 @@ public sealed partial class TransactionsPage : Page
         _gripColumns = ColumnsOnShow();
         _gripWidths = _gripColumns.ToDictionary(c => c, Layout.Get);
         _gripFillerStart = Math.Max(ColumnLayout.ActionsMinimum, TableRegion.ActualWidth - (Layout.FixedTotal - ColumnLayout.ActionsMinimum));
-        _gripScroll = TableScroll.HorizontalOffset;
-        TableRegion.MinWidth = TableRegion.ActualWidth;
-        _tableGripActive = true;
-    }
-
-    private void TableScroll_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
-    {
-        if (_tableGripActive && Math.Abs(TableScroll.HorizontalOffset - _gripScroll) > 0.5)
-            TableScroll.ChangeView(_gripScroll, null, null, disableAnimation: true);
-    }
-
-    /// <summary>The drag is over: the table may take the width its columns need again.</summary>
-    private void EndTableGrip()
-    {
-        if (!_tableGripActive) return;
-        _tableGripActive = false;
-        TableRegion.MinWidth = 0;
-        UpdateTableWidth();
     }
 
     private void Grip_Moved(object? sender, double dx)
@@ -226,7 +202,6 @@ public sealed partial class TransactionsPage : Page
 
     private async void Grip_Completed(object? sender, EventArgs e)
     {
-        EndTableGrip();
         try { await AppServices.Store.SetLocalSettingAsync("txColumns", Layout.Serialize()); }
         catch { /* not remembering the sizes must never get in the way */ }
     }
