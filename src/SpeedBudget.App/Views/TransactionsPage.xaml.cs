@@ -17,6 +17,7 @@ public sealed partial class TransactionsPage : Page
         // Handled presses count too: the boxes and buttons in the table handle theirs.
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
+        ViewModel.AskMonthAsync = AskMonthAsync;
         Loaded += async (_, _) =>
         {
             await LoadLayoutAsync();
@@ -75,7 +76,8 @@ public sealed partial class TransactionsPage : Page
         if (FocusManager.GetFocusedElement(XamlRoot) is not TextBox box || !IsWithin(box, TableRegion)) return;
         e.Handled = true;
         EntryList.Focus(FocusState.Programmatic);   // the box hands over what was typed
-        _ = ViewModel.CommitEditAsync();
+        // A number box finishes reading its text a moment after it loses focus, so save once that has happened.
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
     }
 
     /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row being edited.</summary>
@@ -233,6 +235,7 @@ public sealed partial class TransactionsPage : Page
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.Selected is not { } row) return;
+        if (row.IsNew) { ClearEditing(); return; }   // nothing saved yet: just drop it
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
@@ -253,28 +256,88 @@ public sealed partial class TransactionsPage : Page
     private async Task SplitAsync(object? sender)
     {
         if ((sender as FrameworkElement)?.DataContext is not TransactionRow row) return;
-        await row.CommitAsync();   // the split saves straight away, so save the other edits first
-        var dialog = SplitDialog.ForRow(ViewModel, row, await ViewModel.GetLinesAsync(row));
+        SplitDialog dialog;
+        if (row.IsNew)
+        {
+            // Not saved yet: the lines are kept on the row and saved with it.
+            if (row.Entity.Amount == 0) { ViewModel.Message = "Type the amount first, then split it between items."; return; }
+            var total = Math.Abs(row.Entity.Amount);
+            IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> existing = row.DraftSplits
+                ?? (row.Item.Id is { } id ? new[] { ((Guid?)id, row.Entity.Amount, (string?)null) } : Array.Empty<(Guid?, long, string?)>());
+            dialog = new SplitDialog(ViewModel, $"Split between items   ·   total {AppServices.ToRands(total):N2}", total, row.Entity.Amount < 0 ? -1 : 1,
+                ViewModel.RequiresItem(row), existing, lines => { row.SetDraftSplits(lines); return Task.FromResult<string?>(null); });
+        }
+        else
+        {
+            await row.CommitAsync();   // the split saves straight away, so save the other edits first
+            dialog = SplitDialog.ForRow(ViewModel, row, await ViewModel.GetLinesAsync(row));
+        }
         dialog.XamlRoot = XamlRoot;
         await dialog.ShowAsync();
     }
 
-    private async void Transfer_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new TransferDialog(ViewModel) { XamlRoot = XamlRoot };
-        await dialog.ShowAsync();
-    }
+    private void Transfer_Click(object sender, RoutedEventArgs e) => NewRow(transfer: true);
 
-    private async void NewTransaction_Click(object sender, RoutedEventArgs e) => await NewTransactionAsync();
+    private void NewTransaction_Click(object sender, RoutedEventArgs e) => NewRow(transfer: false);
 
-    /// <summary>Ctrl+N: open the new transaction dialog.</summary>
-    private async void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    /// <summary>Ctrl+N: add a new transaction row.</summary>
+    private void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
-        await NewTransactionAsync();
+        NewRow(transfer: false);
     }
 
-    private async Task NewTransactionAsync() => await new NewTransactionDialog(ViewModel) { XamlRoot = XamlRoot }.ShowAsync();
+    /// <summary>Adds an editable row as the latest record and brings it into view, ready for the counterparty.</summary>
+    private async void NewRow(bool transfer)
+    {
+        if (ViewModel.BeginNew(transfer) is not { } row) return;
+        EntryList.ScrollIntoView(row);
+        await Task.Delay(120);   // the row's boxes exist once the list has laid it out
+        if (EntryList.ContainerFromItem(row) is DependencyObject container && FindFirst<PayeePicker>(container) is { } picker && !transfer) picker.FocusPicker();
+    }
+
+    private static T? FindFirst<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T found) return found;
+            if (FindFirst<T>(child) is { } nested) return nested;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// A new row dated on a month line's date could be in the month that ends that day or the one that starts it, so ask
+    /// which. Nothing is asked for any other date.
+    /// </summary>
+    private async Task<(bool Ok, int? DayOrder)> AskMonthAsync(DateOnly date)
+    {
+        var options = await MonthLineChoices.ForDateAsync(date);
+        if (options.Count == 0) return (true, null);
+
+        var choices = new RadioButtons();
+        foreach (var option in options) choices.Items.Add(option.Label);
+        choices.SelectedIndex = options.Count - 1;   // by default it goes in the month that starts that day
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Which month?",
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = "A month starts on this date. Which month does this transaction belong to?", TextWrapping = TextWrapping.Wrap },
+                    choices,
+                },
+            },
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary ? (true, options[choices.SelectedIndex].DayOrder) : (false, null);
+    }
 
     private async void NewMonth_Click(object sender, RoutedEventArgs e) => await StartNewMonthAsync();
 

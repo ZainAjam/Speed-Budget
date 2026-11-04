@@ -67,7 +67,7 @@
                     <Grid>
                         <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ShowPayeeText, Mode=OneWay}" />
                         <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind OtherAccountChoice, Mode=TwoWay}"
-                                  HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind ShowTransferEditor, Mode=OneWay}"
+                                  HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind ShowTransferEditor, Mode=OneWay}" PlaceholderText="Other account"
                                   AutomationProperties.Name="The other account in this transfer" ToolTipService.ToolTip="The other account in this transfer" />
                         <local:PayeePicker ItemsSource="{x:Bind Payees}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested"
                                            Visibility="{x:Bind ShowPayeeEditor, Mode=OneWay}"
@@ -80,7 +80,7 @@
                         <TextBox Text="{x:Bind Memo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Memo" />
                     </Grid>
                 </Border>
-                <Border Grid.Column="4" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
+                <Border Grid.Column="4" Style="{StaticResource CellBorder}" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}" />
                         <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
@@ -89,7 +89,7 @@
                                 Visibility="{x:Bind ShowSplitButton, Mode=OneWay}" ToolTipService.ToolTip="This transaction is split. Press to change its lines." />
                     </Grid>
                 </Border>
-                <Border Grid.Column="5" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
+                <Border Grid.Column="5" Style="{StaticResource CellBorder}" Visibility="{x:Bind Layout.ShowAccount, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind AccountName}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
                         <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind AccountChoice, Mode=TwoWay}"
@@ -245,7 +245,7 @@
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><TextBlock Text="Counterparty" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><TextBlock Text="Memo" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
+                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}">
                             <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
                         </Border>
                         <Border Grid.Column="5" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
@@ -259,7 +259,7 @@
                         <local:ResizeGrip Grid.Column="0" Tag="Date" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="1" Tag="BankDate" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="3" Tag="Memo" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="4" Tag="Item" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="4" Tag="Item" HorizontalAlignment="Left" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="5" Tag="Account" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="6" Tag="Outflow" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="7" Tag="Inflow" HorizontalAlignment="Left" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />

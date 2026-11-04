@@ -7,6 +7,8 @@ into the release.
 ## 0.9.7
 
 - Transactions are now edited right in the table: click a row and its cells turn into boxes. There is no separate edit panel for transactions any more. A bin at the end of the row deletes it.
+- **New Transaction** and **New Transfer** now add a new editable row to the table as the latest record, dated today, instead of opening a dialog. Press Enter to save it (or choose another row), Esc to discard it. The counterparty fills in the budget item you last used with it. The old New Transaction and New Transfer dialogs are gone.
+- The first month of the budget is now simply the month of your first budget transaction, and is no longer asked about. If it is wrong, select the first "(month) starts here" line and change it.
 - Transfers can be edited in the table too. Every field is editable on both transactions and transfers, including the account. For a transfer, the Counterparty box picks the account on the other side; the date, memo and amount are shared by both sides, and the names and budget item follow along.
 - Every column of the transactions table can be resized, including Cleared and the delete column. Columns to the right of Counterparty are now resized from their left edge: drag it left to make the column wider, and the edge follows your pointer.
 - A budget-account transaction, or a transfer to a tracked account, that has no budget item now says "Choose a budget item" in its Budget item cell.

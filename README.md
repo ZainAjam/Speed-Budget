@@ -34,9 +34,9 @@ A short setup wizard starts by itself. It helps you create:
 Nothing is saved until the last step, you can change everything later, and you can run the wizard again from
 **App Settings** (it only adds what is missing).
 
-The budget starts on the **current calendar month**. The first time you add a transaction to a budget account, Speed
-Budget asks which month that transaction belongs to (it can be a month in the past, if you are bringing in older
-transactions), and that becomes the first month of your budget.
+The budget starts on the **current calendar month**. Once you add a transaction to a budget account, the month it is dated in
+becomes the first month of your budget (so it can be a month in the past, if you are bringing in older transactions).
+If that is the wrong month, select the first "(month) starts here" line in the transactions table and choose the month.
 
 ## How it works
 
@@ -55,13 +55,16 @@ transactions), and that becomes the first month of your budget.
 
 ## Everyday use
 
-**Record a transaction.** On a Transactions screen press **New Transaction** (or `Ctrl+N`). Pick the counterparty and
-the budget item, then type an **outflow** (money out) or **inflow** (money in), and press Add. Typing a new
-counterparty or budget item adds it on the spot, and the app remembers which item you used with each counterparty.
-Tick **Cleared** once the transaction has shown on your bank statement.
+**Record a transaction.** On a Transactions screen press **New Transaction** (or `Ctrl+N`). A new row appears as the latest
+record, dated today, ready to fill in. Pick the counterparty (the app fills in the budget item and account you last used
+with it), choose the budget item, and type an **outflow** (money out) or **inflow** (money in). Press `Enter` to save the
+row, or `Esc` to throw it away. Typing a new counterparty or budget item adds it on the spot. Tick **Cleared** once the
+transaction has shown on your bank statement. If the row is dated on the day a month starts, you are asked which month it
+belongs to.
 
-**Move money between accounts.** Press **New Transfer**. A transfer between a budget account and a tracked account counts
-as spending or income against a budget item you choose.
+**Move money between accounts.** Press **New Transfer** for a new row in the same way: the Account box is the account the
+money leaves (or arrives in, if you type an inflow) and the Counterparty box is the other account. A transfer between a
+budget account and a tracked account counts as spending or income against a budget item you choose.
 
 **Edit a transaction in place.** Click a row in the recorded transactions table and its cells turn into boxes: change the
 date, counterparty, memo, budget item, account, outflow, inflow or bank date right there. This works for transfers too: their Counterparty box picks the account on the other side, and the date, memo and amount change on both sides together. The

@@ -36,25 +36,60 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
 public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
 
 /// <summary>One transaction in the list. Edits go straight to the entity and are saved by the owner.</summary>
-public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, int lineCount, bool accountOnBudget,
-    bool showItemColumn, bool showAccountColumn, TransactionsViewModel owner) : ObservableObject
+public sealed partial class TransactionRow(TransactionEntity entity, ItemOption item, string accountName, int lineCount,
+    TransactionsViewModel owner) : ObservableObject
 {
     /// <summary>Tracked accounts sit outside the budget, so their transactions have no budget item to show or edit.</summary>
-    public bool AccountOnBudget { get; } = accountOnBudget;
+    public bool AccountOnBudget => owner.IsOnBudget(Entity.AccountId);
 
-    public bool ShowItemColumn { get; } = showItemColumn;
+    /// <summary>A new row that has not been saved yet. It is added to the list by the Add buttons and saved like any other edit.</summary>
+    public bool IsNew { get; init; }
+
     public ColumnLayout Layout => ColumnLayout.Current;
 
     /// <summary>The lists the row's drop-downs choose from.</summary>
     public ObservableCollection<string> Payees => owner.Payees;
     public ObservableCollection<ItemOption> ItemOptions => owner.ItemOptions;
-    public bool ShowAccountColumn { get; } = showAccountColumn;
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
 
     /// <summary>For a transfer: the account on its other side, and whether that account is part of the budget.</summary>
     public Guid? OtherAccountId { get; set; }
-    public bool OtherOnBudget { get; init; }
+    public bool OtherOnBudget => OtherAccountId is { } id && owner.IsOnBudget(id);
+
+    // A new row's split lines are kept here until the row is saved.
+    private IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? _draftSplits;
+    public IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? DraftSplits => _draftSplits;
+
+    /// <summary>Sets the split lines of a new row. A single line is just an item.</summary>
+    public void SetDraftSplits(IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines)
+    {
+        _draftSplits = lines.Count > 1 ? lines : null;
+        if (lines.Count == 1) _item = owner.ItemOptions.FirstOrDefault(o => o.Id == lines[0].ItemId) ?? owner.NoItem;
+        foreach (var n in new[] { nameof(LineCount), nameof(IsSplit), nameof(ItemName), nameof(Item), nameof(CanEditAmount), nameof(ShowAmountEditor),
+                                  nameof(ShowAmountText), nameof(ShowItemEditor), nameof(ShowSplitButton), nameof(ShowItemText) })
+            OnPropertyChanged(n);
+    }
+
+    /// <summary>The payee's usual item (and account, on the all-accounts page) fill in a new row.</summary>
+    public void ApplyHint(ItemOption? hintItem, Guid? hintAccount)
+    {
+        if (hintItem is not null && _item.Id is null && !IsSplit) { _item = hintItem; OnPropertyChanged(nameof(Item)); OnPropertyChanged(nameof(ItemName)); }
+        if (hintAccount is { } account && account != Entity.AccountId && Accounts.Any(a => a.Id == account))
+        {
+            Entity.AccountId = account;
+            RaiseAccountDependent();
+        }
+    }
+
+    /// <summary>What depends on the account (and the other account of a transfer): which boxes the row offers.</summary>
+    private void RaiseAccountDependent()
+    {
+        foreach (var n in new[] { nameof(AccountChoice), nameof(OtherAccountChoice), nameof(AccountOnBudget), nameof(OtherOnBudget), nameof(ShowItemEditor),
+                                  nameof(ShowItemText), nameof(ItemName) })
+            OnPropertyChanged(n);
+        owner.SyncColumnLayout();
+    }
 
     public ObservableCollection<AccountOption> Accounts => owner.EntryAccounts;
 
@@ -66,6 +101,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         {
             if (value?.Id is not { } id || id == Entity.AccountId) return;
             Entity.AccountId = id;
+            RaiseAccountDependent();
             Changed(new[] { nameof(AccountChoice) }, structural: true);
         }
     }
@@ -78,10 +114,11 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         {
             if (value?.Id is not { } id || id == OtherAccountId) return;
             OtherAccountId = id;
+            RaiseAccountDependent();
             Changed(new[] { nameof(OtherAccountChoice) }, structural: true);
         }
     }
-    public int LineCount { get; } = lineCount;
+    public int LineCount => _draftSplits?.Count ?? lineCount;
     public bool IsTransfer => Entity.TransferPairId is not null;
     public bool IsSplit => LineCount > 1;
 
@@ -96,23 +133,27 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     private Snapshot? _before;
     private bool _dirtyDate, _dirtySplit, _dirtyStructural;
 
-    /// <summary>The row has edits that have not been saved yet.</summary>
-    public bool IsDirty { get; private set; }
+    private bool _dirty;
+
+    /// <summary>The row has edits that have not been saved yet. A new row always has.</summary>
+    public bool IsDirty => !_discarded && (IsNew || _dirty);
 
     private void TakeSnapshot()
     {
         _before = new Snapshot(Entity.Date, Entity.BankDate, Entity.Payee, Entity.Memo, Entity.IsCleared, Entity.Amount,
             Entity.AccountId, _item, OtherAccountId);
-        IsDirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
+        _dirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
     }
 
-    /// <summary>Saves the edits made since the row went into edit mode, if there are any.</summary>
-    public async Task CommitAsync()
+    /// <summary>Saves the edits made since the row went into edit mode, if there are any. False when a new row could not be saved yet.</summary>
+    public async Task<bool> CommitAsync()
     {
-        if (!IsDirty) return;
+        if (IsNew) return _discarded || await owner.CommitNewAsync(this);
+        if (!_dirty) return true;
         var (date, split, structural) = (_dirtyDate, _dirtySplit, _dirtyStructural);
         TakeSnapshot();   // what is now saved is the new "before"
         await owner.RowChangedAsync(this, date, split, structural);
+        return true;
     }
 
     /// <summary>Puts back the values the row had before it went into edit mode. Nothing was saved, so nothing is undone in the data.</summary>
@@ -128,7 +169,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         Entity.AccountId = b.AccountId;
         _item = b.Item;
         OtherAccountId = b.OtherAccountId;
-        IsDirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
+        _dirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
         OnPropertyChanged(string.Empty);   // every box shows its old value again
     }
 
@@ -149,13 +190,18 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public bool ShowPayeeText => !IsEditing;
     public bool ShowAmountEditor => IsEditing && CanEditAmount;
     public bool ShowAmountText => !ShowAmountEditor;
-    public bool ShowItemEditor => IsEditing && CanEditAmount && AccountOnBudget && !(IsTransfer && OtherOnBudget);
+    public bool ShowItemEditor => IsEditing && CanEditAmount
+        && (IsTransfer ? (IsNew ? AccountOnBudget != OtherOnBudget : AccountOnBudget && !OtherOnBudget) : AccountOnBudget);
     public bool ShowSplitButton => IsEditing && IsSplit;
     public bool ShowItemText => !ShowItemEditor && !ShowSplitButton;
 
     /// <summary>A split's amount is fixed by its lines, which must add up. A transfer's amount is shared by its two sides.</summary>
     public bool CanEditAmount => !IsSplit;
     public bool CanSplit => !IsTransfer;
+
+    /// <summary>The row was dropped, or saved under another row, so it must not be saved again.</summary>
+    private bool _discarded;
+    public void MarkDiscarded() => _discarded = true;
 
     private ItemOption _item = item;
 
@@ -189,7 +235,13 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public string Payee
     {
         get => Entity.Payee;
-        set { if (Entity.Payee == value) return; Entity.Payee = value; Changed(nameof(Payee)); }
+        set
+        {
+            if (Entity.Payee == value) return;
+            Entity.Payee = value;
+            Changed(nameof(Payee));
+            if (IsNew && !IsTransfer && !string.IsNullOrWhiteSpace(value)) owner.ApplyHint(this);
+        }
     }
 
     public string Memo
@@ -259,7 +311,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         if (IsEditing)
         {
             // Held until the row is committed (Enter, or choosing another row); Esc or a click away drops it.
-            IsDirty = true;
+            _dirty = true;
             _dirtyDate |= dateChanged;
             _dirtySplit |= splitChanged;
             _dirtyStructural |= structural;
@@ -333,11 +385,21 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public bool CanChangeSelectedMarker => SelectedMarker is { IsFirst: false };
 
     private TransactionRow? _editing;
+    private TransactionRow? _draft;
+    private bool _rebuilding;
+
+    /// <summary>A new row that could not be saved when the user moved on stays selected, so what was typed is not lost.</summary>
+    private async Task CommitOnLeaveAsync(TransactionRow row)
+    {
+        if (await row.CommitAsync() || !row.IsNew || !Rows.Contains(row)) return;
+        await Task.Yield();
+        SelectedEntry = row;
+    }
 
     partial void OnSelectedEntryChanged(object? value)
     {
         // Choosing another row saves the edits made to the one being left.
-        if (_editing is { IsDirty: true } leaving) _ = leaving.CommitAsync();
+        if (_editing is { IsDirty: true } leaving && !(_rebuilding && leaving.IsNew)) _ = CommitOnLeaveAsync(leaving);
 
         // The selected transaction is the one being edited in place.
         if (_editing is not null) _editing.IsEditing = false;
@@ -356,47 +418,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
     [ObservableProperty]
     public partial string Message { get; set; } = "";
 
-    // Quick-add fields.
-    [ObservableProperty] public partial DateTimeOffset NewDate { get; set; } = DateTimeOffset.Now;
-    [ObservableProperty] public partial string NewPayee { get; set; } = "";
-    [ObservableProperty] public partial string NewMemo { get; set; } = "";
-    [ObservableProperty] public partial bool NewIsCleared { get; set; }
-    [ObservableProperty] public partial double NewOutflow { get; set; } = double.NaN;
-    [ObservableProperty] public partial double NewInflow { get; set; } = double.NaN;
-    [ObservableProperty] public partial ItemOption? NewItem { get; set; }
-
-    /// <summary>When the new transaction is split over several items: those lines (signed). Null for a single item.</summary>
-    public IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? NewSplits { get; private set; }
-
-    /// <summary>Shown in the item box in place of an item while the new transaction is split.</summary>
-    public string NewSplitText => NewSplits is { } lines ? $"Split ({lines.Count} lines)" : "";
-
-    public void SetNewSplits(IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? lines)
-    {
-        NewSplits = lines;
-        OnPropertyChanged(nameof(NewSplitText));
-    }
-
-    partial void OnNewItemChanged(ItemOption? value)
-    {
-        if (NewSplits is not null) SetNewSplits(null);   // choosing a single item replaces the split
-    }
-
-    /// <summary>The total of the new transaction in cents, positive, and which way it goes (-1 out, 1 in); null until an amount is typed.</summary>
-    public (long Total, int Sign)? NewAmount()
-    {
-        var outflow = AppServices.ToCents(NewOutflow);
-        var inflow = AppServices.ToCents(NewInflow);
-        if ((outflow == 0) == (inflow == 0) || outflow < 0 || inflow < 0) return null;
-        return outflow != 0 ? (outflow, -1) : (inflow, 1);
-    }
-    [ObservableProperty] public partial AccountOption? NewAccount { get; set; }
-
     public bool HasSelection => Selected is not null;
     public bool HasMessage => Message != "";
-
-    /// <summary>The account picker on the entry form is only needed when looking at all accounts.</summary>
-    public bool ShowAccountPicker => AccountId is null;
 
     /// <summary>A tracked account is outside the budget, so its page has no budget item column.</summary>
     public bool ShowItemColumn => AccountId is null || (_accounts.FirstOrDefault(a => a.Id == AccountId)?.IsOnBudget ?? true);
@@ -407,43 +430,14 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
 
     /// <summary>Tells the shared table layout which optional columns this page has.</summary>
-    private void SyncColumnLayout()
+    public void SyncColumnLayout()
     {
-        ColumnLayout.Current.ShowItem = ShowItemColumn;
+        // A transfer being added from a tracked account to a budget account still needs somewhere to choose its item.
+        ColumnLayout.Current.ShowItem = ShowItemColumn || (_draft is { IsTransfer: true });
         ColumnLayout.Current.ShowAccount = ShowAccountColumn;
     }
 
-    /// <summary>On the all-accounts page the item field follows the account chosen for the new transaction.</summary>
-    public bool ShowItemPicker => AccountId is null ? NewAccount?.IsOnBudget ?? true : ShowItemColumn;
-
-    public Microsoft.UI.Xaml.GridLength ItemFieldWidth => new(ShowItemPicker ? 210 : 0);
-
-    partial void OnNewAccountChanged(AccountOption? value)
-    {
-        if (!ShowItemPicker) NewItem = NoItem;
-        OnPropertyChanged(nameof(ShowItemPicker));
-        OnPropertyChanged(nameof(ItemFieldWidth));
-    }
-
-    /// <summary>The how-to shown above the entry form. A tracked account is outside the budget, so it needs no budget item.</summary>
-    public string CaptureGuidance => ShowItemColumn
-        ? "Fill in the fields from left to right, then press Enter or Add. The counterparty is who the transaction is with: the person or business you paid, or the one who paid you. Pick or add one, choose the budget item it counts against, and type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here."
-        : "Fill in the fields from left to right, then press Enter or Add. The counterparty is who the transaction is with: the person or business you paid, or the one who paid you. Pick or add one, and type either an outflow (money out) or an inflow (money in). This is a tracked account, outside your budget, so transactions here need no budget item. Tick Cleared if it already shows on your bank statement. Ctrl+N jumps here.";
-
-    private void RaiseItemFieldChanged()
-    {
-        foreach (var name in new[] { nameof(ShowItemColumn), nameof(ShowAccountColumn), nameof(ShowItemPicker), nameof(ItemFieldWidth), nameof(CaptureGuidance) })
-            OnPropertyChanged(name);
-        SyncColumnLayout();
-    }
-
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
-
-    /// <summary>Choosing a payee fills in the item and account it was last used with.</summary>
-    partial void OnNewPayeeChanged(string value)
-    {
-        if (!string.IsNullOrWhiteSpace(value)) ApplyHint(value);
-    }
 
     partial void OnSortIndexChanged(int value)
     {
@@ -482,11 +476,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 foreach (var i in items.Where(i => i.GroupId == g.Id))
                     ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name));
 
-            NewAccount = AccountId is { } fixedId
-                ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId)
-                : EntryAccounts.FirstOrDefault(a => !a.Name.EndsWith("(closed)"));
-            NewItem = NoItem;
-            RaiseItemFieldChanged();
+            SyncColumnLayout();
             _loaded = true;
             await LoadRowsAsync(null);
         }
@@ -530,7 +520,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         SyncColumnLayout();
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
-        var accountsOnBudget = _accounts.ToDictionary(a => a.Id, a => a.IsOnBudget);
         var itemsById = ItemOptions.Where(o => o.Id is not null).ToDictionary(o => o.Id!.Value);
         var transferSides = (await _store.GetTransferLinksAsync()).ToLookup(t => t.PairId);
 
@@ -551,11 +540,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var otherSide = d.Transaction.TransferPairId is { } pair
                 ? transferSides[pair].FirstOrDefault(t => t.TransactionId != d.Transaction.Id)
                 : default;
-            var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count,
-                accountsOnBudget.GetValueOrDefault(d.Transaction.AccountId, true), ShowItemColumn, ShowAccountColumn, this)
+            var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count, this)
             {
                 OtherAccountId = otherSide.TransactionId == Guid.Empty ? null : otherSide.AccountId,
-                OtherOnBudget = otherSide.TransactionId != Guid.Empty && accountsOnBudget.GetValueOrDefault(otherSide.AccountId, true),
             };
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
@@ -563,6 +550,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var ordered = entries.OrderBy(e => e.Key).ThenBy(e => e.Rank).ThenBy(e => e.Id).Select(e => e.Row).ToList();
         if (SortIndex == 0) ordered.Reverse();
 
+        var draft = _draft;
+        _rebuilding = true;   // clearing the list must not save or drop a new row that is being filled in
         Rows.Clear();
         object? toSelect = null;
         foreach (var row in ordered)
@@ -571,7 +560,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var id = row switch { TransactionRow t => t.Entity.Id, MarkerRow { Entity: { } m } => m.Id, _ => Guid.Empty };
             if (select is { } wanted && id == wanted) toSelect = row;
         }
+        if (draft is not null && !draft.IsDirty) draft = null;
+        if (draft is not null && toSelect is null)
+        {
+            if (SortIndex == 0) Rows.Insert(0, draft); else Rows.Add(draft);
+            toSelect = draft;
+        }
+        else if (draft is not null) { draft.MarkDiscarded(); _draft = null; }
         SelectedEntry = toSelect;
+        _rebuilding = false;
     }
 
     public async Task RowChangedAsync(TransactionRow row, bool dateChanged, bool splitChanged, bool structural)
@@ -608,12 +605,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             if (dateChanged || structural || disappears || (row.IsTransfer && splitChanged))
             {
                 // Keep whichever row is selected now: the edited one, or the one the user moved on to.
-                var keep = row.IsEditing ? row.Entity.Id : SelectedEntry switch
-                {
-                    TransactionRow t => t.Entity.Id,
-                    MarkerRow { Entity: { } m } => m.Id,
-                    _ => (Guid?)null,
-                };
+                var keep = row.IsEditing ? row.Entity.Id : SelectedId();
                 await LoadRowsAsync(disappears ? null : keep);
             }
             else await RefreshBalancesAsync();
@@ -726,17 +718,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Fills in the item and account last used with this payee, if those are still unset.</summary>
-    public void ApplyHint(string payee)
-    {
-        var hint = _hints.FirstOrDefault(h => string.Equals(h.Payee, payee.Trim(), StringComparison.OrdinalIgnoreCase));
-        if (hint is null) return;
-        if (NewItem?.Id is null && hint.BudgetItemId is { } itemId)
-            NewItem = ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? NoItem;
-        if (AccountId is null)
-            NewAccount = EntryAccounts.FirstOrDefault(a => a.Id == hint.AccountId) ?? NewAccount;
-    }
-
     private void AddPayeeName(string name)
     {
         if (name == "" || Payees.Any(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase))) return;
@@ -781,52 +762,124 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Returns true when the transaction was added.</summary>
-    /// <param name="dayOrder">Where in its day the transaction sits. Only given when the date is a month line's date, to say which month it is in.</param>
-    public async Task<bool> AddAsync(int? dayOrder = null)
-    {
-        var accountOption = NewAccount;
-        if (accountOption?.Id is not { } accountId) { Message = "Choose an account."; return false; }
+    // ---- New rows ----
 
-        var outflow = AppServices.ToCents(NewOutflow);
-        var inflow = AppServices.ToCents(NewInflow);
-        if ((outflow == 0) == (inflow == 0)) { Message = "Enter either an outflow or an inflow."; return false; }
-        if (outflow < 0 || inflow < 0) { Message = "Amounts must be positive. Use outflow or inflow to say which way the money went."; return false; }
-        if (NewSplits is { } split && split.Sum(l => l.Amount) != inflow - outflow)
+    /// <summary>Asked before a new row dated on a month line is saved: which month it belongs to. Not OK means the user backed out.</summary>
+    public Func<DateOnly, Task<(bool Ok, int? DayOrder)>>? AskMonthAsync { get; set; }
+
+    public bool IsOnBudget(Guid accountId) => _accounts.FirstOrDefault(a => a.Id == accountId)?.IsOnBudget ?? true;
+
+    private Guid? SelectedId() => SelectedEntry switch
+    {
+        TransactionRow { IsNew: false } t => t.Entity.Id,
+        MarkerRow { Entity: { } m } => m.Id,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Adds a new, editable row as the latest record, dated today, and selects it. The row is saved when the user presses
+    /// Enter or chooses another row, and goes away on Esc. A transfer is a row whose Counterparty is the other account.
+    /// </summary>
+    public TransactionRow? BeginNew(bool transfer)
+    {
+        if (_draft is { } existing) { SelectedEntry = existing; return existing; }
+
+        var open = EntryAccounts.Where(a => !a.Name.EndsWith("(closed)")).ToList();
+        var account = (AccountId is { } fixedId ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId) : null) ?? open.FirstOrDefault();
+        if (account?.Id is not { } id) { Message = "Add an account first."; return null; }
+        var other = transfer ? open.FirstOrDefault(a => a.Id != id) : null;
+        if (transfer && other is null) { Message = "A transfer needs two accounts."; return null; }
+
+        var entity = new TransactionEntity { AccountId = id, Date = DateOnly.FromDateTime(DateTime.Today), Payee = "" };
+        if (transfer) entity.TransferPairId = Guid.CreateVersion7();   // marks it as a transfer until it is saved as a real pair
+        var row = new TransactionRow(entity, NoItem, account.Name, 1, this) { IsNew = true, OtherAccountId = other?.Id };
+
+        _draft = row;
+        if (SortIndex == 0) Rows.Insert(0, row); else Rows.Add(row);   // the latest record: first when newest is first
+        Message = "";
+        SyncColumnLayout();
+        SelectedEntry = row;
+        return row;
+    }
+
+    /// <summary>The payee's usual item (and account, on the all-accounts page) fill in a new row.</summary>
+    public void ApplyHint(TransactionRow row)
+    {
+        var hint = _hints.FirstOrDefault(h => string.Equals(h.Payee, row.Payee.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (hint is null) return;
+        var item = hint.BudgetItemId is { } itemId ? ItemOptions.FirstOrDefault(o => o.Id == itemId) : null;
+        row.ApplyHint(item, AccountId is null ? hint.AccountId : null);
+    }
+
+    /// <summary>Saves a new row. Returns false, with a message, when it is not complete enough to save yet.</summary>
+    public async Task<bool> CommitNewAsync(TransactionRow row)
+    {
+        var e = row.Entity;
+        var onBudget = IsOnBudget(e.AccountId);
+        if (e.Amount == 0) { Message = "Enter either an outflow or an inflow."; return false; }
+        if (row.IsTransfer)
+        {
+            if (row.OtherAccountId is null) { Message = "Choose the other account for this transfer."; return false; }
+            if (row.OtherAccountId == e.AccountId) { Message = "Choose two different accounts."; return false; }
+        }
+        else if (row.DraftSplits is { } split && split.Sum(l => l.Amount) != e.Amount)
         {
             Message = "The split no longer adds up to the amount. Open Split again to fix it.";
             return false;
         }
-        if (accountOption.IsOnBudget && NewItem?.Id is null && NewSplits is null) { Message = "Choose a budget item for a budget account."; return false; }
+        else if (onBudget && row.Item.Id is null && row.DraftSplits is null)
+        {
+            Message = "Choose a budget item for a budget account.";
+            return false;
+        }
+
+        // A date that a month line sits on could be in either month, so ask which.
+        int? dayOrder = null;
+        var touchesBudget = onBudget || (row.IsTransfer && row.OtherAccountId is { } other && IsOnBudget(other));
+        if (touchesBudget && AskMonthAsync is { } ask)
+        {
+            var (ok, order) = await ask(e.Date);
+            if (!ok) return false;
+            dayOrder = order;
+        }
 
         await _gate.WaitAsync();
         try
         {
-            var date = DateOnly.FromDateTime(NewDate.DateTime);
-            var amount = inflow - outflow;
-            var tx = await _store.AddTransactionAsync(
-                new TransactionEntity
-                {
-                    AccountId = accountId, Date = date, DayOrder = dayOrder ?? await _store.NextDayOrderAsync(date),
-                    Payee = NewPayee.Trim(), Memo = string.IsNullOrWhiteSpace(NewMemo) ? null : NewMemo.Trim(), Amount = amount,
-                    IsCleared = NewIsCleared,
-                },
-                NewSplits is { } lines
-                    ? lines.Select(l => new SplitLineEntity { BudgetItemId = l.ItemId, Amount = l.Amount, Memo = l.Memo }).ToArray()
-                    : new[] { new SplitLineEntity { BudgetItemId = NewItem?.Id, Amount = amount } });
+            Guid newId;
+            if (row.IsTransfer)
+            {
+                var (from, to) = e.Amount < 0 ? (e.AccountId, row.OtherAccountId!.Value) : (row.OtherAccountId!.Value, e.AccountId);
+                var (outgoing, incoming) = await _store.AddTransferAsync(from, to, e.Date, Math.Abs(e.Amount),
+                    string.IsNullOrWhiteSpace(e.Memo) ? null : e.Memo.Trim(), row.Item.Id, dayOrder);
+                var mine = e.Amount < 0 ? outgoing : incoming;
+                mine.IsCleared = e.IsCleared;
+                mine.BankDate = e.BankDate;
+                await _store.SaveAsync();
+                newId = mine.Id;
+            }
+            else
+            {
+                e.Payee = e.Payee.Trim();
+                e.Memo = string.IsNullOrWhiteSpace(e.Memo) ? null : e.Memo.Trim();
+                e.DayOrder = dayOrder ?? await _store.NextDayOrderAsync(e.Date);
+                SplitLineEntity[] lines = row.DraftSplits is { } draftLines
+                    ? draftLines.Select(l => new SplitLineEntity { BudgetItemId = l.ItemId, Amount = l.Amount, Memo = l.Memo }).ToArray()
+                    : [new SplitLineEntity { BudgetItemId = onBudget ? row.Item.Id : null, Amount = e.Amount }];
+                await _store.AddTransactionAsync(e, lines);
+                newId = e.Id;
+                _hints = await _store.GetPayeeHintsAsync();
+                AddPayeeName(e.Payee);
+            }
 
-            _hints = await _store.GetPayeeHintsAsync();
-            AddPayeeName(NewPayee.Trim());
-            NewPayee = "";
-            NewMemo = "";
-            SetNewSplits(null);
-            NewIsCleared = false;
-            NewOutflow = double.NaN;
-            NewInflow = double.NaN;
+            var stillSelected = SelectedEntry == row;
+            row.MarkDiscarded();   // it is saved now; the list is rebuilt from the saved data
+            _draft = null;
             Message = "";
-            await LoadRowsAsync(tx.Id);
+            await LoadRowsAsync(stillSelected ? newId : SelectedId());
             return true;
         }
+        catch (ArgumentException ex) { Message = ex.Message; return false; }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; return false; }
         finally { _gate.Release(); }
     }
@@ -854,14 +907,22 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>Throws away the edits made to the row being edited, so it shows its old values, and lets go of it.</summary>
     public async Task CancelEditAsync()
     {
-        _editing?.Cancel();
+        if (_editing is { IsNew: true } draft)
+        {
+            draft.MarkDiscarded();   // a new row that is cancelled just goes away
+            _draft = null;
+            Rows.Remove(draft);
+            SyncColumnLayout();
+            Message = "";
+        }
+        else _editing?.Cancel();
         await DeselectAsync();
     }
 
     /// <summary>Saves the edits made to the row being edited and lets go of it.</summary>
     public async Task CommitEditAsync()
     {
-        if (_editing is { } row) await row.CommitAsync();
+        if (_editing is { } row && !await row.CommitAsync()) return;   // a new row that is not complete yet stays open
         await DeselectAsync();
     }
 
@@ -889,20 +950,4 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Returns an error sentence, or null when the transfer was saved.</summary>
-    public async Task<string?> AddTransferAsync(AccountOption? from, AccountOption? to, DateTimeOffset date, double amount, string memo, ItemOption? item, int? dayOrder = null)
-    {
-        if (from?.Id is not { } fromId || to?.Id is not { } toId) return "Choose both accounts.";
-        await _gate.WaitAsync();
-        try
-        {
-            await _store.AddTransferAsync(fromId, toId, DateOnly.FromDateTime(date.DateTime), AppServices.ToCents(amount),
-                string.IsNullOrWhiteSpace(memo) ? null : memo.Trim(), item?.Id, dayOrder);
-            await LoadRowsAsync(null);
-            return null;
-        }
-        catch (ArgumentException ex) { return ex.Message; }
-        catch (Exception ex) { return $"Could not save: {ex.Message}"; }
-        finally { _gate.Release(); }
-    }
 }
