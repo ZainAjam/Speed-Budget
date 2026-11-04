@@ -4,6 +4,13 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.7.1
+
+- The button that hid the left panel is gone. In App Settings, under **User Interface**, **Side panel** now has three choices: **Expanded** (the full panel), **Expand on hover only** (the default: a narrow strip of icons that opens while the pointer is over it) and **Collapsed** (always the narrow strip of icons). App Settings also has a line between each of its sections.
+- In the transactions table, the Budget item cell now shows just the item (with its icon), without its budget group. The group still shows in the drop-down list.
+- A split transaction's Budget item box says "Split (n lines)". Choose a single item from its drop-down to turn it back into an ordinary transaction, or choose "Split between several items…" to change its lines.
+- In the left panel, every icon stays in exactly the same place whether the panel is a narrow strip or open, so clicks are predictable. To make that possible, your accounts are now listed directly under Transactions (no longer tucked inside it), and each account's icon is in the strip too.
+
 ## 0.9.7
 
 - Transactions are now edited right in the table: click a row and its cells turn into boxes. There is no separate edit panel for transactions any more. A bin at the end of the row deletes it.
@@ -21,10 +28,6 @@ into the release.
 - Each account's transactions screen has a label in its top right corner saying whether it is a **Budget account** or a **Tracking account**.
 - The transactions table's columns now start at a size that fits their usual contents (the Cleared and delete columns are no longer wide). The table fills the full width of the window, and the Memo column takes whatever room the other columns do not need. Column sizes you saved with an earlier version are reset once.
 - The "Tracking account" label is now an outlined label with normal text, easier to read than white on grey.
-- The button that hid the left panel is gone. In App Settings, under **User Interface**, **Side panel** now has three choices: **Expanded** (the full panel), **Expand on hover only** (the default: a narrow strip of icons that opens while the pointer is over it) and **Collapsed** (always the narrow strip of icons). App Settings also has a line between each of its sections.
-- In the transactions table, the Budget item cell now shows just the item (with its icon), without its budget group. The group still shows in the drop-down list.
-- A split transaction's Budget item box says "Split (n lines)". Choose a single item from its drop-down to turn it back into an ordinary transaction, or choose "Split between several items…" to change its lines.
-- In the left panel, every icon stays in exactly the same place whether the panel is a narrow strip or open, so clicks are predictable. To make that possible, your accounts are now listed directly under Transactions (no longer tucked inside it), and each account's icon is in the strip too.
 - In the left panel, budget accounts have a bank icon and tracking accounts have an eye icon, so you can tell them apart at a glance.
 - Accounts under Transactions in the left panel can be dragged into a new order. Budget accounts are listed first, then tracking accounts, and you can reorder within each kind.
 - The recorded transactions table now starts with the oldest transactions first. You can still switch to newest first, and it remembers your choice while the app is open.
