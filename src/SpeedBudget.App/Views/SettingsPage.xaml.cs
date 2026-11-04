@@ -15,15 +15,19 @@ public sealed partial class SettingsPage : Page
         DataPath.Text = AppServices.DataDirectory;
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
-        AutoHideToggle.IsOn = AppServices.AutoHidePanel;
+        PanelModeBox.SelectedIndex = PanelModes.IndexOf(AppServices.PanelMode);
         ShowBackupInfo();
         ShowDeveloper();
         Loaded += async (_, _) => await ShowUpdateStateAsync();
     }
 
-    private async void AutoHide_Toggled(object sender, RoutedEventArgs e)
+    private static readonly List<string> PanelModes = ["show", "hover", "hide"];
+
+    private async void PanelMode_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (AutoHideToggle.IsOn != AppServices.AutoHidePanel) await AppServices.SetAutoHidePanelAsync(AutoHideToggle.IsOn);
+        if (PanelModeBox.SelectedIndex < 0) return;
+        var mode = PanelModes[PanelModeBox.SelectedIndex];
+        if (mode != AppServices.PanelMode) await AppServices.SetPanelModeAsync(mode);
     }
 
     private void ShowBackupInfo() =>

@@ -20,16 +20,16 @@ public static class AppServices
 
     public static string DataDirectory => LocalDatabase.DefaultDirectory;
 
-    /// <summary>Whether the left panel hides itself until the pointer is over it. Remembered between runs.</summary>
-    public static bool AutoHidePanel { get; private set; }
+    /// <summary>How the left panel behaves: "show" (always open), "hover" (a strip of icons that opens under the pointer) or "hide" (out of sight, opened with a small menu button).</summary>
+    public static string PanelMode { get; private set; } = "hover";
 
     public static event Action? InterfaceChanged;
 
-    public static async Task SetAutoHidePanelAsync(bool value)
+    public static async Task SetPanelModeAsync(string mode)
     {
-        AutoHidePanel = value;
+        PanelMode = mode;
         InterfaceChanged?.Invoke();
-        try { await Store.SetLocalSettingAsync("autoHidePanel", value ? "1" : "0"); }
+        try { await Store.SetLocalSettingAsync("panelMode", mode); }
         catch { /* the choice still applies for this run */ }
     }
 
@@ -43,8 +43,8 @@ public static class AppServices
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not move planned budgets: {ex.Message}"); }
         try { Store.EnsureBudgetStartAsync().GetAwaiter().GetResult(); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not set the start of the budget: {ex.Message}"); }
-        try { AutoHidePanel = Store.GetLocalSettingAsync("autoHidePanel").GetAwaiter().GetResult() == "1"; }
-        catch { /* the panel just stays open */ }
+        try { var saved = Store.GetLocalSettingAsync("panelMode").GetAwaiter().GetResult(); if (saved is "show" or "hover" or "hide") PanelMode = saved; }
+        catch { /* the panel just uses the normal mode */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.

@@ -66,7 +66,7 @@ public sealed partial class MainWindow : Window
         ApplyPanelMode();
         AppServices.InterfaceChanged += () => DispatcherQueue.TryEnqueue(ApplyPanelMode);
         Nav.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Nav_PointerMoved), true);
-        Nav.PointerExited += (_, _) => { if (AppServices.AutoHidePanel) Nav.IsPaneOpen = false; };
+        Nav.PointerExited += (_, _) => { if (AppServices.PanelMode == "hover") Nav.IsPaneOpen = false; };
 
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
@@ -118,22 +118,31 @@ public sealed partial class MainWindow : Window
 
     private void ApplyPanelMode()
     {
-        if (AppServices.AutoHidePanel)
+        switch (AppServices.PanelMode)
         {
-            Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
-            Nav.IsPaneOpen = false;
-        }
-        else
-        {
-            Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
-            Nav.IsPaneOpen = true;
+            case "show":
+                Nav.IsPaneToggleButtonVisible = false;
+                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
+                Nav.IsPaneOpen = true;
+                break;
+            case "hide":
+                // Out of sight; a small menu button opens it over the page when it is needed (Ctrl+1 to Ctrl+5 still jump between pages).
+                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
+                Nav.IsPaneToggleButtonVisible = true;
+                Nav.IsPaneOpen = false;
+                break;
+            default:
+                Nav.IsPaneToggleButtonVisible = false;
+                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
+                Nav.IsPaneOpen = false;
+                break;
         }
     }
 
-    /// <summary>With Auto Hide on: the panel opens when the pointer reaches its narrow strip, and closes when the pointer leaves it.</summary>
+    /// <summary>With "show on hover": the panel opens when the pointer reaches its narrow strip, and closes when the pointer leaves it.</summary>
     private void Nav_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (!AppServices.AutoHidePanel) return;
+        if (AppServices.PanelMode != "hover") return;
         var x = e.GetCurrentPoint(Nav).Position.X;
         if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) Nav.IsPaneOpen = true;
         else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength) Nav.IsPaneOpen = false;

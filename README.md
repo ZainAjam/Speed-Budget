@@ -78,7 +78,7 @@ Press Enter in a box, or click another row, to save your changes; press Esc, or 
 each item its share; the shares must add up to the transaction's amount. A split transaction shows "Split (2 lines)", and
 pressing that opens the split again. You can also split while adding a new transaction. To turn a split back into an ordinary transaction, open its drop-down and choose a single item.
 
-**Hide the side panel.** In App Settings, under **User Interface**, switch on **Auto Hide Side Panel** to keep the left panel out of the way: it shrinks to a strip of icons and opens while the pointer is over it. Off (the default) keeps it open.
+**Side panel.** In App Settings, under **User Interface**, choose **Always show** the left panel, **Show on hover** (the default: it shrinks to a strip of icons and opens while the pointer is over it) or **Always hide** (a small menu button at the top left opens it).
 
 **Resize the table.** Drag the divider on the right of a column heading in the recorded transactions table: as in Word, the divider moves between that column and the one next to it, so the table keeps its width and its place. If the next column is already as narrow as it can go, the divider carries on into the columns beyond it. Hold **Shift** while dragging to change just that column and move everything to its right along with it (the table scrolls sideways if it gets wider than the window). Your sizes are remembered. Selecting a month line opens a panel over the table from the right edge, for
 changing its date; drag its left edge to resize it, and close it with the X or Esc.
