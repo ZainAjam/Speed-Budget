@@ -13,6 +13,7 @@ into the release.
 - Transfers can be edited in the table too. Every field is editable on both transactions and transfers, including the account. For a transfer, the Counterparty box picks the account on the other side; the date, memo and amount are shared by both sides, and the names and budget item follow along.
 - The lines between the months on the Budget screen are a little thicker, so it is easier to tell the months apart.
 - Every column of the transactions table, including Counterparty, can be resized in the same way: drag the right edge of its heading, and the columns to its right move along. The last column (with the delete button) takes up whatever room is left, and the table scrolls sideways if it is wider than the window.
+- The transactions table no longer slides sideways while you drag a column's edge: it stays where it is until you let go.
 - A budget-account transaction, or a transfer to a tracked account, that has no budget item now says "Choose a budget item" in its Budget item cell.
 - Your edits to a row are saved when you press Enter in a box or click another row. Press Esc, or click anywhere outside the table, to cancel instead: nothing in the table keeps focus and the row goes back to the values it had before you started editing.
 - New **Memo** column in the transactions table.
