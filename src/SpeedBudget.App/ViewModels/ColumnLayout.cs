@@ -15,8 +15,9 @@ public sealed partial class ColumnLayout : ObservableObject
 
     public const double CounterpartyMinimum = 160;
 
-    [ObservableProperty] public partial double Date { get; set; } = 104;
-    [ObservableProperty] public partial double BankDate { get; set; } = 104;
+    [ObservableProperty] public partial double Date { get; set; } = 132;
+    [ObservableProperty] public partial double BankDate { get; set; } = 132;
+    [ObservableProperty] public partial double Memo { get; set; } = 170;
     [ObservableProperty] public partial double Item { get; set; } = 170;
     [ObservableProperty] public partial double Account { get; set; } = 130;
     [ObservableProperty] public partial double Outflow { get; set; } = 104;
@@ -32,6 +33,7 @@ public sealed partial class ColumnLayout : ObservableObject
 
     public GridLength DateColumn => new(Date);
     public GridLength BankDateColumn => new(BankDate);
+    public GridLength MemoColumn => new(Memo);
     public GridLength ItemColumn => new(ShowItem ? Item : 0);
     public GridLength AccountColumn => new(ShowAccount ? Account : 0);
     public GridLength OutflowColumn => new(Outflow);
@@ -39,11 +41,15 @@ public sealed partial class ColumnLayout : ObservableObject
     public GridLength ClearedColumn => new(Cleared);
     public GridLength DetailColumn => new(DetailWidth);
 
+    /// <summary>The narrow last column that holds a row's delete button while it is being edited. It has no resize handle.</summary>
+    public const double ActionsWidth = 44;
+
     /// <summary>What the fixed columns take, so the table knows how much room it needs besides the Counterparty column.</summary>
-    public double FixedTotal => Date + BankDate + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared;
+    public double FixedTotal => Date + BankDate + Memo + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared + ActionsWidth;
 
     partial void OnDateChanged(double value) => Changed(nameof(DateColumn));
     partial void OnBankDateChanged(double value) => Changed(nameof(BankDateColumn));
+    partial void OnMemoChanged(double value) => Changed(nameof(MemoColumn));
     partial void OnItemChanged(double value) => Changed(nameof(ItemColumn));
     partial void OnAccountChanged(double value) => Changed(nameof(AccountColumn));
     partial void OnOutflowChanged(double value) => Changed(nameof(OutflowColumn));
@@ -62,7 +68,8 @@ public sealed partial class ColumnLayout : ObservableObject
     /// <summary>The narrowest each column may be made, so it can never be dragged out of sight.</summary>
     public static double MinimumOf(string column) => column switch
     {
-        nameof(Date) or nameof(BankDate) => 76,
+        nameof(Date) or nameof(BankDate) => 112,   // wide enough for the date box a row shows while it is edited
+        nameof(Memo) => 90,
         nameof(Item) => 90,
         nameof(Account) => 80,
         nameof(Outflow) or nameof(Inflow) => 76,
@@ -73,7 +80,7 @@ public sealed partial class ColumnLayout : ObservableObject
 
     public double Get(string column) => column switch
     {
-        nameof(Date) => Date, nameof(BankDate) => BankDate, nameof(Item) => Item, nameof(Account) => Account,
+        nameof(Date) => Date, nameof(BankDate) => BankDate, nameof(Memo) => Memo, nameof(Item) => Item, nameof(Account) => Account,
         nameof(Outflow) => Outflow, nameof(Inflow) => Inflow, nameof(Cleared) => Cleared, nameof(DetailWidth) => DetailWidth,
         _ => 0,
     };
@@ -85,6 +92,7 @@ public sealed partial class ColumnLayout : ObservableObject
         {
             case nameof(Date): Date = width; break;
             case nameof(BankDate): BankDate = width; break;
+            case nameof(Memo): Memo = width; break;
             case nameof(Item): Item = width; break;
             case nameof(Account): Account = width; break;
             case nameof(Outflow): Outflow = width; break;
@@ -94,11 +102,11 @@ public sealed partial class ColumnLayout : ObservableObject
         }
     }
 
-    /// <summary>The column whose width the Counterparty edge changes: the next one that is on show.</summary>
-    public string NextAfterCounterparty() => ShowItem ? nameof(Item) : ShowAccount ? nameof(Account) : nameof(Outflow);
+    /// <summary>The column whose width the Counterparty edge changes: the Memo column beside it.</summary>
+    public string NextAfterCounterparty() => nameof(Memo);
 
     private static readonly string[] Keys =
-        [nameof(Date), nameof(BankDate), nameof(Item), nameof(Account), nameof(Outflow), nameof(Inflow), nameof(Cleared), nameof(DetailWidth)];
+        [nameof(Date), nameof(BankDate), nameof(Memo), nameof(Item), nameof(Account), nameof(Outflow), nameof(Inflow), nameof(Cleared), nameof(DetailWidth)];
 
     public string Serialize() => JsonSerializer.Serialize(Keys.ToDictionary(k => k, Get));
 

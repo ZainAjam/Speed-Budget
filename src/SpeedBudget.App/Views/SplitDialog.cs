@@ -12,7 +12,7 @@ namespace SpeedBudget.App.Views;
 public sealed class SplitDialog : ContentDialog
 {
     private readonly TransactionsViewModel _vm;
-    private readonly TransactionRow _row;
+    private readonly Func<IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>, Task<string?>> _save;
     private readonly long _total;
     private readonly int _sign;
     private readonly bool _requiresItem;
@@ -21,15 +21,28 @@ public sealed class SplitDialog : ContentDialog
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"] };
     private readonly List<(ItemPicker Item, NumberBox Amount, TextBox Memo, Grid Panel)> _entries = new();
 
-    public SplitDialog(TransactionsViewModel vm, TransactionRow row, IReadOnlyList<SplitLineEntity> existing)
+    /// <summary>Splits a transaction that is already saved; the lines are saved straight to it.</summary>
+    public static SplitDialog ForRow(TransactionsViewModel vm, TransactionRow row, IReadOnlyList<SplitLineEntity> existing) =>
+        new(vm, $"{row.Payee}   ·   total {AppServices.ToRands(Math.Abs(row.Entity.Amount)):N2}", Math.Abs(row.Entity.Amount),
+            row.Entity.Amount < 0 ? -1 : 1, vm.RequiresItem(row),
+            existing.Select(l => (l.BudgetItemId, l.Amount, l.Memo)).ToList(), lines => vm.SaveSplitsAsync(row, lines));
+
+    /// <param name="heading">The line above the split lines: who the transaction is with and its total.</param>
+    /// <param name="total">The transaction's amount as a positive number of cents; the lines must add up to it.</param>
+    /// <param name="sign">-1 when the money goes out, 1 when it comes in.</param>
+    /// <param name="save">Takes the lines (signed) and returns an error sentence, or null when they were accepted.</param>
+    public SplitDialog(TransactionsViewModel vm, string heading, long total, int sign, bool requiresItem,
+        IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> existing,
+        Func<IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>, Task<string?>> save)
     {
         _vm = vm;
-        _row = row;
-        _sign = row.Entity.Amount < 0 ? -1 : 1;
-        _total = Math.Abs(row.Entity.Amount);
-        _requiresItem = vm.RequiresItem(row);
+        _save = save;
+        _sign = sign;
+        _total = total;
+        _requiresItem = requiresItem;
 
         Title = "Split transaction";
+        Resources["ContentDialogMaxWidth"] = 720.0;
         PrimaryButtonText = "Save split";
         CloseButtonText = "Cancel";
         DefaultButton = ContentDialogButton.Primary;
@@ -41,10 +54,10 @@ public sealed class SplitDialog : ContentDialog
         Content = new StackPanel
         {
             Spacing = 12,
-            MinWidth = 560,
+            MinWidth = 640,
             Children =
             {
-                new TextBlock { Text = $"{row.Payee}   ·   total {AppServices.ToRands(_total):N2}", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] },
+                new TextBlock { Text = heading, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] },
                 _lines,
                 addLine,
                 _remaining,
@@ -53,10 +66,10 @@ public sealed class SplitDialog : ContentDialog
         };
 
         if (existing.Count > 1)
-            foreach (var line in existing) AddLine(line.BudgetItemId, (double)AppServices.ToRands(Math.Abs(line.Amount)), line.Memo);
+            foreach (var line in existing) AddLine(line.ItemId, (double)AppServices.ToRands(Math.Abs(line.Amount)), line.Memo);
         else
         {
-            AddLine(existing.FirstOrDefault()?.BudgetItemId, (double)AppServices.ToRands(_total), null);
+            AddLine(existing.FirstOrDefault().ItemId, (double)AppServices.ToRands(_total), null);
             AddLine(null, double.NaN, null);
         }
         UpdateRemaining();
@@ -66,12 +79,12 @@ public sealed class SplitDialog : ContentDialog
     {
         var item = new ItemPicker
         {
-            ItemsSource = _vm.ItemOptions, Width = 260, AllowCreate = false,
+            ItemsSource = _vm.ItemOptions, Width = 250, AllowCreate = false,
             SelectedItem = _vm.ItemOptions.FirstOrDefault(o => o.Id == itemId) ?? _vm.NoItem,
         };
-        var amountBox = new NumberBox { Value = amount, Width = 120, PlaceholderText = "0.00", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };
+        var amountBox = new NumberBox { Value = amount, Width = 110, PlaceholderText = "0.00", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };
         Money.Apply(amountBox);
-        var memoBox = new TextBox { Text = memo ?? "", PlaceholderText = "Memo", Width = 140 };
+        var memoBox = new TextBox { Text = memo ?? "", PlaceholderText = "Memo", Width = 130 };
         var remove = new Button { Content = "✕" };
         ToolTipService.SetToolTip(remove, "Remove this line");
 
@@ -123,7 +136,7 @@ public sealed class SplitDialog : ContentDialog
             if (_requiresItem && itemId is null) { error = "Choose a budget item for every line."; break; }
             lines.Add((itemId, cents * _sign, string.IsNullOrWhiteSpace(memo.Text) ? null : memo.Text.Trim()));
         }
-        error ??= await _vm.SaveSplitsAsync(_row, lines);
+        error ??= await _save(lines);
         _error.Text = error ?? "";
         args.Cancel = error is not null;
         deferral.Complete();

@@ -17,7 +17,7 @@
         <Style x:Key="CellBorder" TargetType="Border">
             <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="0,0,1,1" />
-            <Setter Property="Padding" Value="8,7" />
+            <Setter Property="Padding" Value="4,3" />
         </Style>
         <SolidColorBrush x:Key="HeadingBrush" Color="{ThemeResource SystemAccentColorDark2}" />
         <Style x:Key="HeadingBorder" TargetType="Border">
@@ -33,49 +33,85 @@
         </Style>
 
         <DataTemplate x:Key="TransactionTemplate" x:DataType="vm:TransactionRow">
+            <!-- A transaction is edited in place: the selected row swaps its text for boxes. -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="*" MinWidth="160" />
+                    <ColumnDefinition Width="{x:Bind Layout.MemoColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.ItemColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.AccountColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="44" />
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource CellBorder}">
-                    <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
+                    <Grid>
+                        <TextBlock Text="{x:Bind DateText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <CalendarDatePicker Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}"
+                                            DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
+                                            AutomationProperties.Name="Date" />
+                    </Grid>
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource CellBorder}">
-                    <TextBlock Text="{x:Bind BankDateText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.85" />
+                    <Grid>
+                        <TextBlock Text="{x:Bind BankDateText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <CalendarDatePicker Date="{x:Bind BankDateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" PlaceholderText="Bank date"
+                                            DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
+                                            AutomationProperties.Name="Bank date (clears the transaction)" />
+                    </Grid>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource CellBorder}" Background="Transparent" ContextRequested="Counterparty_ContextRequested">
-                    <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <Grid>
+                        <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ShowPayeeText, Mode=OneWay}" />
+                        <local:PayeePicker ItemsSource="{x:Bind Payees}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested"
+                                           Visibility="{x:Bind ShowPayeeEditor, Mode=OneWay}"
+                                           ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." />
+                    </Grid>
                 </Border>
-                <Border Grid.Column="3" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
-                    <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+                <Border Grid.Column="3" Style="{StaticResource CellBorder}">
+                    <Grid>
+                        <TextBlock Text="{x:Bind Memo, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <TextBox Text="{x:Bind Memo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Memo" />
+                    </Grid>
                 </Border>
-                <Border Grid.Column="4" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
-                    <TextBlock Text="{x:Bind AccountName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
+                <Border Grid.Column="4" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowItemColumn}">
+                    <Grid>
+                        <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}" />
+                        <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
+                                          AllowSplit="True" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}" />
+                        <Button Content="{x:Bind ItemName, Mode=OneWay}" Click="Split_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                Visibility="{x:Bind ShowSplitButton, Mode=OneWay}" ToolTipService.ToolTip="This transaction is split. Press to change its lines." />
+                    </Grid>
                 </Border>
-                <Border Grid.Column="5" Style="{StaticResource CellBorder}">
-                    <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                <Border Grid.Column="5" Style="{StaticResource CellBorder}" Visibility="{x:Bind ShowAccountColumn}">
+                    <TextBlock Text="{x:Bind AccountName}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                 </Border>
                 <Border Grid.Column="6" Style="{StaticResource CellBorder}">
-                    <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                </Border>
-                <!-- A reconciled transaction shows a padlock instead of the Cleared tick; pressing it offers to unreconcile. -->
-                <Border Grid.Column="7" Style="{StaticResource CellBorder}" BorderThickness="0,0,0,1" Padding="0,2">
-                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" Visibility="{x:Bind IsEditable, Mode=OneWay}" MinWidth="0"
-                                  AutomationProperties.Name="Cleared" />
-                        <Button Click="Padlock_Click" Tag="{x:Bind}" Visibility="{x:Bind IsReconciled, Mode=OneWay}" Padding="6" Background="Transparent"
-                                BorderThickness="0" AutomationProperties.Name="Reconciled. Press to unreconcile"
-                                ToolTipService.ToolTip="Reconciled. Press to unreconcile">
-                            <FontIcon Glyph="&#xE72E;" FontSize="14" />
-                        </Button>
+                    <Grid>
+                        <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
+                        <NumberBox app:Money.Format="True" Value="{x:Bind Outflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
+                                   Visibility="{x:Bind ShowAmountEditor, Mode=OneWay}" AutomationProperties.Name="Outflow" />
                     </Grid>
+                </Border>
+                <Border Grid.Column="7" Style="{StaticResource CellBorder}">
+                    <Grid>
+                        <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
+                        <NumberBox app:Money.Format="True" Value="{x:Bind Inflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
+                                   Visibility="{x:Bind ShowAmountEditor, Mode=OneWay}" AutomationProperties.Name="Inflow" />
+                    </Grid>
+                </Border>
+                <Border Grid.Column="8" Style="{StaticResource CellBorder}" Padding="0,2">
+                    <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" MinWidth="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              AutomationProperties.Name="Cleared" />
+                </Border>
+                <Border Grid.Column="9" Style="{StaticResource CellBorder}" BorderThickness="0,0,0,1" Padding="0,2">
+                    <Button Click="Delete_Click" Padding="8" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Delete this transaction" ToolTipService.ToolTip="Delete this transaction">
+                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                    </Button>
                 </Border>
             </Grid>
         </DataTemplate>
@@ -141,8 +177,6 @@
                     <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" Text="Uncleared transactions" />
                     <TextBlock Text="{x:Bind ViewModel.UnclearedText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                 </StackPanel>
-                <Button Grid.Row="1" Grid.Column="4" Content="Reconcile" Click="Reconcile_Click" VerticalAlignment="Center"
-                        Visibility="{x:Bind ViewModel.CanReconcile}" />
             </Grid>
         </Border>
 
@@ -174,11 +208,10 @@
                     <ComboBoxItem Content="Oldest first" />
                 </ComboBox>
                 <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
-                <CheckBox Content="Hide reconciled" IsChecked="{x:Bind ViewModel.HideReconciled, Mode=TwoWay}" />
             </StackPanel>
         </Grid>
 
-        <!-- The table and the side panel. If the window is too narrow for them, this area scrolls sideways instead of squeezing the Counterparty column away. -->
+        <!-- The table. If the window is too narrow for it, this area scrolls sideways instead of squeezing the Counterparty column away. -->
         <ScrollViewer Grid.Row="5" x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
         <Grid x:Name="TableRegion">
@@ -193,32 +226,37 @@
                             <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="*" MinWidth="160" />
+                            <ColumnDefinition Width="{x:Bind Layout.MemoColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.ItemColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.AccountColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="44" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><TextBlock Text="Counterparty" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><TextBlock Text="Memo" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}">
                             <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
                         </Border>
-                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
+                        <Border Grid.Column="5" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
                             <TextBlock Text="Account" Style="{StaticResource HeadingText}" />
                         </Border>
-                        <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="7" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
-                        <!-- Drag the right edge of a heading to resize that column. The Counterparty edge trades room with the next column. -->
+                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="7" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="8" Style="{StaticResource HeadingBorder}"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="9" Style="{StaticResource HeadingBorder}" BorderThickness="0" />
+                        <!-- Drag the right edge of a heading to resize that column. The Counterparty edge trades room with the Memo column. -->
                         <local:ResizeGrip Grid.Column="0" Tag="Date" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="1" Tag="BankDate" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="2" Tag="Counterparty" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="3" Tag="Item" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="4" Tag="Account" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="5" Tag="Outflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="6" Tag="Inflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="3" Tag="Memo" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="4" Tag="Item" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="5" Tag="Account" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="6" Tag="Outflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="7" Tag="Inflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
                     <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
                               ItemTemplateSelector="{StaticResource EntrySelector}"
@@ -240,49 +278,11 @@
         </Grid>
         </ScrollViewer>
 
-            <!-- The edit panel floats over the table from the right edge. It slides in while a transaction or month line is selected. -->
+            <!-- The month line panel floats over the table from the right edge. It slides in while a month line is selected. Transactions are edited in their own rows. -->
             <Grid x:Name="DetailHost" Grid.Row="5" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,0,-32,-24"
                   Width="{x:Bind Layout.DetailWidth, Mode=OneWay}" Padding="20,16,20,16" IsHitTestVisible="False"
                   Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
                   BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
-            <ScrollViewer>
-                <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
-                    <TextBlock Text="Edit transaction" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
-                               Text="This transaction is reconciled, so it is locked. Unreconcile it to make changes."
-                               Visibility="{x:Bind ViewModel.Selected.IsReconciled, Mode=OneWay, FallbackValue=Collapsed}" />
-                    <Button Content="Unreconcile" Click="Unreconcile_Click"
-                            Visibility="{x:Bind ViewModel.Selected.IsReconciled, Mode=OneWay, FallbackValue=Collapsed}" />
-                    <ContentControl HorizontalContentAlignment="Stretch" IsEnabled="{x:Bind ViewModel.Selected.IsEditable, Mode=OneWay, FallbackValue=true}">
-                        <StackPanel Spacing="12">
-                            <CalendarDatePicker Header="Date" Date="{x:Bind ViewModel.Selected.DateOffset, Mode=TwoWay}" />
-                            <local:PayeePicker Header="Counterparty" ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." ItemsSource="{x:Bind ViewModel.Payees}" SelectedPayee="{x:Bind ViewModel.Selected.Payee, Mode=TwoWay}"
-                                               CreateRequested="Payee_CreateRequested" />
-                            <local:ItemPicker Header="Budget item" ItemsSource="{x:Bind ViewModel.ItemOptions}"
-                                              SelectedItem="{x:Bind ViewModel.Selected.Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
-                                              Visibility="{x:Bind ViewModel.Selected.AccountOnBudget, Mode=OneWay, FallbackValue=Visible}"
-                                              IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
-                            <NumberBox app:Money.Format="True" Header="Outflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Outflow, Mode=TwoWay}"
-                                       IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
-                            <NumberBox app:Money.Format="True" Header="Inflow (R)" SpinButtonPlacementMode="Hidden" Value="{x:Bind ViewModel.Selected.Inflow, Mode=TwoWay}"
-                                       IsEnabled="{x:Bind ViewModel.Selected.CanEditAmount, Mode=OneWay, FallbackValue=true}" />
-                            <TextBox Header="Memo" AcceptsReturn="True" TextWrapping="Wrap" Text="{x:Bind ViewModel.Selected.Memo, Mode=TwoWay, FallbackValue=''}" />
-                            <CalendarDatePicker Header="Bank date (clears the transaction)" Date="{x:Bind ViewModel.Selected.BankDateOffset, Mode=TwoWay}" />
-                            <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
-                                       Text="Transfers can't change amount or item. Delete the transfer and add it again instead."
-                                       Visibility="{x:Bind ViewModel.Selected.IsTransfer, Mode=OneWay, FallbackValue=Collapsed}" />
-                            <TextBlock TextWrapping="Wrap" Opacity="0.7" Style="{StaticResource CaptionTextBlockStyle}"
-                                       Text="This transaction is split. Use Split to change its lines or amounts."
-                                       Visibility="{x:Bind ViewModel.Selected.IsSplit, Mode=OneWay, FallbackValue=Collapsed}" />
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="Split…" Click="Split_Click" IsEnabled="{x:Bind ViewModel.Selected.CanSplit, Mode=OneWay, FallbackValue=true}" />
-                                <Button Content="Delete" Click="Delete_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </ContentControl>
-                </StackPanel>
-            </ScrollViewer>
-
             <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <CalendarDatePicker x:Name="MarkerDateBox" Header="This month starts on" DateChanged="MarkerDate_Changed"

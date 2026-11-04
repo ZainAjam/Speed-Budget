@@ -6,7 +6,7 @@ For installing and using the app, see the [README](../README.md). The design not
 
 | Path | What |
 |---|---|
-| `src/SpeedBudget.Core` | Budget engine: months, balances, holds, reconciliation. No UI, no database. |
+| `src/SpeedBudget.Core` | Budget engine: months, balances, holds, balances. No UI, no database. |
 | `src/SpeedBudget.Data` | SQLite storage (EF Core), sync-ready change tracking, backups, export, setup templates. |
 | `src/SpeedBudget.App` | The WinUI 3 app (unpackaged, self-contained). |
 | `tests/` | Engine and data tests. |
@@ -81,8 +81,7 @@ changes the database, install the previous release, update it to the new one, an
 
 ## Status
 
-Built: engine, local storage, setup wizard, accounts and items, transactions per account (splits, transfers,
-reconcile), the draggable month line, a multi-month budget screen with cash inflow and outflow and holds, pinned items,
+Built: engine, local storage, setup wizard, accounts and items, transactions per account (inline editing, splits, transfers), the draggable month line, a multi-month budget screen with cash inflow and outflow and holds, pinned items,
 backups and export, installer and updates.
 
 Not built yet: sync between devices (the data is already prepared for it), Android apps, and a code-signed installer.

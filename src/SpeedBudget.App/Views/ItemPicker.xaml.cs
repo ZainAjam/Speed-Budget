@@ -28,6 +28,16 @@ public sealed partial class ItemPicker : UserControl
     public static readonly DependencyProperty AllowCreateProperty =
         DependencyProperty.Register(nameof(AllowCreate), typeof(bool), typeof(ItemPicker), new PropertyMetadata(true));
 
+    public static readonly DependencyProperty AllowSplitProperty =
+        DependencyProperty.Register(nameof(AllowSplit), typeof(bool), typeof(ItemPicker), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty ValueOverrideProperty =
+        DependencyProperty.Register(nameof(ValueOverride), typeof(string), typeof(ItemPicker),
+            new PropertyMetadata("", (d, _) => ((ItemPicker)d).ShowSelection()));
+
+    /// <summary>Raised when the user picks the "Split" row, to spread the transaction over several budget items.</summary>
+    public event EventHandler? SplitRequested;
+
     /// <summary>Raised with the typed name when the user asks to add a new item. The owner creates it and selects it.</summary>
     public event EventHandler<string>? CreateRequested;
 
@@ -56,6 +66,20 @@ public sealed partial class ItemPicker : UserControl
         set => SetValue(AllowCreateProperty, value);
     }
 
+    /// <summary>Whether a "Split between several items" row is offered at the top of the list.</summary>
+    public bool AllowSplit
+    {
+        get => (bool)GetValue(AllowSplitProperty);
+        set => SetValue(AllowSplitProperty, value);
+    }
+
+    /// <summary>Text shown in place of the selected item, such as "Split (3 lines)", while it is not empty.</summary>
+    public string ValueOverride
+    {
+        get => (string)GetValue(ValueOverrideProperty);
+        set => SetValue(ValueOverrideProperty, value);
+    }
+
     public ItemPicker()
     {
         InitializeComponent();
@@ -64,8 +88,9 @@ public sealed partial class ItemPicker : UserControl
 
     private void ShowSelection()
     {
-        ValueText.Text = SelectedItem?.Name ?? "";
-        ValueText.Opacity = SelectedItem?.Id is null ? 0.6 : 1;
+        var overridden = !string.IsNullOrEmpty(ValueOverride);
+        ValueText.Text = overridden ? ValueOverride : SelectedItem?.Name ?? "";
+        ValueText.Opacity = !overridden && SelectedItem?.Id is null ? 0.6 : 1;
     }
 
     private void ShowHeader()
@@ -98,6 +123,7 @@ public sealed partial class ItemPicker : UserControl
         var rows = Matches(typed);
         if (AllowCreate && typed != "" && !Exists(typed))
             rows.Insert(0, new ItemOption(null, $"➕ Add “{typed}” as a new budget item…", null) { IsCreateRow = true });
+        if (AllowSplit) rows.Insert(0, new ItemOption(null, "Split between several items…", null) { IsSplitRow = true });
         ResultList.ItemsSource = rows;
     }
 
@@ -131,7 +157,12 @@ public sealed partial class ItemPicker : UserControl
     private void Result_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is not ItemOption option) return;
-        if (option.IsCreateRow) Create(SearchBox.Text.Trim());
+        if (option.IsSplitRow)
+        {
+            PickerFlyout.Hide();
+            SplitRequested?.Invoke(this, EventArgs.Empty);
+        }
+        else if (option.IsCreateRow) Create(SearchBox.Text.Trim());
         else Choose(option);
     }
 

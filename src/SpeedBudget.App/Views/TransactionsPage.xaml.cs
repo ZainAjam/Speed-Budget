@@ -25,14 +25,14 @@ public sealed partial class TransactionsPage : Page
         Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
         ViewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(TransactionsViewModel.HasSelection) or nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
+            if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
             if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) { ShowFirstMonth(); ShowMarkerDate(); }
         };
         FirstMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
     }
 
 
-    private bool DetailOpen => ViewModel.HasSelection || ViewModel.HasMarkerSelected;
+    private bool DetailOpen => ViewModel.HasMarkerSelected;   // only month lines use the side panel; transactions are edited in their rows
 
     /// <summary>Slides the edit panel in from the right edge, or back out of sight when nothing is selected.</summary>
     private void UpdateDetailPanel()
@@ -156,38 +156,6 @@ public sealed partial class TransactionsPage : Page
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
         ViewModel.AccountId = e.Parameter is Guid id ? id : null;
 
-    private async void Reconcile_Click(object sender, RoutedEventArgs e)
-    {
-        var dialog = new ReconcileDialog(ViewModel, await ViewModel.ClearedBalanceAsync(), await ViewModel.LastBankBalanceAsync()) { XamlRoot = XamlRoot };
-        await dialog.ShowAsync();
-    }
-
-    private async void Unreconcile_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.Selected is { } row) await ConfirmUnreconcileAsync(row);
-    }
-
-    /// <summary>The padlock on a reconciled row: after confirming, the row goes back to a ticked Cleared box.</summary>
-    private async void Padlock_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.Tag is TransactionRow row) await ConfirmUnreconcileAsync(row);
-    }
-
-    private async Task ConfirmUnreconcileAsync(TransactionRow row)
-    {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Unreconcile this transaction?",
-            Content = $"{row.DateText}  {row.Payee}\r\n\r\nIt will go back to being cleared, and you will be able to change it. " +
-                      "Your account may no longer match the bank until you reconcile again.",
-            PrimaryButtonText = "Unreconcile",
-            CloseButtonText = "Keep it locked",
-            DefaultButton = ContentDialogButton.Close,
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.UnreconcileAsync(row);
-    }
-
     /// <summary>Right-click (or the menu key) on a counterparty in the table: jump to its edit screen.</summary>
     private void Counterparty_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
@@ -238,10 +206,16 @@ public sealed partial class TransactionsPage : Page
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteSelectedAsync();
     }
 
-    private async void Split_Click(object sender, RoutedEventArgs e)
+    /// <summary>The Split row of a transaction's budget item drop-down, or the button on a split transaction: edit its lines.</summary>
+    private async void Item_SplitRequested(object? sender, EventArgs e) => await SplitAsync(sender);
+
+    private async void Split_Click(object sender, RoutedEventArgs e) => await SplitAsync(sender);
+
+    private async Task SplitAsync(object? sender)
     {
-        if (ViewModel.Selected is not { } row) return;
-        var dialog = new SplitDialog(ViewModel, row, await ViewModel.GetLinesAsync(row)) { XamlRoot = XamlRoot };
+        if ((sender as FrameworkElement)?.DataContext is not TransactionRow row) return;
+        var dialog = SplitDialog.ForRow(ViewModel, row, await ViewModel.GetLinesAsync(row));
+        dialog.XamlRoot = XamlRoot;
         await dialog.ShowAsync();
     }
 

@@ -87,6 +87,26 @@ public sealed partial class NewTransactionDialog : ContentDialog
         await ShowAsync();
     }
 
+    /// <summary>"Split" in the item drop-down: share the amount typed over several items.</summary>
+    private async void Item_SplitRequested(object? sender, EventArgs e)
+    {
+        if (ViewModel.NewAmount() is not { } amount)
+        {
+            Error.Text = "Type the amount first, then split it between items.";
+            return;
+        }
+        Error.Text = "";
+
+        IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> existing = ViewModel.NewSplits
+            ?? (ViewModel.NewItem?.Id is { } id ? new[] { ((Guid?)id, amount.Total * amount.Sign, (string?)null) } : Array.Empty<(Guid?, long, string?)>());
+        var dialog = new SplitDialog(ViewModel, $"Split between items   ·   total {AppServices.ToRands(amount.Total):N2}", amount.Total, amount.Sign,
+            ViewModel.NewAccount?.IsOnBudget ?? true, existing,
+            lines => { ViewModel.SetNewSplits(lines); return Task.FromResult<string?>(null); }) { XamlRoot = XamlRoot };
+        Hide();   // only one dialog can be open at a time
+        await dialog.ShowAsync();
+        await ShowAsync();
+    }
+
     private async void Payee_CreateRequested(object? sender, string name) => await ViewModel.CreatePayeeAsync(name);
 
     private async void Add_Click(ContentDialog sender, ContentDialogButtonClickEventArgs args)

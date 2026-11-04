@@ -24,6 +24,9 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
     /// <summary>True for the "add a new item" row at the top of a search, which is not a real item.</summary>
     public bool IsCreateRow { get; init; }
 
+    /// <summary>True for the "split between several items" row at the top of the list, which is not a real item.</summary>
+    public bool IsSplitRow { get; init; }
+
     public long? Balance { get; set; }
     public string BalanceText => Balance is { } b ? Format.Money(b) : "";
     public Microsoft.UI.Xaml.Media.Brush BalanceBrush => Balance is { } b ? Format.Signed(b) : Format.Theme("TextFillColorPrimaryBrush");
@@ -41,16 +44,37 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public bool ShowItemColumn { get; } = showItemColumn;
     public ColumnLayout Layout => ColumnLayout.Current;
+
+    /// <summary>The lists the row's drop-downs choose from.</summary>
+    public ObservableCollection<string> Payees => owner.Payees;
+    public ObservableCollection<ItemOption> ItemOptions => owner.ItemOptions;
     public bool ShowAccountColumn { get; } = showAccountColumn;
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
     public int LineCount { get; } = lineCount;
     public bool IsTransfer => Entity.TransferPairId is not null;
     public bool IsSplit => LineCount > 1;
-    public bool IsReconciled => Entity.IsReconciled;
 
-    /// <summary>A reconciled transaction is locked until it is unreconciled.</summary>
-    public bool IsEditable => !IsReconciled;
+    /// <summary>The selected row shows editing boxes in place of its text.</summary>
+    [ObservableProperty] public partial bool IsEditing { get; set; }
+
+    partial void OnIsEditingChanged(bool value)
+    {
+        foreach (var n in new[] { nameof(ShowPayeeEditor), nameof(ShowPayeeText), nameof(ShowAmountEditor), nameof(ShowAmountText),
+                                  nameof(ShowItemEditor), nameof(ShowSplitButton), nameof(ShowItemText), nameof(NotEditing) })
+            OnPropertyChanged(n);
+    }
+
+    public bool NotEditing => !IsEditing;
+
+    // Which cells show a box and which show text while the row is being edited. A transfer's name and a split's amounts are fixed.
+    public bool ShowPayeeEditor => IsEditing && !IsTransfer;
+    public bool ShowPayeeText => !ShowPayeeEditor;
+    public bool ShowAmountEditor => IsEditing && CanEditAmount;
+    public bool ShowAmountText => !ShowAmountEditor;
+    public bool ShowItemEditor => IsEditing && CanEditAmount && AccountOnBudget;
+    public bool ShowSplitButton => IsEditing && IsSplit;
+    public bool ShowItemText => !ShowItemEditor && !ShowSplitButton;
 
     /// <summary>Amount and item are fixed for transfers (the other side depends on them) and split lines (they must add up).</summary>
     public bool CanEditAmount => !IsTransfer && !IsSplit;
@@ -116,13 +140,13 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public double Outflow
     {
-        get => Entity.Amount < 0 ? (double)AppServices.ToRands(-Entity.Amount) : 0;
+        get => Entity.Amount < 0 ? (double)AppServices.ToRands(-Entity.Amount) : double.NaN;   // blank, not 0.00, on the unused side
         set => SetAmount(-AppServices.ToCents(value), nameof(Outflow));
     }
 
     public double Inflow
     {
-        get => Entity.Amount > 0 ? (double)AppServices.ToRands(Entity.Amount) : 0;
+        get => Entity.Amount > 0 ? (double)AppServices.ToRands(Entity.Amount) : double.NaN;
         set => SetAmount(AppServices.ToCents(value), nameof(Inflow));
     }
 
@@ -134,12 +158,6 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : Entity.Payee;
 
     public override string ToString() => $"{DateText} {Entity.Payee}";
-
-    /// <summary>Refreshes the lock state after the store changed it.</summary>
-    public void RaiseReconciledChanged()
-    {
-        foreach (var n in new[] { nameof(IsReconciled), nameof(IsEditable) }) OnPropertyChanged(n);
-    }
 
     private void SetAmount(long cents, string source)
     {
@@ -189,7 +207,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
 {
     // The filters stay as the user left them when moving between accounts.
     private static bool s_hideCleared;
-    private static bool s_hideReconciled;
     private static int s_sortIndex;
 
     private readonly BudgetStore _store = AppServices.Store;
@@ -225,8 +242,14 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public bool HasMarkerSelected => SelectedMarker is not null;
     public bool CanChangeSelectedMarker => SelectedMarker is { IsFirst: false };
 
+    private TransactionRow? _editing;
+
     partial void OnSelectedEntryChanged(object? value)
     {
+        // The selected transaction is the one being edited in place.
+        if (_editing is not null) _editing.IsEditing = false;
+        _editing = value as TransactionRow;
+        if (_editing is not null) _editing.IsEditing = true;
         foreach (var name in new[] { nameof(Selected), nameof(SelectedMarker), nameof(HasSelection), nameof(HasMarkerSelected), nameof(CanChangeSelectedMarker) })
             OnPropertyChanged(name);
     }
@@ -236,7 +259,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public partial int SortIndex { get; set; } = s_sortIndex;
 
     [ObservableProperty] public partial bool HideCleared { get; set; } = s_hideCleared;
-    [ObservableProperty] public partial bool HideReconciled { get; set; } = s_hideReconciled;
 
     [ObservableProperty]
     public partial string Message { get; set; } = "";
@@ -249,6 +271,32 @@ public sealed partial class TransactionsViewModel : ObservableObject
     [ObservableProperty] public partial double NewOutflow { get; set; } = double.NaN;
     [ObservableProperty] public partial double NewInflow { get; set; } = double.NaN;
     [ObservableProperty] public partial ItemOption? NewItem { get; set; }
+
+    /// <summary>When the new transaction is split over several items: those lines (signed). Null for a single item.</summary>
+    public IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? NewSplits { get; private set; }
+
+    /// <summary>Shown in the item box in place of an item while the new transaction is split.</summary>
+    public string NewSplitText => NewSplits is { } lines ? $"Split ({lines.Count} lines)" : "";
+
+    public void SetNewSplits(IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? lines)
+    {
+        NewSplits = lines;
+        OnPropertyChanged(nameof(NewSplitText));
+    }
+
+    partial void OnNewItemChanged(ItemOption? value)
+    {
+        if (NewSplits is not null) SetNewSplits(null);   // choosing a single item replaces the split
+    }
+
+    /// <summary>The total of the new transaction in cents, positive, and which way it goes (-1 out, 1 in); null until an amount is typed.</summary>
+    public (long Total, int Sign)? NewAmount()
+    {
+        var outflow = AppServices.ToCents(NewOutflow);
+        var inflow = AppServices.ToCents(NewInflow);
+        if ((outflow == 0) == (inflow == 0) || outflow < 0 || inflow < 0) return null;
+        return outflow != 0 ? (outflow, -1) : (inflow, 1);
+    }
     [ObservableProperty] public partial AccountOption? NewAccount { get; set; }
 
     public bool HasSelection => Selected is not null;
@@ -295,7 +343,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
             OnPropertyChanged(name);
         SyncColumnLayout();
     }
-    public bool CanReconcile => AccountId is not null;
 
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
@@ -314,12 +361,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
     partial void OnHideClearedChanged(bool value)
     {
         s_hideCleared = value;
-        if (_loaded) _ = ReloadAsync();
-    }
-
-    partial void OnHideReconciledChanged(bool value)
-    {
-        s_hideReconciled = value;
         if (_loaded) _ = ReloadAsync();
     }
 
@@ -411,7 +452,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         foreach (var d in details)
         {
             if (HideCleared && d.Transaction.IsCleared) continue;
-            if (HideReconciled && d.Transaction.IsReconciled) continue;
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
             var row = new TransactionRow(d.Transaction, option, accountNames.GetValueOrDefault(d.Transaction.AccountId, "?"), d.Lines.Count,
@@ -444,7 +484,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             Message = "";
 
             // Clearing a row can make it drop out of a filtered list.
-            var disappears = (HideCleared && row.IsCleared) || (HideReconciled && row.IsReconciled);
+            var disappears = HideCleared && row.IsCleared;
             if (dateChanged || disappears) await LoadRowsAsync(disappears ? null : row.Entity.Id);
             else await RefreshBalancesAsync();
         }
@@ -622,7 +662,12 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var inflow = AppServices.ToCents(NewInflow);
         if ((outflow == 0) == (inflow == 0)) { Message = "Enter either an outflow or an inflow."; return false; }
         if (outflow < 0 || inflow < 0) { Message = "Amounts must be positive. Use outflow or inflow to say which way the money went."; return false; }
-        if (accountOption.IsOnBudget && NewItem?.Id is null) { Message = "Choose a budget item for a budget account."; return false; }
+        if (NewSplits is { } split && split.Sum(l => l.Amount) != inflow - outflow)
+        {
+            Message = "The split no longer adds up to the amount. Open Split again to fix it.";
+            return false;
+        }
+        if (accountOption.IsOnBudget && NewItem?.Id is null && NewSplits is null) { Message = "Choose a budget item for a budget account."; return false; }
 
         await _gate.WaitAsync();
         try
@@ -636,12 +681,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
                     Payee = NewPayee.Trim(), Memo = string.IsNullOrWhiteSpace(NewMemo) ? null : NewMemo.Trim(), Amount = amount,
                     IsCleared = NewIsCleared,
                 },
-                new[] { new SplitLineEntity { BudgetItemId = NewItem?.Id, Amount = amount } });
+                NewSplits is { } lines
+                    ? lines.Select(l => new SplitLineEntity { BudgetItemId = l.ItemId, Amount = l.Amount, Memo = l.Memo }).ToArray()
+                    : new[] { new SplitLineEntity { BudgetItemId = NewItem?.Id, Amount = amount } });
 
             _hints = await _store.GetPayeeHintsAsync();
             AddPayeeName(NewPayee.Trim());
             NewPayee = "";
             NewMemo = "";
+            SetNewSplits(null);
             NewIsCleared = false;
             NewOutflow = double.NaN;
             NewInflow = double.NaN;
@@ -686,21 +734,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Unlocks a reconciled transaction so it is simply cleared again and can be edited.</summary>
-    public async Task UnreconcileAsync(TransactionRow row)
-    {
-        await _gate.WaitAsync();
-        try
-        {
-            row.Entity.IsReconciled = false;
-            await _store.SaveAsync();
-            row.RaiseReconciledChanged();
-            Message = "";
-        }
-        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
-        finally { _gate.Release(); }
-    }
-
     /// <summary>Returns an error sentence, or null when the transfer was saved.</summary>
     public async Task<string?> AddTransferAsync(AccountOption? from, AccountOption? to, DateTimeOffset date, double amount, string memo, ItemOption? item, int? dayOrder = null)
     {
@@ -715,30 +748,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         }
         catch (ArgumentException ex) { return ex.Message; }
         catch (Exception ex) { return $"Could not save: {ex.Message}"; }
-        finally { _gate.Release(); }
-    }
-
-    // ---- Reconcile ----
-
-    /// <summary>The balance the user last confirmed with the bank for this account, if any.</summary>
-    public async Task<long?> LastBankBalanceAsync() => AccountId is { } id ? await _store.GetStatementBalanceAsync(id) : null;
-
-    public async Task<long> ClearedBalanceAsync() => (await _store.GetBalancesAsync(AccountId)).ClearedBalance;
-
-    /// <summary>Returns a message for the user, and whether the account reconciled.</summary>
-    public async Task<(string Message, bool Reconciled)> ReconcileAsync(long bankBalance)
-    {
-        if (AccountId is not { } id) return ("Open a single account to reconcile it.", false);
-        await _gate.WaitAsync();
-        try
-        {
-            var (result, reconciled) = await _store.ReconcileAsync(id, bankBalance);
-            await LoadRowsAsync(null);
-            return reconciled
-                ? ("Reconciled. The cleared transactions now match your bank balance and are locked.", true)
-                : ($"The bank balance is {Format.Money(Math.Abs(result.Difference ?? 0))} {(result.Difference > 0 ? "more" : "less")} than your cleared transactions.", false);
-        }
-        catch (Exception ex) { return ($"Could not reconcile: {ex.Message}", false); }
         finally { _gate.Release(); }
     }
 }

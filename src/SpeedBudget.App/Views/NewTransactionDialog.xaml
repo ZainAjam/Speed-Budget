@@ -39,7 +39,8 @@
         <local:PayeePicker x:Name="PayeeBox" Header="Counterparty" ItemsSource="{x:Bind ViewModel.Payees}"
                            SelectedPayee="{x:Bind ViewModel.NewPayee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" />
         <local:ItemPicker Header="Budget item" Visibility="{x:Bind ViewModel.ShowItemPicker, Mode=OneWay}" ItemsSource="{x:Bind ViewModel.ItemOptions}"
-                          SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" CreateRequested="Item_CreateRequested" />
+                          SelectedItem="{x:Bind ViewModel.NewItem, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
+                          AllowSplit="True" SplitRequested="Item_SplitRequested" ValueOverride="{x:Bind ViewModel.NewSplitText, Mode=OneWay}" />
         <TextBox Header="Memo" PlaceholderText="Optional" Text="{x:Bind ViewModel.NewMemo, Mode=TwoWay}" />
         <Grid ColumnSpacing="12">
             <Grid.ColumnDefinitions>

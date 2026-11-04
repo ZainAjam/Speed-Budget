@@ -63,9 +63,17 @@ Tick **Cleared** once the transaction has shown on your bank statement.
 **Move money between accounts.** Press **New Transfer**. A transfer between a budget account and a tracked account counts
 as spending or income against a budget item you choose.
 
-**Resize the table and the side panel.** Drag the right edge of a column heading in the recorded transactions table to make
-that column wider or narrower, and select a transaction and the edit panel slides in over the table from the right edge; drag its left edge to make it wider or narrower, and close it with the X or Esc. Your sizes
-are remembered.
+**Edit a transaction in place.** Click a row in the recorded transactions table and its cells turn into boxes: change the
+date, counterparty, memo, budget item, outflow, inflow or bank date right there. Changes save as you leave a box. The
+bin at the end of the row deletes the transaction. The table has a **Memo** column for a note on each transaction.
+
+**Split a transaction.** Open a transaction's budget item drop-down and choose **Split between several items**, then give
+each item its share; the shares must add up to the transaction's amount. A split transaction shows "Split (2 lines)", and
+pressing that opens the split again. You can also split while adding a new transaction.
+
+**Resize the table.** Drag the right edge of a column heading in the recorded transactions table to make that column wider
+or narrower. Your sizes are remembered. Selecting a month line opens a panel over the table from the right edge, for
+changing its date; drag its left edge to resize it, and close it with the X or Esc.
 
 **Bank date.** The table shows each transaction's date and, beside it, the date it showed on your bank statement. Entering a
 bank date on a transaction also marks it as cleared.
@@ -85,9 +93,6 @@ this month's pay for next month, so you budget with money you already have.
 **Watch the items that matter.** The strip at the top of the Transactions screens can show up to three budget items
 with what is left on each. Press **+** to add one, click one to jump to it on the Budget screen, and right-click one to
 remove it.
-
-**Match your bank statement.** On an account's screen, press **Reconcile**, enter the balance your bank shows, and
-cleared transactions are locked with a padlock once everything agrees. A padlock can be released if you need to change one.
 
 **Balances at a glance.** Under Transactions in the left panel, each account shows its available balance: green when it is above
 zero, red when below, and plain when zero.

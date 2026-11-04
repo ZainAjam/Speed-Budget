@@ -6,7 +6,11 @@ into the release.
 
 ## 0.9.7
 
-- The panel for editing a transaction or month line now slides in over the table from the right edge of the window, instead of taking up room beside it. The table keeps its full width. Close it with the X in its corner, or press Esc.
+- Transactions are now edited right in the table: click a row and its cells turn into boxes. There is no separate edit panel for transactions any more. A bin at the end of the row deletes it.
+- New **Memo** column in the transactions table.
+- Open a transaction's budget item drop-down and choose **Split between several items** to share it over several budget items. This works when adding a new transaction too.
+- Reconciling has been removed from the Transactions screens (the Reconcile button, the Hide reconciled filter and the padlock). Transactions that were already reconciled can now be edited like any other.
+- The panel for a month line slides in over the table from the right edge of the window. Close it with the X in its corner, or press Esc.
 
 ## 0.9.6
 
