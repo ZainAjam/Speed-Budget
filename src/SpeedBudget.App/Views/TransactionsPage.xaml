@@ -39,13 +39,13 @@
                     <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.CounterpartyColumn, Mode=OneWay}" />
-                    <ColumnDefinition Width="{x:Bind Layout.MemoColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="*" MinWidth="{x:Bind Layout.Memo, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.ItemColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.AccountColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
-                    <ColumnDefinition Width="*" MinWidth="44" />
+                    <ColumnDefinition Width="44" />
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource CellBorder}">
                     <Grid>
@@ -231,10 +231,10 @@
             </StackPanel>
         </Grid>
 
-        <!-- The table. If the window is too narrow for it, this area scrolls sideways instead of squeezing the Counterparty column away. -->
+        <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, this area scrolls sideways. -->
         <ScrollViewer Grid.Row="5" x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
-        <Grid x:Name="TableRegion" HorizontalAlignment="Left">
+        <Grid x:Name="TableRegion">
             <Border CornerRadius="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -246,13 +246,13 @@
                             <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.CounterpartyColumn, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind Layout.MemoColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="*" MinWidth="{x:Bind Layout.Memo, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.ItemColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.AccountColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
-                            <ColumnDefinition Width="*" MinWidth="44" />
+                            <ColumnDefinition Width="44" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>

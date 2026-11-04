@@ -168,6 +168,9 @@ public sealed partial class TransactionsPage : Page
         _gripStart = Layout.Get(ColumnOf(sender));
         if (ColumnOf(sender) == nameof(ColumnLayout.DetailWidth)) return;
         Trace($"grip start {ColumnOf(sender)} width={_gripStart} table={TableRegion.ActualWidth:0.#} widths={Layout.Serialize()}");
+        // Memo may be wider than its own width because it takes the spare room; a drag starts from what is on screen.
+        var memoOnScreen = Math.Floor(TableRegion.ActualWidth - (Layout.FixedTotal - Layout.Memo));   // rounded down, so the columns never add up to more than the room there is
+        if (memoOnScreen > Layout.Memo) Layout.Set(nameof(ColumnLayout.Memo), memoOnScreen);
         _gripColumns = ColumnsOnShow();
         _gripWidths = _gripColumns.ToDictionary(c => c, Layout.Get);
         _gripFillerStart = Math.Max(ColumnLayout.ActionsMinimum, TableRegion.ActualWidth - (Layout.FixedTotal - ColumnLayout.ActionsMinimum));
@@ -321,7 +324,7 @@ public sealed partial class TransactionsPage : Page
 
     private void UpdateTableWidth()
     {
-        TableRegion.Width = Layout.FixedTotal;   // exactly as wide as its columns; the edit panel floats over it, so it needs no room of its own
+        TableRegion.Width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);   // fills the room on offer; Memo takes what the columns do not need (the edit panel floats over the table, so it needs no room of its own)
     }
 
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>
