@@ -178,21 +178,9 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
     public bool LineAbove => !LineBelow;
     public string DateText => Entity is null ? "" : Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
 
-    private string _label = label;
-    public string Label
-    {
-        get => _label;
-        set
-        {
-            if (string.IsNullOrWhiteSpace(value) || _label == value.Trim()) return;
-            _label = value.Trim();
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Heading));
-            _ = owner.MarkerLabelChangedAsync(this);
-        }
-    }
+    public string Label { get; } = label;
 
-    public string Heading => $"{_label} starts here";
+    public string Heading => $"{Label} starts here";
 
     public override string ToString() => Heading;
 }
@@ -457,18 +445,18 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    public async Task MarkerLabelChangedAsync(MarkerRow marker)
+    /// <summary>
+    /// The user chose which month the first month is. The first month is normally worked out from the data, but deleting
+    /// transactions can change that, so this lets the user say which month it really is.
+    /// </summary>
+    public async Task SetFirstMonthAsync(int year, int month)
     {
         await _gate.WaitAsync();
         try
         {
-            if (marker.Entity is null) await _store.RenameFirstMonthAsync(marker.Label);
-            else
-            {
-                marker.Entity.Label = marker.Label;
-                await _store.SaveAsync();
-            }
+            await _store.RenameFirstMonthAsync(MonthLabels.For(new DateOnly(year, month, 1)));
             Message = "";
+            await LoadRowsAsync(Guid.Empty);
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }

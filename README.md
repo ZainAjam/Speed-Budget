@@ -68,7 +68,9 @@ start date, and a line appears in the list. Drag it up or down to fine-tune, or 
 
 **Plan your budget.** Open **Budget**. Click an amount to edit it: `Enter` saves and moves down, `Esc` cancels, the arrow
 keys move between cells, and you can type sums such as `1200+350`. Months ahead are shown as planned, so you can fill
-them in early. Use the two buttons at the top right to see one month or several.
+them in early. Use the two buttons at the top right to see one month or several. Press the months at the top to pick a month and
+year and jump straight to it, and when the current month is not the leftmost one, a small calendar button appears next to the arrows
+to bring you back to it.
 
 **Hold income for next month.** Right-click an income item and choose **Hold for next month** to keep part of
 this month's pay for next month, so you budget with money you already have.

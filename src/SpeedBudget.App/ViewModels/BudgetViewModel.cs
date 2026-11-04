@@ -238,6 +238,9 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     [ObservableProperty] public partial bool CanGoBack { get; set; }
     [ObservableProperty] public partial bool CanGoForward { get; set; }
+
+    /// <summary>True when the current calendar month is in the budget but is not the leftmost column on show.</summary>
+    [ObservableProperty] public partial bool ShowJumpToCurrent { get; set; }
     [ObservableProperty] public partial bool HasItems { get; set; }
     [ObservableProperty] public partial string RangeText { get; set; } = "";
     [ObservableProperty] public partial string Message { get; set; } = "";
@@ -380,6 +383,26 @@ public sealed partial class BudgetViewModel : ObservableObject
         RebuildColumns();
     }
 
+    private static string CurrentMonthLabel => MonthLabels.For(DateOnly.FromDateTime(DateTime.Today));
+
+    private int IndexOfMonth(string label) => _months.ToList().FindIndex(m => m.Label == label);
+
+    /// <summary>Brings the current calendar month to the leftmost column. False if the budget has no such month.</summary>
+    public bool JumpToCurrentMonth() => JumpToMonth(DateOnly.FromDateTime(DateTime.Today));
+
+    /// <summary>Brings the given calendar month to the leftmost column. False if the budget does not (yet) include that month.</summary>
+    public bool JumpToMonth(DateOnly month)
+    {
+        var index = IndexOfMonth(MonthLabels.For(month));
+        if (index < 0) return false;
+        _start = Math.Clamp(index, 0, MaxStart);
+        RebuildColumns();
+        return true;
+    }
+
+    /// <summary>The month at the left of the screen, which the month picker starts from.</summary>
+    public DateOnly? LeftmostMonth => Columns.Count > 0 && MonthLabels.TryParse(Columns[0].Label, out var month) ? month : null;
+
     private void RebuildColumns()
     {
         Columns.Clear();
@@ -396,6 +419,8 @@ public sealed partial class BudgetViewModel : ObservableObject
 
         CanGoBack = _start > 0 || CanAddEarlierMonth;
         CanGoForward = _start < MaxStart;
+        var currentAt = IndexOfMonth(CurrentMonthLabel);
+        ShowJumpToCurrent = currentAt >= 0 && _start != Math.Clamp(currentAt, 0, MaxStart);
         RangeText = Columns.Count == 0 ? "" : Columns.Count == 1 ? Columns[0].Label : $"{Columns[0].Label} to {Columns[^1].Label}";
         ApplyVisibility();
     }

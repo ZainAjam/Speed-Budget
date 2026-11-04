@@ -96,6 +96,34 @@ public sealed partial class BudgetPage : Page
         await RefreshAsync();
     }
 
+    // ---- Jumping to a month ----
+
+    private void JumpFlyout_Opening(object? sender, object e)
+    {
+        if (JumpMonthBox.ItemsSource is null)
+            JumpMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
+
+        // Start from the month now at the left of the screen.
+        var month = ViewModel.LeftmostMonth ?? DateOnly.FromDateTime(DateTime.Today);
+        JumpMonthBox.SelectedIndex = month.Month - 1;
+        JumpYearBox.Value = month.Year;
+        JumpMessage.Visibility = Visibility.Collapsed;
+    }
+
+    private void JumpGo_Click(object sender, RoutedEventArgs e)
+    {
+        if (JumpMonthBox.SelectedIndex < 0 || double.IsNaN(JumpYearBox.Value)) return;
+        var month = new DateOnly((int)JumpYearBox.Value, JumpMonthBox.SelectedIndex + 1, 1);
+        if (ViewModel.JumpToMonth(month)) RangeButton.Flyout.Hide();
+        else
+        {
+            JumpMessage.Text = $"{Core.MonthLabels.For(month)} is not in your budget. Use the left arrow to add earlier months.";
+            JumpMessage.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void JumpToCurrent_Click(object sender, RoutedEventArgs e) => ViewModel.JumpToCurrentMonth();
+
     private async void Back_Click(object sender, RoutedEventArgs e) => await ViewModel.GoBackAsync();
 
     private void Forward_Click(object sender, RoutedEventArgs e) => ViewModel.GoForward();

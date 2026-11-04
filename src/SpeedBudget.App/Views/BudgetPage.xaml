@@ -169,10 +169,34 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Button Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
                             IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Earlier months" ToolTipService.ToolTip="Earlier months. At the first month this adds an earlier month." />
-                    <TextBlock Text="{x:Bind ViewModel.RangeText, Mode=OneWay}" MinWidth="240" TextAlignment="Center"
-                               VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <!-- Pressing the months opens a month and year picker to jump straight to one -->
+                    <Button x:Name="RangeButton" MinWidth="240" Padding="8,4" Background="Transparent" BorderThickness="0"
+                            AutomationProperties.Name="Jump to a month" ToolTipService.ToolTip="Jump to a month">
+                        <TextBlock Text="{x:Bind ViewModel.RangeText, Mode=OneWay}" TextAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Button.Flyout>
+                            <Flyout Opening="JumpFlyout_Opening">
+                                <StackPanel Spacing="10" MinWidth="320">
+                                    <TextBlock Text="Jump to a month" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <ComboBox x:Name="JumpMonthBox" Header="Month" Width="170" />
+                                        <NumberBox x:Name="JumpYearBox" Header="Year" Width="130" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
+                                                   SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="JumpMessage" Visibility="Collapsed" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource SystemFillColorCriticalBrush}" Style="{StaticResource CaptionTextBlockStyle}" />
+                                    <Button Content="Go to this month" Style="{StaticResource AccentButtonStyle}" Click="JumpGo_Click" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                     <Button Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"
                             IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" AutomationProperties.Name="Later months" ToolTipService.ToolTip="Later months" />
+                    <Grid Width="36">
+                        <Button Visibility="{x:Bind ViewModel.ShowJumpToCurrent, Mode=OneWay}" Click="JumpToCurrent_Click" Padding="8"
+                                AutomationProperties.Name="Back to the current month" ToolTipService.ToolTip="Back to the current month">
+                            <FontIcon Glyph="&#xE787;" FontSize="14" />
+                        </Button>
+                    </Grid>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <ToggleButton x:Name="SingleButton" Checked="SingleMonth_Checked" Unchecked="SingleMonth_Unchecked" IsChecked="{x:Bind ViewModel.ShowSingleMonth, Mode=OneWay}"

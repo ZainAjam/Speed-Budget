@@ -266,10 +266,9 @@
 
             <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <TextBox Header="Month name" Text="{x:Bind ViewModel.SelectedMarker.Label, Mode=TwoWay, FallbackValue=''}" />
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Opacity="0.7"
                            Text="{x:Bind ViewModel.SelectedMarker.DateText, Mode=OneWay, FallbackValue=''}" />
-                <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                <TextBlock TextWrapping="Wrap" Opacity="0.8" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}"
                            Text="Everything after this line belongs to this month. Drag the line, or use the buttons, to change where the month starts." />
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -278,9 +277,14 @@
                     </StackPanel>
                     <Button Content="Delete this line" Click="DeleteLine_Click" />
                 </StackPanel>
-                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Opacity="0.7"
-                           Text="The first month has no line to move. Its name can be changed here."
-                           Visibility="{x:Bind ViewModel.SelectedMarker.IsFirst, Mode=OneWay, FallbackValue=Collapsed}" />
+                <!-- The first month has no line to move. Which month it is can be chosen, since deleting transactions can change it. -->
+                <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.SelectedMarker.IsFirst, Mode=OneWay, FallbackValue=Collapsed}">
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                               Text="This is the first month, so there is no line to move. Choose which month it is. It can change by itself when transactions are deleted, so set it here whenever it is wrong." />
+                    <ComboBox x:Name="FirstMonthBox" Header="Month" HorizontalAlignment="Stretch" SelectionChanged="FirstMonth_Changed" />
+                    <NumberBox x:Name="FirstYearBox" Header="Year" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
+                               SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="FirstYear_Changed" />
+                </StackPanel>
             </StackPanel>
             </Grid>
         </Grid>

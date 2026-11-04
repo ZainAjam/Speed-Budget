@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using SpeedBudget.App.ViewModels;
+using SpeedBudget.Core;
 using Windows.System;
 
 namespace SpeedBudget.App.Views;
@@ -17,7 +18,9 @@ public sealed partial class TransactionsPage : Page
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(TransactionsViewModel.HasSelection) or nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
+            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) ShowFirstMonth();
         };
+        FirstMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
     }
 
     // The fixed columns need about 700 pixels and the Counterparty column at least 160 more. The side panel adds its own width.
@@ -28,6 +31,34 @@ public sealed partial class TransactionsPage : Page
     {
         DetailHost.Visibility = ViewModel.HasSelection || ViewModel.HasMarkerSelected ? Visibility.Visible : Visibility.Collapsed;
         UpdateTableWidth();
+    }
+
+    // ---- Choosing which month the first month is ----
+
+    private bool _showingFirstMonth;
+
+    /// <summary>Fills the month and year boxes from the selected first-month row.</summary>
+    private void ShowFirstMonth()
+    {
+        if (ViewModel.SelectedMarker is not { IsFirst: true } row || !MonthLabels.TryParse(row.Label, out var month)) return;
+        _showingFirstMonth = true;
+        FirstMonthBox.SelectedIndex = month.Month - 1;
+        FirstYearBox.Value = month.Year;
+        _showingFirstMonth = false;
+    }
+
+    private async void FirstMonth_Changed(object sender, SelectionChangedEventArgs e) => await ApplyFirstMonthAsync();
+
+    private async void FirstYear_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args) => await ApplyFirstMonthAsync();
+
+    private async Task ApplyFirstMonthAsync()
+    {
+        if (_showingFirstMonth || FirstMonthBox.SelectedIndex < 0 || double.IsNaN(FirstYearBox.Value)) return;
+        if (ViewModel.SelectedMarker is not { IsFirst: true } row) return;
+
+        var month = new DateOnly((int)FirstYearBox.Value, FirstMonthBox.SelectedIndex + 1, 1);
+        if (MonthLabels.For(month) == row.Label) return;   // nothing changed
+        await ViewModel.SetFirstMonthAsync(month.Year, month.Month);
     }
 
     private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTableWidth();
