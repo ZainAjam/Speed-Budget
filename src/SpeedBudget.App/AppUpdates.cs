@@ -25,12 +25,12 @@ public static class AppUpdates
 
     public static Task SetSourceAsync(string source) => AppServices.Store.SetLocalSettingAsync(SourceKey, source.Trim());
 
-    /// <summary>A GitHub repository address uses that repository's Releases; anything else is a web address or a folder.</summary>
+    /// <summary>A GitHub repository address uses that repository's Releases, pre-releases included while the app is below 1.0; anything else is a web address or a folder.</summary>
     private static UpdateManager Open(string source)
     {
         source = source.Trim();
         return source.Contains("github.com", StringComparison.OrdinalIgnoreCase)
-            ? new UpdateManager(new GithubSource(source, null, false))
+            ? new UpdateManager(new GithubSource(source, null, true))
             : new UpdateManager(source);
     }
 

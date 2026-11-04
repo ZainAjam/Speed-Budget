@@ -6,7 +6,7 @@
     <RootNamespace>SpeedBudget.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <Version>0.9.0</Version>
     <Product>Speed Budget</Product>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>

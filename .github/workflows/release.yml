@@ -24,8 +24,12 @@ jobs:
       - name: Work out the version
         shell: pwsh
         run: |
+          # v0.9 releases 0.9.0. Versions below 1.0 are published as pre-releases.
           $version = '${{ github.ref_name }}'.TrimStart('v')
+          if ($version -match '^\d+\.\d+$') { $version = "$version.0" }
+          $pre = if ($version.StartsWith('0.') -or $version.Contains('-')) { 'true' } else { 'false' }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PRERELEASE=$pre" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Test
         shell: pwsh
@@ -49,6 +53,9 @@ jobs:
       - name: Publish the release
         shell: pwsh
         run: |
+          $extra = @()
+          $name = "Speed Budget $env:VERSION"
+          if ($env:PRERELEASE -eq 'true') { $extra += '--pre'; $name += ' (pre-release)' }
           dotnet vpk upload github --repoUrl $env:REPO_URL --outputDir artifacts/releases `
-            --publish --releaseName "Speed Budget $env:VERSION" --tag "v$env:VERSION" `
+            --publish --releaseName $name --tag '${{ github.ref_name }}' @extra `
             --token ${{ secrets.GITHUB_TOKEN }}

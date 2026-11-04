@@ -1,85 +1,114 @@
 # Speed Budget
 
-A native Windows (WinUI 3, Fluent) budgeting app, replacing the "Action Budget" Google Sheet.
-You budget per item each month, record transactions daily, and draw a **"Let's start a new month"** line in the
-transaction list wherever your month begins. Everything after the line counts towards the new month. See
-[PLAN.md](PLAN.md) for the design.
+**A fast, simple budgeting app for Windows.** You decide what each month's money is for, type in your transactions as
+they happen, and see at a glance what is left on every budget item. Everything stays on your own PC.
 
-## Build and run
+> Speed Budget is a pre-release (version 0.9). It works and is in daily use, but expect rough edges, and keep
+> backups of anything you care about (the app makes one for you every day).
 
-Needs the .NET 10 SDK and Visual Studio 2022 with the "WinUI application development" workload.
+## Install
 
-```powershell
-dotnet run --project src/SpeedBudget.App -p:Platform=x64
-dotnet test SpeedBudget.sln -p:Platform=x64
-```
+1. Open the [Releases page](https://github.com/ZainAjam/Speed-Budget/releases) and download
+   **`SpeedBudgetApp-win-Setup.exe`** from the newest release.
+2. Run it. It installs for your own account only, so it needs no administrator rights and nothing else to be installed.
+   Speed Budget then opens, and you get a Start menu and desktop shortcut.
+3. **Windows may warn you the first time** ("Windows protected your PC") because the installer is not signed with a paid
+   certificate. Choose **More info**, then **Run anyway**.
 
-## Installer and updates
+You need 64-bit Windows 10 (version 1809 or later) or Windows 11.
 
-```powershell
-./scripts/package.ps1                 # uses the Version in SpeedBudget.App.csproj
-./scripts/package.ps1 -Version 0.2.0  # or name the version
-```
+**Updates are automatic.** When a newer version is released, a bar appears at the top of the app: press
+**Update and restart**. The app takes a backup of your data first, and an update never changes your budget.
 
-This builds a self-contained app and packs it with [Velopack](https://velopack.io) into `artifacts/releases/`:
+**To uninstall,** use Settings > Apps > Installed apps in Windows. This removes the program but keeps your data.
 
-- `SpeedBudgetApp-win-Setup.exe` installs Speed Budget for the current user: no admin rights, no .NET needed, with
-  Start menu and desktop shortcuts, and an entry under Settings > Apps for uninstalling.
-- The `.nupkg` files and `releases.win.json` are the updates. Publish the whole folder to a web address or a shared
-  folder (OneDrive works), then enter that address under **Settings > Updates** on each PC. The app checks when it
-  opens and offers **Update and restart**; it also takes a backup first. Keep earlier releases in the folder so
-  updates can be small deltas.
+## First time you open it
 
-The program installs to `%LocalAppData%\SpeedBudgetApp`, separate from your data in `%LocalAppData%\SpeedBudget`, so
-installing, updating and uninstalling never touch your budget. The installer is unsigned, so SmartScreen may ask you
-to confirm the first time (a code-signing certificate fixes that: pass it to `vpk pack` with `--signParams`).
+A short setup wizard starts by itself. It helps you create:
 
-### Releasing on GitHub
+- your **bank accounts**, and whether each is a *budget account* (money you budget with, like a cheque or savings
+  account) or a *tracked account* (outside your budget, like a retirement fund or a home loan);
+- your **budget groups and items**, from a ready-made template (Household, Minimal, or empty) that you can tick and edit;
+- the **counterparties** you deal with most, such as shops and your employer.
 
-The project lives at <https://github.com/ZainAjam/Speed-Budget>, and releases are built by GitHub Actions
-(`.github/workflows`). Every push and pull request is built and tested (`ci.yml`). To publish a version:
+Nothing is saved until the last step, you can change everything later, and you can run the wizard again from
+**Settings** (it only adds what is missing).
 
-```powershell
-git checkout master
-git pull
-git tag v0.2.0
-git push origin v0.2.0
-```
+## How it works
 
-Pushing the tag starts `release.yml`, which runs the tests, packs the installer and update packages (with deltas
-against earlier releases), and publishes them as the GitHub Release for that tag. The tag is the version: `v0.2.0`
-releases 0.2.0, and versions must always go up. No token is needed on your PC; the workflow uses GitHub's own.
+- **Budget items** are the things you set money aside for each month, such as Groceries, Petrol or Electricity. They
+  sit in **groups** (Home, Vehicle, ...). Income items, such as Salary, hold the money coming in.
+- **Transactions** are what actually happens: money out or money in, on a date, with a **counterparty** (who it was
+  with: the shop, the person, your employer) and the budget item it counts against.
+- **Months are drawn by you, not by the calendar.** In the transaction list there is a line that says
+  "*February 2027 starts here*". Everything after the line belongs to that month. If your pay arrives on the 25th, put
+  the line there. You can drag the line to move it.
+- On the **Budget** screen you give each item an amount for the month. The screen shows what you budgeted, what you
+  spent and what is **left**. Money left on an item carries over to the next month on that same item. If you overspend an
+  item, the shortfall comes out of the next month's money still to be assigned.
 
-People install by downloading `SpeedBudgetApp-win-Setup.exe` from the Releases page. Installed copies look at the same
-repository (the default under **Settings > Updates**) when they open and every six hours, and show an
-**Update and restart** bar when a newer release exists. For that to work for other people, the repository (or a
-separate releases-only repository, with `DefaultSource` in `AppUpdates.cs` changed to match) must be public.
+## Everyday use
 
-Install with the Setup.exe from your own Windows session (double-click it in Explorer) so the shortcuts and icons
-point at real paths.
+**Record a transaction.** On a Transactions screen press **New Transaction** (or `Ctrl+N`). Pick the counterparty and
+the budget item, then type an **outflow** (money out) or **inflow** (money in), and press Add. Typing a new
+counterparty or budget item adds it on the spot, and the app remembers which item you used with each counterparty.
+Tick **Cleared** once the transaction has shown on your bank statement.
 
-Before tagging a release that changes the database, install the previous release, update it to the new one, and check
-your data still opens.
+**Move money between accounts.** Press **New Transfer**. A transfer between a budget account and a tracked account counts
+as spending or income against a budget item you choose.
 
-`./scripts/publish.ps1` still makes a plain zip with no installer or updates.
+**Start a new month.** When your month rolls over, press **Start a new month** (or `Ctrl+M`), give the month a name and a
+start date, and a line appears in the list. Drag it up or down to fine-tune, or select it and use `Alt+Up` / `Alt+Down`.
 
-## Where things live
+**Plan your budget.** Open **Budget**. Click an amount to edit it: `Enter` saves and moves down, `Esc` cancels, the arrow
+keys move between cells, and you can type sums such as `1200+350`. Months ahead are shown as planned, so you can fill
+them in early. Use the two buttons at the top right to see one month or several.
 
-| Path | What |
+**Hold income for next month.** Right-click an income item and choose **Hold for next month** to keep part of
+this month's pay for next month, so you budget with money you already have.
+
+**Watch the items that matter.** The strip at the top of the Transactions screens can show up to three budget items
+with what is left on each. Press **+** to add one, click one to jump to it on the Budget screen, and right-click one to
+remove it.
+
+**Match your bank statement.** On an account's screen, press **Reconcile**, enter the balance your bank shows, and
+cleared transactions are locked with a padlock once everything agrees. A padlock can be released if you need to change one.
+
+**Tidy up.** The **Manage** section lists Accounts, Counterparties and Budget Items. Right-click a budget item or a
+counterparty anywhere to edit it, drag items to reorder them, and pick an icon for each item.
+
+## Keyboard shortcuts
+
+| Keys | What it does |
 |---|---|
-| `src/SpeedBudget.Core` | Budget engine: months, balances, holds, reconciliation. No UI, no database. |
-| `src/SpeedBudget.Data` | SQLite storage (EF Core), sync-ready change tracking, backups, export. |
-| `src/SpeedBudget.App` | The WinUI 3 app. |
-| `tests/` | Engine and data tests. |
+| `Ctrl+1` ... `Ctrl+5` | Go to Budget, Transactions, Accounts, Counterparties, Budget Items |
+| `Ctrl+N` | New transaction |
+| `Ctrl+M` | Start a new month |
+| `Alt+Up` / `Alt+Down` | Move the selected month line |
+| `Enter` / `Esc` / arrows | Save, cancel, and move between cells when editing the budget |
 
-Your data is one SQLite file in `%LocalAppData%\SpeedBudget` (set the `SPEEDBUDGET_DATA` environment variable to use a
-different folder, for example when testing). A backup is made automatically when the app opens, at most once a day; the
-Settings page can also back up on demand and export to CSV or JSON.
+## Your data, backups and settings
 
-## Status
+Everything is kept in a single file on your PC, in `%LocalAppData%\SpeedBudget`. There is no account and nothing is sent
+anywhere. The **Settings** screen (bottom left) lets you:
 
-Built: engine, local storage, accounts and items, transactions per account (splits, transfers, reconcile), the draggable
-month line, a multi-month budget screen with cash inflow and outflow and holds, pinned items, backups and export.
+- **Back up now.** A backup is also made automatically each day the app opens, and the newest 14 are kept.
+  To restore one, close the app and copy it over `budget.db` in the data folder.
+- **Export** your transactions to CSV (opens in Excel or Google Sheets) or everything to JSON.
+- **Run the setup wizard** again to add more accounts, items or counterparties.
+- **Reset the app** to a clean slate. This deletes everything (a backup is saved first), and the setup wizard runs again.
+- **Check for updates**, or point the app at a different update source.
 
-Not built yet: sync between devices (the data is already prepared for it), Android apps, automatic updates, and
-an installer (a signed MSIX needs a code-signing certificate).
+## What is not there yet
+
+Syncing a budget between several devices, and phone and tablet apps, are planned but not built. For now the budget lives
+on the one PC.
+
+## Questions and problems
+
+Please [open an issue](https://github.com/ZainAjam/Speed-Budget/issues) and say what you did and what you expected.
+
+## For developers
+
+Building from source, running the tests and publishing releases are covered in
+[docs/DEVELOPING.md](docs/DEVELOPING.md). The original design notes are in [docs/PLAN.md](docs/PLAN.md).
