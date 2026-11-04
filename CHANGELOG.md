@@ -4,7 +4,7 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
-## Next
+## 0.9.10
 
 - The budget item drop-down in the transactions table now lists just the items (with their icons), without their budget group.
 
