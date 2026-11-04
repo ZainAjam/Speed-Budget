@@ -14,7 +14,7 @@ public sealed partial class ColumnLayout : ObservableObject
     public static ColumnLayout Current { get; } = new();
 
     /// <summary>The last column of the table holds the delete button, and is just wide enough for it.</summary>
-    public const double ActionsMinimum = 44;
+    public const double ActionsMinimum = 76;
 
     [ObservableProperty] public partial double Date { get; set; } = 128;
     [ObservableProperty] public partial double BankDate { get; set; } = 128;

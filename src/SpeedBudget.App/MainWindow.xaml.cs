@@ -27,20 +27,22 @@ public sealed partial class MainWindow : Window
         var icon = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
 
-        var budget = new NavigationViewItem { Content = "Budget", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
+        var budget = new NavigationViewItem { Content = "Plan your spending", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
         var accounts = new NavigationViewItem { Content = "Accounts", Tag = "accounts", Icon = new SymbolIcon(Symbol.Library) };
         var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
         var items = new NavigationViewItem { Content = "Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
-        _transactions.Content = SubHeading("Transactions");
-        Nav.MenuItems.Add(Heading("Activity"));
+        _transactions.Content = HeadingLabel("Transactions");
+        Nav.MenuItems.Add(Heading("Budget"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
-        Nav.MenuItems.Add(new NavigationViewItemSeparator());
-        Nav.MenuItems.Add(Heading("Configurations"));
-        Nav.MenuItems.Add(accounts);
-        Nav.MenuItems.Add(payees);
-        Nav.MenuItems.Add(items);
+
+        // Configurations sit at the bottom of the panel, above App Settings and a line that sets them apart.
+        Nav.FooterMenuItems.Add(Heading("Configurations"));
+        Nav.FooterMenuItems.Add(accounts);
+        Nav.FooterMenuItems.Add(payees);
+        Nav.FooterMenuItems.Add(items);
+        Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
         // The available balance beside each account follows every change to the data.
@@ -156,21 +158,17 @@ public sealed partial class MainWindow : Window
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
     // It is an ordinary row (not a NavigationViewItemHeader) so that it keeps its place when the panel is collapsed to icons:
     // every icon then sits in the same spot whether the panel is open or not. It cannot be selected or clicked.
-    private NavigationViewItem Heading(string text)
+    private NavigationViewItem Heading(string text) =>
+        new() { Content = HeadingLabel(text), Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false };
+
+    /// <summary>The text of a section title: bold and blue. It is hidden while the panel is a strip of icons, where it would be cut off.</summary>
+    private TextBlock HeadingLabel(string text)
     {
         var label = new TextBlock
         {
             Text = text, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center,
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
         };
-        _headingLabels.Add(label);
-        return new NavigationViewItem { Content = label, Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false };
-    }
-
-    /// <summary>A smaller label inside a section, such as "Transactions" above the accounts: bold, in the normal text colour.</summary>
-    private TextBlock SubHeading(string text)
-    {
-        var label = new TextBlock { Text = text, FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         _headingLabels.Add(label);
         return label;
     }

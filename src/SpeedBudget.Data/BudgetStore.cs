@@ -921,7 +921,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var from = await db.Accounts.SingleAsync(a => a.Id == fromAccountId, ct);
         var to = await db.Accounts.SingleAsync(a => a.Id == toAccountId, ct);
 
-        var (fromItem, toItem) = await TransferItemsAsync(from, to, budgetItemId, itemRequired: true, ct);
+        var (fromItem, toItem) = await TransferItemsAsync(from, to, budgetItemId, itemRequired: false, ct);
 
         var pair = Guid.CreateVersion7();
         var order = dayOrder ?? await NextDayOrderAsync(date, ct);
@@ -1013,9 +1013,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
             }
             await db.SaveChangesAsync(ct);
 
-            return from.IsOnBudget != to.IsOnBudget && (from.IsOnBudget ? fromItem : toItem) is null
-                ? $"Choose an {(from.IsOnBudget ? "expense" : "income")} item for this transfer."
-                : null;
+            return null;   // a transfer is saved with or without a budget item
         }
         catch
         {

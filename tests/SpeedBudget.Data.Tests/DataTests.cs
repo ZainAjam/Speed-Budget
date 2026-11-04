@@ -339,8 +339,8 @@ public sealed class DataTests : IDisposable
         var salary = AddItem("Salary", ItemKind.Income);
         var food = AddItem("Food", ItemKind.Expense);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            _store.AddTransferAsync(pocket.Id, cheque.Id, new(2027, 1, 5), 100_00, null, null));
+        await _store.AddTransferAsync(pocket.Id, cheque.Id, new(2027, 1, 5), 50_00, null, null);   // no item is fine: it just counts for nothing yet
+        Assert.Equal(0, BudgetEngine.Calculate(await _store.LoadSnapshotAsync()).Single().Income);
         await Assert.ThrowsAsync<ArgumentException>(() =>
             _store.AddTransferAsync(pocket.Id, cheque.Id, new(2027, 1, 5), 100_00, null, food.Id));
 
@@ -388,15 +388,14 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
-    public async Task Making_a_transfer_cross_the_budget_asks_for_an_item_and_reversing_it_flips_the_names()
+    public async Task Making_a_transfer_cross_the_budget_needs_no_item_and_reversing_it_flips_the_names()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);
         var b = await _store.AddAccountAsync("B", AccountType.Cheque, true);
         var tracked = await _store.AddAccountAsync("T", AccountType.Savings, false);
         var (from, to) = await _store.AddTransferAsync(a.Id, b.Id, new(2027, 1, 5), 40_00, null, null);
 
-        var note = await _store.UpdateTransferAsync(from.Id, tracked.Id, null);
-        Assert.Contains("expense", note);
+        Assert.Null(await _store.UpdateTransferAsync(from.Id, tracked.Id, null));   // no item yet is allowed
 
         from.Amount = 40_00;   // the money now comes the other way
         await _store.UpdateTransferAsync(from.Id, null, null);

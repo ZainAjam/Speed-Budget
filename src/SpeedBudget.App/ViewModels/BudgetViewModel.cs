@@ -150,6 +150,9 @@ public sealed partial class OutflowCell : LineCell
 public static class SummaryView
 {
     public static bool Expanded { get; set; }
+
+    /// <summary>The arrow on the "Available to budget" row: down while the figures are hidden (they open downwards), up while they show.</summary>
+    public static string Arrow(bool expanded) => expanded ? "\uE70E" : "\uE70D";
 }
 
 public sealed partial class SummaryLabel(string text, bool isStrong = false) : ObservableObject
@@ -161,7 +164,7 @@ public sealed partial class SummaryLabel(string text, bool isStrong = false) : O
     [ObservableProperty] public partial bool IsVisible { get; set; } = isStrong || SummaryView.Expanded;
 
     /// <summary>The arrow on the "Available to budget" row that shows or hides the other figures.</summary>
-    [ObservableProperty] public partial string ToggleGlyph { get; set; } = Glyphs.Chevron(SummaryView.Expanded);
+    [ObservableProperty] public partial string ToggleGlyph { get; set; } = SummaryView.Arrow(SummaryView.Expanded);
 }
 
 public sealed partial class SummaryCell(bool isStrong) : ObservableObject
@@ -255,7 +258,7 @@ public sealed partial class BudgetViewModel : ObservableObject
         foreach (var label in SummaryLabels)
         {
             if (!label.IsStrong) label.IsVisible = expanded;
-            else label.ToggleGlyph = Glyphs.Chevron(expanded);
+            else label.ToggleGlyph = SummaryView.Arrow(expanded);
         }
         foreach (var column in Columns)
             foreach (var cell in column.Summary.Where(c => !c.IsStrong)) cell.IsVisible = expanded;

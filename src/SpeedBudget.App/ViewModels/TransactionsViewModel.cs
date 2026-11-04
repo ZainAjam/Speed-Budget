@@ -309,10 +309,8 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
     public string BankDateText => Entity.BankDate is { } bank ? bank.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : "";
-    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? (NeedsItem ? "⚠ Choose a budget item" : "") : _item.Label;
+    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? "" : _item.Label;
 
-    /// <summary>A budget account's transaction counts against an item, and so does a transfer between a budget account and a tracked one.</summary>
-    private bool NeedsItem => AccountOnBudget && !(IsTransfer && OtherOnBudget);
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
     public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : Entity.Payee;
@@ -689,7 +687,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 if (!onBudget && row.IsSplit) await _store.ClearLineItemsAsync(row.Entity.Id);   // a tracked account has no budget items
                 else if (splitChanged || (structural && !onBudget)) await _store.SetSingleSplitAsync(row.Entity.Id, onBudget ? row.Item.Id : null, row.Entity.Amount);
                 else await _store.SaveAsync();
-                if (structural && onBudget && !row.IsSplit && row.Item.Id is null) note = "Choose a budget item for this transaction.";
             }
             Message = note ?? "";
 
@@ -918,11 +915,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
             Message = "The split no longer adds up to the amount. Open Split again to fix it.";
             return false;
         }
-        else if (onBudget && row.Item.Id is null && row.DraftSplits is null)
-        {
-            Message = "Choose a budget item for a budget account.";
-            return false;
-        }
 
         // A date that a month line sits on could be in either month, so ask which.
         int? dayOrder = null;
@@ -977,7 +969,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>Budget accounts need an item on every line; tracked accounts may leave lines unassigned.</summary>
-    public bool RequiresItem(TransactionRow row) => _accounts.FirstOrDefault(a => a.Id == row.Entity.AccountId)?.IsOnBudget ?? false;
+    public bool RequiresItem(TransactionRow row) => false;   // an item is never required; a split can leave lines unassigned too
 
     public Task<List<SplitLineEntity>> GetLinesAsync(TransactionRow row) => _store.GetSplitLinesAsync(row.Entity.Id);
 
@@ -1038,9 +1030,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    public async Task DeleteSelectedAsync()
+    public async Task DeleteAsync(TransactionRow row)
     {
-        if (Selected is not { } row) return;
         await _gate.WaitAsync();
         try
         {

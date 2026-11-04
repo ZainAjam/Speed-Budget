@@ -6,6 +6,11 @@ into the release.
 
 ## 0.9.9
 
+- In the left panel, the first section is now called **Budget** and its page **Plan your spending**; **Budget** and **Transactions** are both bold blue headings; and **Configurations** (Accounts, Counterparties, Budget Items) now sit at the bottom, above App Settings with a line between them.
+- On the Budget screen, the arrow beside "Available to budget" points down while the figures are hidden and up while they show.
+- Every row of the transactions table now has a yellow pencil and a bin at its end. The pencil turns edit mode on for that row; while it is being edited the pencil is a green tick that saves the row.
+- A transaction or transfer can be saved without a budget item.
+- The New Transaction, New Transfer and Start a new month buttons now sit right after the "Recorded transactions" title.
 - In money boxes you can type either a point or a comma as the decimal mark, anywhere in the app: "1.5" and "1,5" both mean one and a half. Sums such as 3.5+1.5 work too.
 - Scrolling the mouse wheel over a budget amount no longer changes it. The page scrolls instead.
 - On the Budget screen, pressing Enter in an amount saves it and leaves the cell; Esc puts the old amount back and leaves it; the Up and Down arrows move between amounts.

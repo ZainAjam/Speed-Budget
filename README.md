@@ -72,7 +72,7 @@ budget account and a tracked account counts as spending or income against a budg
 
 **Edit a transaction in place.** Click a row in the recorded transactions table and its cells turn into boxes: change the
 date, counterparty, memo, budget item, account, outflow, inflow or bank date right there. This works for transfers too: their Counterparty box picks the account on the other side, and the date, memo and amount change on both sides together. The
-Press Enter in a box, or click another row, to save your changes; press Esc, or click outside the table, to cancel them and put the row back as it was. The bin at the end of the row deletes the transaction. The table has a **Memo** column for a note on each transaction.
+Press Enter in a box, or click another row, to save your changes; press Esc, or click outside the table, to cancel them and put the row back as it was. At the end of every row a yellow pencil turns edit mode on for it (while editing it becomes a green tick that saves the row), and the bin deletes the transaction. The table has a **Memo** column for a note on each transaction.
 
 **Split a transaction.** Open a transaction's budget item drop-down and choose **Split between several items**, then give
 each item its share; the shares must add up to the transaction's amount. A split transaction shows "Split (2 lines)", and
@@ -89,7 +89,7 @@ bank date on a transaction also marks it as cleared.
 **Start a new month.** When your month rolls over, press **Start a new month** (or `Ctrl+M`), give the month a name and a
 start date, and a line appears in the list. Drag it up or down to fine-tune, select it and use `Alt+Up` / `Alt+Down`, or select it and change the date it starts on. If you add a transaction or transfer on the very day a month starts, the app asks which month it belongs to, because that day could be either.
 
-**Plan your budget.** Open **Budget**. Click an amount to edit it: `Enter` saves and moves down, `Esc` cancels, the arrow
+**Plan your budget.** Open **Plan your spending** (under the Budget heading in the left panel). Click an amount to edit it: `Enter` saves and leaves the cell, `Esc` cancels, the arrow
 keys move between cells, and you can type sums such as `1200+350`. Months ahead are shown as planned, so you can fill
 them in early. Use the two buttons at the top right to see one month or several. Press the months at the top to pick a month and
 year and jump straight to it, and when the current month is not the leftmost one, a small calendar button appears next to the arrows

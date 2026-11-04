@@ -380,9 +380,24 @@ public sealed partial class TransactionsPage : Page
     /// <summary>A payee typed into the drop-down that was not in the list: save it so it is there from now on.</summary>
     private async void Payee_CreateRequested(object? sender, string name) => await ViewModel.CreatePayeeAsync(name);
 
+    /// <summary>The pencil on a row: turns edit mode on for it.</summary>
+    private void Edit_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is TransactionRow row) ViewModel.SelectedEntry = row;
+    }
+
+    /// <summary>The tick on the row being edited: saves it and takes it out of edit mode, like Enter.</summary>
+    private void Accept_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not TransactionRow row || !ReferenceEquals(row, ViewModel.Selected)) return;
+        EntryList.Focus(FocusState.Programmatic);   // the box being typed in hands over what was typed
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+    }
+
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.Selected is not { } row) return;
+        var row = (sender as FrameworkElement)?.DataContext as TransactionRow ?? ViewModel.Selected;
+        if (row is null) return;
         if (row.IsNew) { ClearEditing(); return; }   // nothing saved yet: just drop it
         var dialog = new ContentDialog
         {
@@ -393,7 +408,7 @@ public sealed partial class TransactionsPage : Page
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close,
         };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteSelectedAsync();
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteAsync(row);
     }
 
     /// <summary>The Split row of a transaction's budget item drop-down, or the button on a split transaction: edit its lines.</summary>
