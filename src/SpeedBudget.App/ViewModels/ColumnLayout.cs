@@ -13,17 +13,18 @@ public sealed partial class ColumnLayout : ObservableObject
 {
     public static ColumnLayout Current { get; } = new();
 
-    public const double CounterpartyMinimum = 160;
+    /// <summary>The last column of the table takes whatever room is left. It holds the delete button, and is never narrower than this.</summary>
+    public const double ActionsMinimum = 44;
 
     [ObservableProperty] public partial double Date { get; set; } = 132;
     [ObservableProperty] public partial double BankDate { get; set; } = 132;
+    [ObservableProperty] public partial double Counterparty { get; set; } = 300;
     [ObservableProperty] public partial double Memo { get; set; } = 170;
     [ObservableProperty] public partial double Item { get; set; } = 170;
     [ObservableProperty] public partial double Account { get; set; } = 160;
     [ObservableProperty] public partial double Outflow { get; set; } = 104;
     [ObservableProperty] public partial double Inflow { get; set; } = 104;
     [ObservableProperty] public partial double Cleared { get; set; } = 80;
-    [ObservableProperty] public partial double Actions { get; set; } = 44;
 
     /// <summary>The width of the edit panel on the right, including its left padding.</summary>
     [ObservableProperty] public partial double DetailWidth { get; set; } = 344;
@@ -34,6 +35,7 @@ public sealed partial class ColumnLayout : ObservableObject
 
     public GridLength DateColumn => new(Date);
     public GridLength BankDateColumn => new(BankDate);
+    public GridLength CounterpartyColumn => new(Counterparty);
     public GridLength MemoColumn => new(Memo);
     public GridLength ItemColumn => new(ShowItem ? Item : 0);
     public GridLength AccountColumn => new(ShowAccount ? Account : 0);
@@ -42,16 +44,13 @@ public sealed partial class ColumnLayout : ObservableObject
     public GridLength ClearedColumn => new(Cleared);
     public GridLength DetailColumn => new(DetailWidth);
 
-    /// <summary>The narrow last column that holds a row's delete button while it is being edited.</summary>
-    public GridLength ActionsColumn => new(Actions);
-
-    /// <summary>What the fixed columns take, so the table knows how much room it needs besides the Counterparty column.</summary>
-    public double FixedTotal => Date + BankDate + Memo + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared + Actions;
+    /// <summary>What the table needs: every column at its own width, and the last one at least wide enough for the delete button.</summary>
+    public double FixedTotal => Date + BankDate + Counterparty + Memo + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared + ActionsMinimum;
 
     partial void OnDateChanged(double value) => Changed(nameof(DateColumn));
     partial void OnBankDateChanged(double value) => Changed(nameof(BankDateColumn));
+    partial void OnCounterpartyChanged(double value) => Changed(nameof(CounterpartyColumn));
     partial void OnMemoChanged(double value) => Changed(nameof(MemoColumn));
-    partial void OnActionsChanged(double value) => Changed(nameof(ActionsColumn));
     partial void OnItemChanged(double value) => Changed(nameof(ItemColumn));
     partial void OnAccountChanged(double value) => Changed(nameof(AccountColumn));
     partial void OnOutflowChanged(double value) => Changed(nameof(OutflowColumn));
@@ -71,20 +70,20 @@ public sealed partial class ColumnLayout : ObservableObject
     public static double MinimumOf(string column) => column switch
     {
         nameof(Date) or nameof(BankDate) => 112,   // wide enough for the date box a row shows while it is edited
+        nameof(Counterparty) => 120,
         nameof(Memo) => 90,
         nameof(Item) => 90,
         nameof(Account) => 80,
         nameof(Outflow) or nameof(Inflow) => 76,
         nameof(Cleared) => 56,
-        nameof(Actions) => 36,
         nameof(DetailWidth) => 300,
         _ => 40,
     };
 
     public double Get(string column) => column switch
     {
-        nameof(Date) => Date, nameof(BankDate) => BankDate, nameof(Memo) => Memo, nameof(Item) => Item, nameof(Account) => Account,
-        nameof(Outflow) => Outflow, nameof(Inflow) => Inflow, nameof(Cleared) => Cleared, nameof(Actions) => Actions, nameof(DetailWidth) => DetailWidth,
+        nameof(Date) => Date, nameof(BankDate) => BankDate, nameof(Counterparty) => Counterparty, nameof(Memo) => Memo, nameof(Item) => Item, nameof(Account) => Account,
+        nameof(Outflow) => Outflow, nameof(Inflow) => Inflow, nameof(Cleared) => Cleared, nameof(DetailWidth) => DetailWidth,
         _ => 0,
     };
 
@@ -95,19 +94,19 @@ public sealed partial class ColumnLayout : ObservableObject
         {
             case nameof(Date): Date = width; break;
             case nameof(BankDate): BankDate = width; break;
+            case nameof(Counterparty): Counterparty = width; break;
             case nameof(Memo): Memo = width; break;
             case nameof(Item): Item = width; break;
             case nameof(Account): Account = width; break;
             case nameof(Outflow): Outflow = width; break;
             case nameof(Inflow): Inflow = width; break;
             case nameof(Cleared): Cleared = width; break;
-            case nameof(Actions): Actions = width; break;
             case nameof(DetailWidth): DetailWidth = width; break;
         }
     }
 
     private static readonly string[] Keys =
-        [nameof(Date), nameof(BankDate), nameof(Memo), nameof(Item), nameof(Account), nameof(Outflow), nameof(Inflow), nameof(Cleared), nameof(Actions), nameof(DetailWidth)];
+        [nameof(Date), nameof(BankDate), nameof(Counterparty), nameof(Memo), nameof(Item), nameof(Account), nameof(Outflow), nameof(Inflow), nameof(Cleared), nameof(DetailWidth)];
 
     public string Serialize() => JsonSerializer.Serialize(Keys.ToDictionary(k => k, Get));
 

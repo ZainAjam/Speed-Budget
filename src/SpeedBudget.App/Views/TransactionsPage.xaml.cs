@@ -128,9 +128,8 @@ public sealed partial class TransactionsPage : Page
     private void Grip_Moved(object? sender, double dx)
     {
         var column = ColumnOf(sender);
-        // Columns right of Counterparty and the side panel are resized from their left edge, so dragging left widens them.
-        if (column is nameof(ColumnLayout.Date) or nameof(ColumnLayout.BankDate)) Layout.Set(column, _gripStart + dx);
-        else Layout.Set(column, _gripStart - dx);
+        // Every column is resized from its right edge: drag right to widen. The side panel is on the other side, so its edge works the other way.
+        Layout.Set(column, column == nameof(ColumnLayout.DetailWidth) ? _gripStart - dx : _gripStart + dx);
     }
 
     private async void Grip_Completed(object? sender, EventArgs e)
@@ -201,8 +200,7 @@ public sealed partial class TransactionsPage : Page
 
     private void UpdateTableWidth()
     {
-        var minimum = Layout.FixedTotal + ColumnLayout.CounterpartyMinimum;   // the edit panel floats over the table, so it needs no room of its own
-        TableRegion.Width = Math.Max(TableScroll.ActualWidth, minimum);
+        TableRegion.Width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);   // the edit panel floats over the table, so it needs no room of its own
     }
 
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>
