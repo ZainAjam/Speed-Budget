@@ -18,11 +18,11 @@
 
             <StackPanel Spacing="8">
                 <RadioButtons x:Name="PanelModeBox" Header="Side panel" SelectionChanged="PanelMode_Changed">
-                    <x:String>Always show</x:String>
-                    <x:String>Show on hover</x:String>
-                    <x:String>Always hide</x:String>
+                    <x:String>Expanded</x:String>
+                    <x:String>Expand on hover only</x:String>
+                    <x:String>Collapsed</x:String>
                 </RadioButtons>
-                <TextBlock Text="Always show keeps the full side panel open. Show on hover keeps it to a narrow strip of icons that opens while the pointer is over it. Always hide removes it from view, leaving a small menu button at the top left that opens it."
+                <TextBlock Text="Expanded keeps the full side panel open. Expand on hover only keeps it to a narrow strip of icons that opens while the pointer is over it. Collapsed keeps it as the narrow strip of icons all the time."
                            Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 

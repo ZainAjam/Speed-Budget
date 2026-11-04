@@ -126,9 +126,9 @@ public sealed partial class MainWindow : Window
                 Nav.IsPaneOpen = true;
                 break;
             case "hide":
-                // Out of sight; a small menu button opens it over the page when it is needed (Ctrl+1 to Ctrl+5 still jump between pages).
-                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftMinimal;
-                Nav.IsPaneToggleButtonVisible = true;
+                // Collapsed: always the narrow strip of icons, which never opens by itself.
+                Nav.IsPaneToggleButtonVisible = false;
+                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
                 Nav.IsPaneOpen = false;
                 break;
             default:
