@@ -120,6 +120,27 @@ public sealed partial class MainWindow : Window
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _balanceTimer;
     private readonly Dictionary<Guid, TextBlock> _balanceBlocks = [];
 
+    private Guid? _draggedAccount;
+    private bool _draggedAccountOnBudget;
+    private readonly List<Guid> _accountOrder = [];
+
+    /// <summary>Puts a dragged account in the place of the one it was dropped on, and remembers the new order.</summary>
+    private async Task MoveAccountAsync(Guid moved, Guid target)
+    {
+        var order = _accountOrder.ToList();
+        var from = order.IndexOf(moved);
+        var to = order.IndexOf(target);
+        if (from < 0 || to < 0) return;
+        order.RemoveAt(from);
+        order.Insert(to, moved);
+        try
+        {
+            await AppServices.Store.SetAccountOrderAsync(order);
+            AppServices.RaiseAccountsChanged();
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not save the account order: {ex.Message}"); }
+    }
+
     /// <summary>An account in the left panel: its name, and its available balance on the right.</summary>
     private NavigationViewItem AccountItem(AccountEntity account, long balance)
     {
@@ -127,7 +148,7 @@ public sealed partial class MainWindow : Window
         ShowBalance(amount, balance);
         _balanceBlocks[account.Id] = amount;
 
-        var row = new Grid { ColumnSpacing = 8 };
+        var row = new Grid { ColumnSpacing = 8, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent) };
         row.ColumnDefinitions.Add(new ColumnDefinition());
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var name = new TextBlock { Text = account.Name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
@@ -136,6 +157,31 @@ public sealed partial class MainWindow : Window
         row.Children.Add(amount);
 
         var item = new NavigationViewItem { Content = row, Tag = $"tx:{account.Id}", Icon = new SymbolIcon(Symbol.Contact2) };
+
+        // Accounts can be dragged into a new order, within their own kind (budget accounts above tracked ones).
+        row.CanDrag = true;
+        row.AllowDrop = true;
+        row.DragStarting += (_, e) =>
+        {
+            _draggedAccount = account.Id;
+            _draggedAccountOnBudget = account.IsOnBudget;
+            e.Data.SetText(account.Name);
+        };
+        row.DragOver += (_, e) =>
+        {
+            var allowed = _draggedAccount is { } dragged && dragged != account.Id && _draggedAccountOnBudget == account.IsOnBudget;
+            e.AcceptedOperation = allowed ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move : Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
+            if (allowed) e.DragUIOverride.Caption = "Move here";
+            e.Handled = true;
+        };
+        row.Drop += async (_, e) =>
+        {
+            e.Handled = true;
+            if (_draggedAccount is { } dragged && dragged != account.Id && _draggedAccountOnBudget == account.IsOnBudget)
+                await MoveAccountAsync(dragged, account.Id);
+            _draggedAccount = null;
+        };
+        row.DropCompleted += (_, _) => _draggedAccount = null;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
         return item;
     }
@@ -170,7 +216,8 @@ public sealed partial class MainWindow : Window
         {
             using var reader = LocalDatabase.OpenForReading();
             var readStore = new BudgetStore(reader);
-            accounts = (await readStore.GetAccountsAsync()).Where(a => !a.IsClosed).ToList();
+            // Budget accounts come first, then tracked ones; within each, in the order the user has dragged them into.
+            accounts = (await readStore.GetAccountsAsync()).Where(a => !a.IsClosed).OrderByDescending(a => a.IsOnBudget).ThenBy(a => a.SortOrder).ThenBy(a => a.Name).ToList();
             foreach (var account in accounts) balances[account.Id] = (await readStore.GetBalancesAsync(account.Id)).BookBalance;
         }
         catch (Exception ex)
@@ -184,6 +231,8 @@ public sealed partial class MainWindow : Window
 
         _transactions.MenuItems.Clear();
         _balanceBlocks.Clear();
+        _accountOrder.Clear();
+        _accountOrder.AddRange(accounts.Select(a => a.Id));
         foreach (var account in accounts)
             _transactions.MenuItems.Add(AccountItem(account, balances.GetValueOrDefault(account.Id)));
 

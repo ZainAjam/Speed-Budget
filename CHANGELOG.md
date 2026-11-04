@@ -19,6 +19,8 @@ into the release.
 - A tracked account's page no longer has a "Start a new month" button, since tracked accounts are outside the budget.
 - On the Budget screen, a budget group's heading row has its own tinted background, so groups are easier to tell apart from the items under them.
 - Each account's transactions screen has a label in its top right corner saying whether it is a **Budget account** or a **Tracking account**.
+- Accounts under Transactions in the left panel can be dragged into a new order. Budget accounts are listed first, then tracking accounts, and you can reorder within each kind.
+- The recorded transactions table now starts with the oldest transactions first. You can still switch to newest first, and it remembers your choice while the app is open.
 - The "Activity" and "Configurations" headings in the left panel are bold and blue.
 - The "All accounts" entry under Transactions in the left panel is gone: each account has its own page.
 - Every column of the transactions table, including Counterparty, is resized the way columns are in Word. Dragging a heading's right divider moves it between that column and the next one, so the table keeps its width and does not move. Hold Shift while dragging to change only that column and move everything to its right along with it. The last column (with the delete button) takes up whatever room is left.

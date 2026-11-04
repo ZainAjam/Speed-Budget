@@ -364,7 +364,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 {
     // The filters stay as the user left them when moving between accounts.
     private static bool s_hideCleared;
-    private static int s_sortIndex;
+    private static int s_sortIndex = 1;   // oldest first, unless the user chooses otherwise
 
     private readonly BudgetStore _store = AppServices.Store;
     private readonly SemaphoreSlim _gate = new(1, 1);
