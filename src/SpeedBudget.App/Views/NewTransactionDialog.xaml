@@ -8,6 +8,30 @@
     <StackPanel Spacing="12" MinWidth="440">
         <TextBlock TextWrapping="Wrap" Opacity="0.8" Style="{StaticResource CaptionTextBlockStyle}"
                    Text="The counterparty is who the transaction is with: the person or business you paid, or the one who paid you. Type either an outflow (money out) or an inflow (money in). Tick Cleared if it already shows on your bank statement." />
+        <!-- Only for the very first transaction in a budget account: which month of the budget it belongs to -->
+        <Border x:Name="FirstMonthPanel" Visibility="Collapsed" Padding="12,8" CornerRadius="6"
+                Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}">
+            <Grid ColumnSpacing="12" RowSpacing="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.ColumnSpan="3" Style="{StaticResource BodyStrongTextBlockStyle}"
+                           Text="First transaction: which month does it belong to?" />
+                <ComboBox x:Name="MonthBox" Grid.Row="1" Width="170" AutomationProperties.Name="Month"
+                          SelectionChanged="MonthBox_SelectionChanged" />
+                <NumberBox x:Name="YearBox" Grid.Row="1" Grid.Column="1" Width="130" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
+                           AutomationProperties.Name="Year" SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten"
+                           ValueChanged="YearBox_ValueChanged" />
+                <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.8" Style="{StaticResource CaptionTextBlockStyle}"
+                           Text="This month becomes the first month of your budget." />
+            </Grid>
+        </Border>
         <CalendarDatePicker x:Name="DateBox" Header="Date" Date="{x:Bind ViewModel.NewDate, Mode=TwoWay}" />
         <ComboBox Header="Account" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.EntryAccounts}" DisplayMemberPath="Name"
                   SelectedItem="{x:Bind ViewModel.NewAccount, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowAccountPicker}" />

@@ -319,7 +319,15 @@ public sealed partial class BudgetViewModel : ObservableObject
             _months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync(), BudgetEngine.PlannedMonthCount);
 
             // Open on the latest real month, with the planned months after it, rather than on the far future.
-            if (_firstLoad) { _start = _months.ToList().FindLastIndex(m => !m.IsPlanned); _firstLoad = false; }
+            if (_firstLoad)
+            {
+                // Open on the current calendar month when the budget has one, else on the latest month that has a line.
+                var current = MonthLabels.For(DateOnly.FromDateTime(DateTime.Today));
+                var list = _months.ToList();
+                var index = list.FindIndex(m => m.Label == current);
+                _start = index >= 0 ? index : list.FindLastIndex(m => !m.IsPlanned);
+                _firstLoad = false;
+            }
             _start = Math.Clamp(_start, 0, MaxStart);
             RebuildColumns();
         }

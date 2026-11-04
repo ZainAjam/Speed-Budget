@@ -24,43 +24,29 @@ public class FirstMonthTests
         Assert.Equal("November 2026", First(Snapshot()));
 
     [Fact]
-    public void The_month_chosen_in_the_wizard_is_the_first_month() =>
-        Assert.Equal("March 2024", First(Snapshot("March 2024")));
+    public void A_stored_month_is_ignored_while_there_are_no_budget_transactions() =>
+        Assert.Equal("November 2026", First(Snapshot("March 2024")));
 
     [Fact]
-    public void The_first_budget_transaction_decides_the_first_month()
+    public void The_month_given_for_the_first_transaction_is_the_first_month()
+    {
+        // The transaction is dated in May, but the user said it belongs to March.
+        var s = Snapshot("March 2024", transactions: [(Budget, new DateOnly(2024, 5, 1))]);
+        Assert.Equal("March 2024", First(s));
+    }
+
+    [Fact]
+    public void Without_an_answer_the_first_budget_transaction_decides_the_first_month()
     {
         var s = Snapshot(transactions: [(Budget, new DateOnly(2025, 9, 20)), (Budget, new DateOnly(2025, 11, 2))]);
         Assert.Equal("September 2025", First(s));
     }
 
     [Fact]
-    public void A_transaction_before_the_chosen_month_moves_the_first_month_back()
-    {
-        var s = Snapshot("March 2024", transactions: [(Budget, new DateOnly(2024, 1, 15))]);
-        Assert.Equal("January 2024", First(s));
-    }
-
-    [Fact]
-    public void Once_there_are_transactions_they_decide_the_first_month_not_the_setup_choice()
-    {
-        var s = Snapshot("March 2024", transactions: [(Budget, new DateOnly(2024, 5, 1))]);
-        Assert.Equal("May 2024", First(s));
-    }
-
-    [Fact]
-    public void A_stale_stored_month_never_forces_the_first_month()
-    {
-        // A stored "June 2025" (left over from an earlier session) must not hold the first month back once the lines say otherwise.
-        var line = new MonthMarker(Guid.NewGuid(), new DateOnly(2025, 8, 1), 0, "August 2025");
-        Assert.Equal("July 2025", First(Snapshot("June 2025", markers: [line])));
-    }
-
-    [Fact]
     public void Transactions_in_tracked_accounts_do_not_count()
     {
         var s = Snapshot("June 2025", transactions: [(Tracked, new DateOnly(2020, 1, 1))]);
-        Assert.Equal("June 2025", First(s));
+        Assert.Equal("November 2026", First(s));
     }
 
     [Fact]
@@ -88,8 +74,8 @@ public class FirstMonthTests
     [Fact]
     public void Later_months_are_named_from_the_first_one()
     {
-        var s = Snapshot("March 2024");
-        var labels = BudgetEngine.Calculate(s, 2).Select(m => m.Label);
+        var s = Snapshot("March 2024", transactions: [(Budget, new DateOnly(2024, 3, 9))]);
+        var labels = BudgetEngine.Calculate(s, 2, today: new DateOnly(2024, 3, 20)).Select(m => m.Label);
         Assert.Equal(new[] { "March 2024", "April 2024", "May 2024" }, labels);
     }
 }

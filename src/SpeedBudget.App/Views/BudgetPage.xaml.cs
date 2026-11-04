@@ -83,7 +83,7 @@ public sealed partial class BudgetPage : Page
         _setupOpen = true;
         try
         {
-            var wizard = new SetupWizardDialog(askStartMonth: await AppServices.Store.IsEmptyAsync()) { XamlRoot = XamlRoot };
+            var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };
             await wizard.ShowAsync();
             if (wizard.Result is not null) await RefreshAsync();
         }

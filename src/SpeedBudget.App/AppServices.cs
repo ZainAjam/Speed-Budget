@@ -24,6 +24,10 @@ public static class AppServices
     {
         Db = LocalDatabase.Open();
         Store = new BudgetStore(Db);
+
+        // Budgets planned ahead used to be kept under fixed ids; this moves them to their calendar month, once.
+        try { Store.MigrateLegacyPlannedMonthsAsync().GetAwaiter().GetResult(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not move planned budgets: {ex.Message}"); }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.

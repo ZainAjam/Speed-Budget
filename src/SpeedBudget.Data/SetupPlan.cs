@@ -34,9 +34,6 @@ public sealed class SetupCounterparty(string name, bool selected = true)
 /// <summary>What the setup wizard will create: accounts, budget groups with items, and common counterparties.</summary>
 public sealed class SetupPlan
 {
-    /// <summary>The name of the first budget month, such as "March 2024". Only applied while nothing has been set up yet.</summary>
-    public string? FirstMonthLabel { get; set; }
-
     public List<SetupAccount> Accounts { get; } = [];
     public List<SetupGroup> Groups { get; } = [];
     public List<SetupCounterparty> Counterparties { get; } = [];

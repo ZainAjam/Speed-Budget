@@ -111,7 +111,7 @@ public sealed partial class SettingsPage : Page
 
     private async void Setup_Click(object sender, RoutedEventArgs e)
     {
-        var wizard = new SetupWizardDialog(askStartMonth: await AppServices.Store.IsEmptyAsync()) { XamlRoot = XamlRoot };
+        var wizard = new SetupWizardDialog { XamlRoot = XamlRoot };
         await wizard.ShowAsync();
         if (wizard.Result is { } r)
             Report($"Added {r.Accounts} accounts, {r.Groups} groups, {r.Items} items and {r.Counterparties} counterparties.", InfoBarSeverity.Success);

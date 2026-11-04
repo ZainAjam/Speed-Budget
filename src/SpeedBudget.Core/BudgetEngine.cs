@@ -24,11 +24,10 @@ public static class BudgetEngine
         markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
 
     /// <summary>
-    /// The name of the first month, worked out from the data so it can never be stale. It is the earlier of the month of
-    /// the first transaction in a budget account (before the first month line) and the month before the first month line.
-    /// So a transaction or a line dated earlier moves it back, and removing them moves it forward again. Only when there is
-    /// no data at all does it fall back to the month chosen in the setup wizard, or else the current month. A first month
-    /// the user renamed by hand keeps its name.
+    /// The name of the first month. With no budget transactions and no month lines yet, it is the current month. Once there
+    /// are transactions, it is the month the user said the first one belongs to (the stored label), or else the month of the
+    /// earliest one. A month line dated before that pulls it back to the month before the line. It is always worked out from
+    /// the data, so a leftover setting can never hold it in place. A first month the user renamed by hand keeps its name.
     /// </summary>
     public static string FirstMonthLabelFor(BudgetSnapshot s, DateOnly? today = null, System.Globalization.CultureInfo? culture = null)
     {
@@ -36,15 +35,23 @@ public static class BudgetEngine
 
         var markers = SortMarkers(s.Markers);
         var firstMarker = markers.Count > 0 ? markers[0] : null;
-        var candidates = new List<DateOnly>();
-
         var onBudget = s.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
-        var inFirstMonth = s.Transactions.Where(t => onBudget.Contains(t.AccountId)
-            && (firstMarker is null || Compare(firstMarker.Date, firstMarker.DayOrder, t.Date, t.DayOrder) > 0)).ToList();
-        if (inFirstMonth.Count > 0)
+        var budgetTransactions = s.Transactions.Where(t => onBudget.Contains(t.AccountId)).ToList();
+
+        var candidates = new List<DateOnly>();
+        if (budgetTransactions.Count > 0)
         {
-            var earliest = inFirstMonth.Min(t => t.Date);
-            candidates.Add(new DateOnly(earliest.Year, earliest.Month, 1));
+            if (MonthLabels.TryParse(s.FirstMonthLabel, out var chosen, culture)) candidates.Add(chosen);
+            else
+            {
+                var inFirstMonth = budgetTransactions.Where(t => firstMarker is null
+                    || Compare(firstMarker.Date, firstMarker.DayOrder, t.Date, t.DayOrder) > 0).ToList();
+                if (inFirstMonth.Count > 0)
+                {
+                    var earliest = inFirstMonth.Min(t => t.Date);
+                    candidates.Add(new DateOnly(earliest.Year, earliest.Month, 1));
+                }
+            }
         }
 
         if (firstMarker is not null)
@@ -55,38 +62,66 @@ public static class BudgetEngine
         }
 
         if (candidates.Count > 0) return MonthLabels.For(candidates.Min(), culture);
-
-        // Nothing to go on: the month chosen when setting up, else this month.
-        if (!string.IsNullOrWhiteSpace(s.FirstMonthLabel)) return s.FirstMonthLabel;
         return MonthLabels.For(today ?? DateOnly.FromDateTime(DateTime.Today), culture);
     }
 
-    /// <summary>How many months after the latest real one are offered for budgeting ahead.</summary>
+    /// <summary>How many months after the latest one are offered for budgeting ahead.</summary>
     public const int PlannedMonthCount = 3;
 
     /// <summary>
-    /// Id of the nth month after the latest real month (1 is the very next one). A planned month has no month line
-    /// yet, but its budget can already be filled in; the same id on every device keeps that budget in sync. When a
-    /// real month is started, the planned budgets move down one place (see the store).
+    /// Id of a month that has no month line (yet): one the user skipped between two lines, or one still to come. It is
+    /// worked out from the calendar month, so the same month has the same id on every device and its budget can be filled
+    /// in before any line exists. When a line is started for that month, the budget moves over to the line's id (see the store).
     /// </summary>
-    public static Guid PlannedMonthId(int ordinal) =>
+    public static Guid VirtualMonthId(DateOnly month) =>
+        new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes($"calendar-month:{month.Year:D4}-{month.Month:D2}")));
+
+    /// <summary>The id the first versions used for the nth planned month after the latest line. Only needed to move old budgets over.</summary>
+    public static Guid LegacyPlannedMonthId(int ordinal) =>
         new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes($"planned-month:{ordinal}")));
 
     /// <summary>
-    /// Calculates every month, oldest first. Only budget accounts affect the result. Optionally adds that many
-    /// planned months after the last real one, so budgets can be set before any transaction exists for them.
+    /// Calculates every month, oldest first. Only budget accounts affect the result. Every calendar month between the
+    /// first month and the last month line is included, even ones the user forgot to start with a line. Optionally adds that
+    /// many planned months after the later of the last line and the current month, so budgets can be set before any transaction exists.
     /// </summary>
-    public static IReadOnlyList<MonthSummary> Calculate(BudgetSnapshot s, int plannedMonths = 0)
+    public static IReadOnlyList<MonthSummary> Calculate(BudgetSnapshot s, int plannedMonths = 0, DateOnly? today = null)
     {
         var markers = SortMarkers(s.Markers);
-        var months = new List<(Guid Id, string Label, bool Planned)> { (FirstMonthId, FirstMonthLabelFor(s), false) };
-        months.AddRange(markers.Select(m => (m.Id, m.Label, false)));
+        var real = new List<(Guid Id, string Label)> { (FirstMonthId, FirstMonthLabelFor(s, today)) };
+        real.AddRange(markers.Select(m => (m.Id, m.Label)));
 
-        var previousLabel = months[^1].Label;
-        for (var k = 1; k <= plannedMonths; k++)
+        var months = new List<(Guid Id, string Label, bool Planned)>();
+        for (var i = 0; i < real.Count; i++)
         {
-            previousLabel = MonthLabels.Next(previousLabel, DateOnly.FromDateTime(DateTime.Today).AddMonths(k));
-            months.Add((PlannedMonthId(k), previousLabel, true));
+            months.Add((real[i].Id, real[i].Label, false));
+            if (i == real.Count - 1) break;
+
+            // Months skipped between two lines still get a column, so nothing is hidden because a line was forgotten.
+            if (MonthLabels.TryParse(real[i].Label, out var from) && MonthLabels.TryParse(real[i + 1].Label, out var to))
+                for (var m = from.AddMonths(1); m < to; m = m.AddMonths(1))
+                    months.Add((VirtualMonthId(m), MonthLabels.For(m), true));
+        }
+
+        if (plannedMonths > 0)
+        {
+            var now = today ?? DateOnly.FromDateTime(DateTime.Today);
+            var currentMonth = new DateOnly(now.Year, now.Month, 1);
+            if (MonthLabels.TryParse(months[^1].Label, out var last))
+            {
+                var end = (last > currentMonth ? last : currentMonth).AddMonths(plannedMonths);
+                for (var m = last.AddMonths(1); m <= end; m = m.AddMonths(1))
+                    months.Add((VirtualMonthId(m), MonthLabels.For(m), true));
+            }
+            else
+            {
+                var label = months[^1].Label;
+                for (var k = 1; k <= plannedMonths; k++)
+                {
+                    label = MonthLabels.Next(label, now.AddMonths(k));
+                    months.Add((VirtualMonthId(new DateOnly(now.Year, now.Month, 1).AddMonths(k)), label, true));
+                }
+            }
         }
 
         var onBudget = s.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();

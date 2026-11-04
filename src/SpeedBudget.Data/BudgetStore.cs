@@ -97,14 +97,14 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>The month chosen when setting up (or a name typed by the user). It only matters while there is no data to work the first month out from.</summary>
+    /// <summary>The month the user said the first budget transaction belongs to (or a first-month name typed by hand).</summary>
     private async Task<string?> GetStoredFirstMonthLabelAsync(CancellationToken ct = default) => await GetSettingAsync(FirstMonthLabelKey, ct);
 
-    /// <summary>The name of the first month as the budget now shows it, worked out from the setup choice, the transactions and the month lines.</summary>
+    /// <summary>The name of the first month as the budget now shows it, worked out from the transactions and the month lines.</summary>
     public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
         BudgetEngine.FirstMonthLabelFor(await LoadSnapshotAsync(ct));
 
-    /// <summary>The month the budget begins with, chosen in the setup wizard. It is used until there are transactions or month lines, which decide the first month from then on.</summary>
+    /// <summary>Saves the month the user said the first budget transaction belongs to. It names the first month from then on.</summary>
     public async Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default)
     {
         await SetSettingAsync(FirstMonthLabelKey, label, ct);
@@ -319,11 +319,8 @@ public sealed class BudgetStore(SpeedBudgetDb db)
 
         var marker = new MonthMarkerEntity { Date = date, DayOrder = order, Label = label };
 
-        // A month started at the end of the timeline takes over the budget already planned for "next month",
-        // and the later planned months each move down one place.
-        var key = new SortKey(date, order);
-        if (!existing.Any() || existing.All(m => new SortKey(m.Date, m.DayOrder) < key))
-            await ShiftPlannedBudgetsAsync(marker.Id, ct);
+        // If this month was already being budgeted without a line (it was a skipped or a coming month), its budget moves to the new line.
+        if (MonthLabels.TryParse(label, out var month)) await MoveBudgetAsync(BudgetEngine.VirtualMonthId(month), marker.Id, ct);
 
         db.Markers.Add(marker);
         await db.SaveChangesAsync(ct);
@@ -331,18 +328,34 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return marker;
     }
 
-    /// <summary>Moves planned budgets: the next planned month's go to the new month, and each later one moves down one.</summary>
-    private async Task ShiftPlannedBudgetsAsync(Guid newMonthId, CancellationToken ct)
+    /// <summary>Moves everything budgeted in one month (its amounts and income holds) to another month id.</summary>
+    private async Task MoveBudgetAsync(Guid from, Guid to, CancellationToken ct)
     {
-        var planned = Enumerable.Range(1, BudgetEngine.PlannedMonthCount).Select(BudgetEngine.PlannedMonthId).ToList();
-        Guid Destination(Guid from)
-        {
-            var ordinal = planned.IndexOf(from) + 1;
-            return ordinal == 1 ? newMonthId : planned[ordinal - 2];
-        }
+        foreach (var a in await db.Allocations.Where(a => a.MonthId == from).ToListAsync(ct)) a.MonthId = to;
+        foreach (var h in await db.Holds.Where(h => h.MonthId == from).ToListAsync(ct)) h.MonthId = to;
+    }
 
-        foreach (var a in await db.Allocations.Where(a => planned.Contains(a.MonthId)).ToListAsync(ct)) a.MonthId = Destination(a.MonthId);
-        foreach (var h in await db.Holds.Where(h => planned.Contains(h.MonthId)).ToListAsync(ct)) h.MonthId = Destination(h.MonthId);
+    /// <summary>
+    /// The first versions kept budgets for the next three months under three fixed ids. Months are now identified by their
+    /// calendar month, so this moves any such budgets to the right month. It runs once.
+    /// </summary>
+    public async Task MigrateLegacyPlannedMonthsAsync(CancellationToken ct = default)
+    {
+        const string flag = "plannedMonthsMigrated";
+        if (await GetSettingAsync(flag, ct) == "1") return;
+
+        var legacy = Enumerable.Range(1, BudgetEngine.PlannedMonthCount).Select(BudgetEngine.LegacyPlannedMonthId).ToList();
+        if (await db.Allocations.AnyAsync(a => legacy.Contains(a.MonthId), ct) || await db.Holds.AnyAsync(h => legacy.Contains(h.MonthId), ct))
+        {
+            // The nth planned month was the nth month after the last month line.
+            var months = BudgetEngine.Calculate(await LoadSnapshotAsync(ct));
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var last = MonthLabels.TryParse(months[^1].Label, out var parsed) ? parsed : new DateOnly(today.Year, today.Month, 1);
+            for (var k = 1; k <= legacy.Count; k++)
+                await MoveBudgetAsync(legacy[k - 1], BudgetEngine.VirtualMonthId(last.AddMonths(k)), ct);
+            await db.SaveChangesAsync(ct);
+        }
+        await SetSettingAsync(flag, "1", ct);
     }
 
     /// <summary>Copies one month's budgeted and expected amounts into another, skipping items already set there.</summary>
@@ -400,6 +413,13 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     public Task SaveAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
+
+    /// <summary>True once any transaction exists in an account that is part of the budget.</summary>
+    public async Task<bool> HasBudgetTransactionsAsync(CancellationToken ct = default)
+    {
+        var budgetAccounts = await db.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToListAsync(ct);
+        return await db.Transactions.AnyAsync(t => budgetAccounts.Contains(t.AccountId), ct);
+    }
 
     /// <summary>True when nothing has been set up yet, so the first-run welcome should show.</summary>
     public async Task<bool> IsEmptyAsync(CancellationToken ct = default) =>
@@ -587,12 +607,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         static bool Same(string a, string b) => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
         int accounts = 0, groups = 0, items = 0;
 
-        // The first month can only be chosen while the budget is still empty; later runs must not rename existing months.
-        var firstSetup = await IsEmptyAsync(ct);
-
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        if (firstSetup && !string.IsNullOrWhiteSpace(plan.FirstMonthLabel)) await SetFirstMonthLabelAsync(plan.FirstMonthLabel.Trim(), ct);
 
         var existingAccounts = await GetAccountsAsync(ct);
         foreach (var account in plan.Accounts.Where(a => !string.IsNullOrWhiteSpace(a.Name)))

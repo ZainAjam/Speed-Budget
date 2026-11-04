@@ -26,9 +26,6 @@ You need 64-bit Windows 10 (version 1809 or later) or Windows 11.
 
 A short setup wizard starts by itself. It helps you create:
 
-- the **month your budget begins**: pick the month of your first transaction. It can be this month or one in the past,
-  so you can enter older budgets and transactions. The first month always follows your data: a transaction or month line
-  dated earlier moves it back, and on the Budget screen the left arrow at the first month adds an earlier month;
 - your **bank accounts**, and whether each is a *budget account* (money you budget with, like a cheque or savings
   account) or a *tracked account* (outside your budget, like a retirement fund or a home loan);
 - your **budget groups and items**, from a ready-made template (Household, Minimal, or empty) that you can tick and edit;
@@ -36,6 +33,10 @@ A short setup wizard starts by itself. It helps you create:
 
 Nothing is saved until the last step, you can change everything later, and you can run the wizard again from
 **Settings** (it only adds what is missing).
+
+The budget starts on the **current calendar month**. The first time you add a transaction to a budget account, Speed
+Budget asks which month that transaction belongs to (it can be a month in the past, if you are bringing in older
+transactions), and that becomes the first month of your budget.
 
 ## How it works
 
@@ -46,7 +47,8 @@ Nothing is saved until the last step, you can change everything later, and you c
 - **Months are drawn by you, not by the calendar.** In the transaction list there is a line that says
   "*February 2027 starts here*" (with the solid line on the side of that month's own transactions, so it sits above the
   text when the newest is first and below it when the oldest is first). Everything after the line belongs to that month. If your pay arrives on the 25th, put
-  the line there. You can drag the line to move it.
+  the line there. You can drag the line to move it. If you forget a line, no month is lost: the Budget screen still shows
+  every month between your lines, and you can budget for it.
 - On the **Budget** screen you give each item an amount for the month. The screen shows what you budgeted, what you
   spent and what is **left**. Money left on an item carries over to the next month on that same item. If you overspend an
   item, the shortfall comes out of the next month's money still to be assigned.

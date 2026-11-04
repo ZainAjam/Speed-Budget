@@ -280,12 +280,12 @@ public class BudgetEngineTests
         var marker = new MonthMarker(Guid.NewGuid(), D(2, 1), 0, "February 2027");
         var snap = Snapshot(new[] { Tx(Cheque, D(2, 3), 0, -100_00, Food) }, new[] { marker });
 
-        var months = BudgetEngine.Calculate(snap, plannedMonths: 3);
+        var months = BudgetEngine.Calculate(snap, plannedMonths: 3, today: new DateOnly(2027, 2, 10));
 
         Assert.Equal(5, months.Count);
         Assert.Equal(new[] { false, false, true, true, true }, months.Select(m => m.IsPlanned));
         Assert.Equal(new[] { "March 2027", "April 2027", "May 2027" }, months.Skip(2).Select(m => m.Label));
-        Assert.Equal(BudgetEngine.PlannedMonthId(1), months[2].MonthId);
+        Assert.Equal(BudgetEngine.VirtualMonthId(new DateOnly(2027, 3, 1)), months[2].MonthId);
         Assert.All(months.Skip(2), m => Assert.All(m.Items, i => Assert.Equal(0, i.Activity)));
     }
 
@@ -297,12 +297,12 @@ public class BudgetEngineTests
             allocations: new[]
             {
                 new Allocation(BudgetEngine.FirstMonthId, Food, 1_000_00),
-                new Allocation(BudgetEngine.PlannedMonthId(1), Food, 800_00),
-                new Allocation(BudgetEngine.PlannedMonthId(2), Food, 900_00),
+                new Allocation(BudgetEngine.VirtualMonthId(new DateOnly(2027, 2, 1)), Food, 800_00),
+                new Allocation(BudgetEngine.VirtualMonthId(new DateOnly(2027, 3, 1)), Food, 900_00),
             },
             holds: new[] { new IncomeHold(BudgetEngine.FirstMonthId, Salary, 4_000_00) });
 
-        var months = BudgetEngine.Calculate(snap, plannedMonths: 3);
+        var months = BudgetEngine.Calculate(snap, plannedMonths: 3, today: new DateOnly(2027, 1, 28));
 
         // January: income 10,000 less 4,000 held, less 1,000 budgeted. Unbudgeted 5,000 carries on.
         Assert.Equal(5_000_00, months[0].Available);
@@ -313,6 +313,62 @@ public class BudgetEngineTests
         Assert.Equal(800_00, months[1].Items.Single(i => i.ItemId == Food).Budgeted);
         Assert.Equal(1_500_00, months[1].Items.Single(i => i.ItemId == Food).Remaining);
         Assert.Equal(900_00, months[2].Items.Single(i => i.ItemId == Food).Budgeted);
+    }
+
+    [Fact]
+    public void Months_skipped_between_two_lines_still_get_a_column()
+    {
+        // Lines for June and September were made, but July and August were forgotten.
+        var june = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 6, 1), 0, "June 2027");
+        var september = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 9, 1), 0, "September 2027");
+        var snap = Snapshot(new[] { Tx(Cheque, new DateOnly(2027, 5, 20), 0, -50_00, Food) }, new[] { june, september });
+
+        var months = BudgetEngine.Calculate(snap);
+
+        Assert.Equal(new[] { "May 2027", "June 2027", "July 2027", "August 2027", "September 2027" }, months.Select(m => m.Label));
+        Assert.Equal(new[] { false, false, true, true, false }, months.Select(m => m.IsPlanned));
+        Assert.Equal(BudgetEngine.VirtualMonthId(new DateOnly(2027, 7, 1)), months[2].MonthId);
+    }
+
+    [Fact]
+    public void A_budget_set_for_a_skipped_month_counts_and_its_leftover_carries_on()
+    {
+        var june = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 6, 1), 0, "June 2027");
+        var september = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 9, 1), 0, "September 2027");
+        var july = BudgetEngine.VirtualMonthId(new DateOnly(2027, 7, 1));
+        var snap = Snapshot(new[] { Tx(Cheque, new DateOnly(2027, 5, 20), 0, -50_00, Food) }, new[] { june, september },
+            allocations: new[] { new Allocation(july, Food, 400_00) });
+
+        var months = BudgetEngine.Calculate(snap);
+
+        Assert.Equal(400_00, Month(months, july).Budgeted);
+        // The 400 is untouched in July and August, so it is still on Food in September.
+        Assert.Equal(400_00, months[^1].Items.Single(i => i.ItemId == Food).CarriedIn);
+    }
+
+    [Fact]
+    public void Planned_months_run_on_from_the_current_month_when_lines_were_forgotten()
+    {
+        var march = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 3, 1), 0, "March 2027");
+        var snap = Snapshot(new[] { Tx(Cheque, new DateOnly(2027, 2, 20), 0, -50_00, Food) }, new[] { march });
+
+        // It is now August, but the last line is for March: every month up to August is shown, and three more.
+        var months = BudgetEngine.Calculate(snap, plannedMonths: 3, today: new DateOnly(2027, 8, 10));
+
+        Assert.Equal("February 2027", months[0].Label);
+        Assert.Equal("November 2027", months[^1].Label);
+        Assert.Equal(10, months.Count);   // Feb .. Nov
+        Assert.Equal(new[] { false, false }, months.Take(2).Select(m => m.IsPlanned));
+        Assert.All(months.Skip(2), m => Assert.True(m.IsPlanned));
+    }
+
+    [Fact]
+    public void Months_with_names_that_are_not_months_are_not_filled_between()
+    {
+        var odd = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 6, 1), 0, "Payday run");
+        var snap = Snapshot(new[] { Tx(Cheque, new DateOnly(2027, 5, 20), 0, -50_00, Food) }, new[] { odd });
+
+        Assert.Equal(2, BudgetEngine.Calculate(snap).Count);
     }
 
     [Fact]
