@@ -96,7 +96,7 @@ public sealed partial class BudgetPage : Page
         await RefreshAsync();
     }
 
-    private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.GoBack();
+    private async void Back_Click(object sender, RoutedEventArgs e) => await ViewModel.GoBackAsync();
 
     private void Forward_Click(object sender, RoutedEventArgs e) => ViewModel.GoForward();
 

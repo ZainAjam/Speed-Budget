@@ -23,6 +23,46 @@ public static class BudgetEngine
     public static IReadOnlyList<MonthMarker> SortMarkers(IEnumerable<MonthMarker> markers) =>
         markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
 
+    /// <summary>
+    /// The name of the first month. It is never fixed: it is the earliest of the month the budget was set up to begin with,
+    /// the month of the first transaction in a budget account, and the month before the first month line. So a
+    /// transaction or a line dated earlier moves the first month back. A first month the user has renamed by hand
+    /// keeps its name. With nothing to go on, it is the current month.
+    /// </summary>
+    public static string FirstMonthLabelFor(BudgetSnapshot s, DateOnly? today = null, System.Globalization.CultureInfo? culture = null)
+    {
+        if (s.FirstMonthRenamed && !string.IsNullOrWhiteSpace(s.FirstMonthLabel)) return s.FirstMonthLabel;
+
+        var markers = SortMarkers(s.Markers);
+        var firstMarker = markers.Count > 0 ? markers[0] : null;
+        var candidates = new List<DateOnly>();
+
+        if (MonthLabels.TryParse(s.FirstMonthLabel, out var chosen, culture)) candidates.Add(chosen);
+
+        var onBudget = s.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
+        var inFirstMonth = s.Transactions.Where(t => onBudget.Contains(t.AccountId)
+            && (firstMarker is null || Compare(firstMarker.Date, firstMarker.DayOrder, t.Date, t.DayOrder) > 0)).ToList();
+        if (inFirstMonth.Count > 0)
+        {
+            var earliest = inFirstMonth.Min(t => t.Date);
+            candidates.Add(new DateOnly(earliest.Year, earliest.Month, 1));
+        }
+
+        if (firstMarker is not null)
+        {
+            var started = MonthLabels.TryParse(firstMarker.Label, out var named, culture)
+                ? named : new DateOnly(firstMarker.Date.Year, firstMarker.Date.Month, 1);
+            candidates.Add(started.AddMonths(-1));
+        }
+
+        if (candidates.Count == 0)
+        {
+            var now = today ?? DateOnly.FromDateTime(DateTime.Today);
+            return string.IsNullOrWhiteSpace(s.FirstMonthLabel) ? MonthLabels.For(now, culture) : s.FirstMonthLabel;
+        }
+        return MonthLabels.For(candidates.Min(), culture);
+    }
+
     /// <summary>How many months after the latest real one are offered for budgeting ahead.</summary>
     public const int PlannedMonthCount = 3;
 
@@ -41,7 +81,7 @@ public static class BudgetEngine
     public static IReadOnlyList<MonthSummary> Calculate(BudgetSnapshot s, int plannedMonths = 0)
     {
         var markers = SortMarkers(s.Markers);
-        var months = new List<(Guid Id, string Label, bool Planned)> { (FirstMonthId, s.FirstMonthLabel, false) };
+        var months = new List<(Guid Id, string Label, bool Planned)> { (FirstMonthId, FirstMonthLabelFor(s), false) };
         months.AddRange(markers.Select(m => (m.Id, m.Label, false)));
 
         var previousLabel = months[^1].Label;

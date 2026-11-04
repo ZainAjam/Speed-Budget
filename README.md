@@ -27,7 +27,8 @@ You need 64-bit Windows 10 (version 1809 or later) or Windows 11.
 A short setup wizard starts by itself. It helps you create:
 
 - the **month your budget begins**: pick the month of your first transaction. It can be this month or one in the past,
-  so you can enter older budgets and transactions (you can rename that first month later);
+  so you can enter older budgets and transactions. The first month always follows your data: a transaction or month line
+  dated earlier moves it back, and on the Budget screen the left arrow at the first month adds an earlier month;
 - your **bank accounts**, and whether each is a *budget account* (money you budget with, like a cheque or savings
   account) or a *tracked account* (outside your budget, like a retirement fund or a home loan);
 - your **budget groups and items**, from a ready-made template (Household, Minimal, or empty) that you can tick and edit;

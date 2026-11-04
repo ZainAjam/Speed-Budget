@@ -349,12 +349,21 @@ public sealed partial class BudgetViewModel : ObservableObject
         RebuildColumns();
     }
 
-    public void GoBack()
+    /// <summary>Shows earlier months. At the very first month it adds an empty month before it, so the budget can go back in time.</summary>
+    public async Task GoBackAsync()
     {
-        if (_start == 0) return;
-        _start--;
-        RebuildColumns();
+        if (_start > 0)
+        {
+            _start--;
+            RebuildColumns();
+            return;
+        }
+        if (!CanAddEarlierMonth || await _store.AddEarlierMonthAsync() is null) return;
+        await LoadAsync();
     }
+
+    private bool CanAddEarlierMonth =>
+        _months.Count == 0 || !MonthLabels.TryParse(_months[0].Label, out var first) || first.AddMonths(-1) >= BudgetStore.EarliestMonth;
 
     public void GoForward()
     {
@@ -377,7 +386,7 @@ public sealed partial class BudgetViewModel : ObservableObject
         foreach (var column in Columns)
             column.Apply(_months.First(m => m.MonthId == column.MonthId));
 
-        CanGoBack = _start > 0;
+        CanGoBack = _start > 0 || CanAddEarlierMonth;
         CanGoForward = _start < MaxStart;
         RangeText = Columns.Count == 0 ? "" : Columns.Count == 1 ? Columns[0].Label : $"{Columns[0].Label} to {Columns[^1].Label}";
         ApplyVisibility();

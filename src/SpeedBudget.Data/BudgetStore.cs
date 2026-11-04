@@ -75,13 +75,14 @@ public sealed class BudgetStore(SpeedBudgetDb db)
                 splitsByTransaction[t.Id].Select(s => new SplitLine(s.BudgetItemId, s.Amount)).ToList())).ToList(),
             allocations.Select(a => new Allocation(a.MonthId, a.BudgetItemId, a.Amount)).ToList(),
             holds.Select(h => new IncomeHold(h.MonthId, h.IncomeItemId, h.Amount)).ToList(),
-            await GetFirstMonthLabelAsync(ct));
+            await GetStoredFirstMonthLabelAsync(ct) ?? "",
+            await GetSettingAsync(FirstMonthRenamedKey, ct) == "1");
     }
 
     private static MonthMarker ToCore(MonthMarkerEntity m) => new(m.Id, m.Date, m.DayOrder, m.Label);
 
-    public const string DefaultFirstMonthLabel = "January 2027";
     private const string FirstMonthLabelKey = "firstMonthLabel";
+    private const string FirstMonthRenamedKey = "firstMonthRenamed";
 
     public async Task<string?> GetSettingAsync(string key, CancellationToken ct = default) =>
         (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, ct))?.Value;
@@ -96,10 +97,72 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
-        await GetSettingAsync(FirstMonthLabelKey, ct) ?? DefaultFirstMonthLabel;
+    /// <summary>The month the budget was set up to begin with (or renamed to), if one was ever chosen.</summary>
+    private async Task<string?> GetStoredFirstMonthLabelAsync(CancellationToken ct = default) => await GetSettingAsync(FirstMonthLabelKey, ct);
 
-    public Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default) => SetSettingAsync(FirstMonthLabelKey, label, ct);
+    /// <summary>The name of the first month as the budget now shows it, worked out from the setup choice, the transactions and the month lines.</summary>
+    public async Task<string> GetFirstMonthLabelAsync(CancellationToken ct = default) =>
+        BudgetEngine.FirstMonthLabelFor(await LoadSnapshotAsync(ct));
+
+    /// <summary>The month the budget begins with, chosen in the setup wizard. Earlier transactions or month lines can still move it back.</summary>
+    public async Task SetFirstMonthLabelAsync(string label, CancellationToken ct = default)
+    {
+        await SetSettingAsync(FirstMonthLabelKey, label, ct);
+        await SetSettingAsync(FirstMonthRenamedKey, null, ct);
+    }
+
+    /// <summary>The user gave the first month a name of their own, which is then kept as typed.</summary>
+    public async Task RenameFirstMonthAsync(string label, CancellationToken ct = default)
+    {
+        await SetSettingAsync(FirstMonthLabelKey, label, ct);
+        await SetSettingAsync(FirstMonthRenamedKey, "1", ct);
+    }
+
+    /// <summary>The earliest month the budget can be moved back to.</summary>
+    public static readonly DateOnly EarliestMonth = new(1950, 1, 1);
+
+    /// <summary>
+    /// Adds an empty month before the first one, so the budget can go back in time. The old first month keeps
+    /// all its transactions and budgeted amounts: it becomes a month started by a line placed at its first
+    /// transaction. Returns null if the budget already reaches back as far as it can.
+    /// </summary>
+    public async Task<MonthMarkerEntity?> AddEarlierMonthAsync(CancellationToken ct = default)
+    {
+        var snapshot = await LoadSnapshotAsync(ct);
+        var oldFirst = BudgetEngine.FirstMonthLabelFor(snapshot);
+        var markers = BudgetEngine.SortMarkers(snapshot.Markers);
+        var firstMarker = markers.Count > 0 ? markers[0] : null;
+
+        // Where the old first month begins: its first transaction, or else the first day of its month.
+        var transactions = snapshot.Transactions
+            .Where(t => firstMarker is null || new SortKey(t.Date, t.DayOrder) < new SortKey(firstMarker.Date, firstMarker.DayOrder))
+            .OrderBy(t => t.Date).ThenBy(t => t.DayOrder).ToList();
+        DateOnly date;
+        int dayOrder;
+        if (transactions.Count > 0) (date, dayOrder) = (transactions[0].Date, transactions[0].DayOrder);
+        else
+        {
+            date = MonthLabels.TryParse(oldFirst, out var monthStart) ? monthStart
+                 : (firstMarker?.Date.AddDays(-1) ?? DateOnly.FromDateTime(DateTime.Today));
+            if (firstMarker is not null && new SortKey(date, 0) >= new SortKey(firstMarker.Date, firstMarker.DayOrder)) date = firstMarker.Date.AddDays(-1);
+            dayOrder = 0;
+        }
+
+        var before = MonthLabels.TryParse(oldFirst, out var oldStart) ? oldStart.AddMonths(-1) : new DateOnly(date.Year, date.Month, 1).AddMonths(-1);
+        if (before < EarliestMonth) return null;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var marker = new MonthMarkerEntity { Date = date, DayOrder = dayOrder, Label = oldFirst };
+        db.Markers.Add(marker);
+        foreach (var a in await db.Allocations.Where(a => a.MonthId == BudgetEngine.FirstMonthId).ToListAsync(ct)) a.MonthId = marker.Id;
+        foreach (var h in await db.Holds.Where(h => h.MonthId == BudgetEngine.FirstMonthId).ToListAsync(ct)) h.MonthId = marker.Id;
+        await db.SaveChangesAsync(ct);
+
+        await SetSettingAsync(FirstMonthLabelKey, MonthLabels.For(before), ct);
+        await SetSettingAsync(FirstMonthRenamedKey, null, ct);
+        await transaction.CommitAsync(ct);
+        return marker;
+    }
 
     /// <summary>The balance printed on the account's latest bank statement, in cents, if one was entered.</summary>
     public async Task<long?> GetStatementBalanceAsync(Guid accountId, CancellationToken ct = default) =>

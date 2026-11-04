@@ -47,6 +47,16 @@ public static class MonthLabels
 {
     private const string Format = "MMMM yyyy";
 
+    /// <summary>Reads a label like "March 2024" as the first day of that month. False if it is not in that form.</summary>
+    public static bool TryParse(string? label, out DateOnly firstOfMonth, CultureInfo? culture = null)
+    {
+        firstOfMonth = default;
+        if (string.IsNullOrWhiteSpace(label)) return false;
+        if (!DateTime.TryParseExact(label.Trim(), Format, culture ?? CultureInfo.CurrentCulture, DateTimeStyles.None, out var parsed)) return false;
+        firstOfMonth = new DateOnly(parsed.Year, parsed.Month, 1);
+        return true;
+    }
+
     /// <summary>The label for the month a date falls in, such as "March 2024".</summary>
     public static string For(DateOnly date, CultureInfo? culture = null) =>
         date.ToString(Format, culture ?? CultureInfo.CurrentCulture);

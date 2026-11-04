@@ -168,7 +168,7 @@
                 <!-- Month navigation, centred along the top of the page -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Button Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
-                            IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Earlier months" ToolTipService.ToolTip="Earlier months" />
+                            IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Earlier months" ToolTipService.ToolTip="Earlier months. At the first month this adds an earlier month." />
                     <TextBlock Text="{x:Bind ViewModel.RangeText, Mode=OneWay}" MinWidth="240" TextAlignment="Center"
                                VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
                     <Button Content="&#xE76C;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Forward_Click"

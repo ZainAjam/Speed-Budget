@@ -408,7 +408,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
         if (showLines)
         {
-            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, snapshot.FirstMonthLabel, this) { LineBelow = SortIndex == 1 };
+            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot), this) { LineBelow = SortIndex == 1 };
             entries.Add((new SortKey(DateOnly.MinValue, int.MinValue), 0, Guid.Empty, first));
             foreach (var m in await _store.GetMarkersAsync())
                 entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
@@ -462,7 +462,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         await _gate.WaitAsync();
         try
         {
-            if (marker.Entity is null) await _store.SetFirstMonthLabelAsync(marker.Label);
+            if (marker.Entity is null) await _store.RenameFirstMonthAsync(marker.Label);
             else
             {
                 marker.Entity.Label = marker.Label;
