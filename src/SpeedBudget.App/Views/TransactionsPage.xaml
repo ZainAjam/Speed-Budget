@@ -84,9 +84,8 @@
                     <Grid>
                         <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}" />
                         <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested"
-                                          AllowSplit="{x:Bind CanSplit}" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}" />
-                        <Button Content="{x:Bind ItemName, Mode=OneWay}" Click="Split_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                Visibility="{x:Bind ShowSplitButton, Mode=OneWay}" ToolTipService.ToolTip="This transaction is split. Press to change its lines." />
+                                          AllowSplit="{x:Bind CanSplit}" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}"
+                                          ValueOverride="{x:Bind SplitLabel, Mode=OneWay}" />
                     </Grid>
                 </Border>
                 <Border Grid.Column="5" Style="{StaticResource CellBorder}" Visibility="{x:Bind Layout.ShowAccount, Mode=OneWay}">

@@ -62,6 +62,12 @@ public sealed partial class MainWindow : Window
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
+        // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
+        ApplyPanelMode();
+        AppServices.InterfaceChanged += () => DispatcherQueue.TryEnqueue(ApplyPanelMode);
+        Nav.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Nav_PointerMoved), true);
+        Nav.PointerExited += (_, _) => { if (AppServices.AutoHidePanel) Nav.IsPaneOpen = false; };
+
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
         Nav.SelectedItem = budget;
@@ -108,6 +114,29 @@ public sealed partial class MainWindow : Window
             await AppUpdates.DownloadAndRestartAsync(info);
         }
         catch (Exception ex) { UpdateBar.Message = $"The update failed: {ex.Message}"; }
+    }
+
+    private void ApplyPanelMode()
+    {
+        if (AppServices.AutoHidePanel)
+        {
+            Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
+            Nav.IsPaneOpen = false;
+        }
+        else
+        {
+            Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
+            Nav.IsPaneOpen = true;
+        }
+    }
+
+    /// <summary>With Auto Hide on: the panel opens when the pointer reaches its narrow strip, and closes when the pointer leaves it.</summary>
+    private void Nav_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!AppServices.AutoHidePanel) return;
+        var x = e.GetCurrentPoint(Nav).Position.X;
+        if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) Nav.IsPaneOpen = true;
+        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength) Nav.IsPaneOpen = false;
     }
 
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>

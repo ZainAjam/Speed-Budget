@@ -7,7 +7,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
     <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
-    <NavigationView x:Name="Nav" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left"
+    <NavigationView x:Name="Nav" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
                     IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
         <Grid>
             <Grid.RowDefinitions>

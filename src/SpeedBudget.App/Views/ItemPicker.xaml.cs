@@ -89,7 +89,7 @@ public sealed partial class ItemPicker : UserControl
     private void ShowSelection()
     {
         var overridden = !string.IsNullOrEmpty(ValueOverride);
-        ValueText.Text = overridden ? ValueOverride : SelectedItem?.Name ?? "";
+        ValueText.Text = overridden ? ValueOverride : SelectedItem?.Label ?? "";
         ValueText.Opacity = !overridden && SelectedItem?.Id is null ? 0.6 : 1;
     }
 

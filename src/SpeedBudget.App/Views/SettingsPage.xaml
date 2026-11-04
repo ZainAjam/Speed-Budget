@@ -12,6 +12,14 @@
                 <TextBlock Text="Adds accounts, budget groups and items, and common counterparties from a template. Anything you already have is left as it is." Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
+            <TextBlock Text="User Interface" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
+
+            <StackPanel Spacing="8">
+                <ToggleSwitch x:Name="AutoHideToggle" Header="Auto Hide Side Panel" OnContent="On" OffContent="Off" Toggled="AutoHide_Toggled" />
+                <TextBlock Text="When this is off, the side panel on the left always shows in full. When it is on, the panel stays hidden, leaving a narrow strip of icons, and opens while the pointer is over that strip."
+                           Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+
             <TextBlock Text="Backup and export" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
 
             <StackPanel Spacing="8">

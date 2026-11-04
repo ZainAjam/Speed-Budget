@@ -11,12 +11,15 @@ namespace SpeedBudget.App.ViewModels;
 /// A budget item as offered in a drop-down. Name is the full label (group, emoji, item). Balance is what is left on the
 /// item this month, kept up to date in place so an open list never shows a stale figure.
 /// </summary>
-public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? groupId = null, string shortName = "")
+public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? groupId = null, string shortName = "", string label = "")
 {
     public Guid? Id { get; } = id;
     public string Name { get; } = name;
     public ItemKind? Kind { get; } = kind;
     public Guid? GroupId { get; } = groupId;
+
+    /// <summary>The item on its own, as shown in a table row or a closed drop-down: its icon and name, without its group.</summary>
+    public string Label { get; } = label == "" ? name : label;
 
     /// <summary>The item's own name, without its group or emoji, for telling whether typed text already exists.</summary>
     public string ShortName { get; } = shortName;
@@ -70,7 +73,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         _draftSplits = lines.Count > 1 ? lines : null;
         if (lines.Count == 1) _item = owner.ItemOptions.FirstOrDefault(o => o.Id == lines[0].ItemId) ?? owner.NoItem;
         foreach (var n in new[] { nameof(LineCount), nameof(IsSplit), nameof(ItemName), nameof(Item), nameof(CanEditAmount), nameof(ShowAmountEditor),
-                                  nameof(ShowAmountText), nameof(ShowItemEditor), nameof(ShowSplitButton), nameof(ShowItemText) })
+                                  nameof(ShowAmountText), nameof(ShowItemEditor), nameof(SplitLabel), nameof(ShowItemText) })
             OnPropertyChanged(n);
     }
 
@@ -121,7 +124,10 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
             Changed(new[] { nameof(OtherAccountChoice) }, structural: true);
         }
     }
-    public int LineCount => _draftSplits?.Count ?? lineCount;
+    public int LineCount => _draftSplits?.Count ?? _lineOverride ?? lineCount;
+
+    // Set when a split transaction is given a single budget item: it has one line from then on, before the save has happened.
+    private int? _lineOverride;
     public bool IsTransfer => Entity.TransferPairId is not null;
     public bool IsSplit => LineCount > 1;
 
@@ -131,7 +137,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     // ---- Editing session: changes are held until committed, and can be thrown away ----
 
     private sealed record Snapshot(DateOnly Date, DateOnly? BankDate, string Payee, string? Memo, bool IsCleared, long Amount,
-        Guid AccountId, ItemOption Item, Guid? OtherAccountId);
+        Guid AccountId, ItemOption Item, Guid? OtherAccountId, int? LineOverride, IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? Splits);
 
     private Snapshot? _before;
     private bool _dirtyDate, _dirtySplit, _dirtyStructural;
@@ -144,7 +150,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     private void TakeSnapshot()
     {
         _before = new Snapshot(Entity.Date, Entity.BankDate, Entity.Payee, Entity.Memo, Entity.IsCleared, Entity.Amount,
-            Entity.AccountId, _item, OtherAccountId);
+            Entity.AccountId, _item, OtherAccountId, _lineOverride, _draftSplits);
         _dirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
     }
 
@@ -178,6 +184,8 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         Entity.AccountId = b.AccountId;
         _item = b.Item;
         OtherAccountId = b.OtherAccountId;
+        _lineOverride = b.LineOverride;
+        _draftSplits = b.Splits;
         _dirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
         OnPropertyChanged(string.Empty);   // every box shows its old value again
     }
@@ -186,7 +194,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     {
         if (value) TakeSnapshot();
         foreach (var n in new[] { nameof(ShowPayeeEditor), nameof(ShowTransferEditor), nameof(ShowPayeeText), nameof(ShowAmountEditor), nameof(ShowAmountText),
-                                  nameof(ShowItemEditor), nameof(ShowSplitButton), nameof(ShowItemText), nameof(NotEditing) })
+                                  nameof(ShowItemEditor), nameof(SplitLabel), nameof(ShowItemText), nameof(NotEditing) })
             OnPropertyChanged(n);
     }
 
@@ -199,10 +207,12 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public bool ShowPayeeText => !IsEditing;
     public bool ShowAmountEditor => IsEditing && CanEditAmount;
     public bool ShowAmountText => !ShowAmountEditor;
-    public bool ShowItemEditor => IsEditing && CanEditAmount
+    public bool ShowItemEditor => IsEditing
         && (IsTransfer ? (IsNew ? AccountOnBudget != OtherOnBudget : AccountOnBudget && !OtherOnBudget) : AccountOnBudget);
-    public bool ShowSplitButton => IsEditing && IsSplit;
-    public bool ShowItemText => !ShowItemEditor && !ShowSplitButton;
+    public bool ShowItemText => !ShowItemEditor;
+
+    /// <summary>What the budget item box says for a split transaction, in place of an item; empty for any other.</summary>
+    public string SplitLabel => IsSplit ? $"Split ({LineCount} lines)" : "";
 
     /// <summary>A split's amount is fixed by its lines, which must add up. A transfer's amount is shared by its two sides.</summary>
     public bool CanEditAmount => !IsSplit;
@@ -271,7 +281,16 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         set
         {
             if (value is null || value == _item) return;
+            var wasSplit = IsSplit;
             _item = value;
+            if (wasSplit)
+            {
+                // Choosing one item for a split transaction turns it back into an ordinary one with that item.
+                _draftSplits = null;
+                _lineOverride = 1;
+                foreach (var n in new[] { nameof(LineCount), nameof(IsSplit), nameof(SplitLabel), nameof(CanEditAmount), nameof(ShowAmountEditor), nameof(ShowAmountText) })
+                    OnPropertyChanged(n);
+            }
             Changed(new[] { nameof(Item), nameof(ItemName) }, splitChanged: true);
         }
     }
@@ -290,7 +309,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
     public string BankDateText => Entity.BankDate is { } bank ? bank.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : "";
-    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? (NeedsItem ? "⚠ Choose a budget item" : "") : _item.Name;
+    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? (NeedsItem ? "⚠ Choose a budget item" : "") : _item.Label;
 
     /// <summary>A budget account's transaction counts against an item, and so does a transfer between a budget account and a tracked one.</summary>
     private bool NeedsItem => AccountOnBudget && !(IsTransfer && OtherOnBudget);
@@ -544,7 +563,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
             ItemOptions.Add(NoItem);
             foreach (var g in groups)
                 foreach (var i in items.Where(i => i.GroupId == g.Id))
-                    ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name));
+                    ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name,
+                        $"{i.DisplayName}{(i.IsArchived ? " (archived)" : "")}"));
 
             SyncColumnLayout();
             OnPropertyChanged(nameof(CanStartMonth));
@@ -806,7 +826,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         {
             var group = (await _store.GetGroupsAsync()).Single(g => g.Id == groupId);
             var item = await _store.AddItemAsync(groupId, null, name.Trim(), group.Kind);
-            var option = new ItemOption(item.Id, $"{group.Name} › {item.DisplayName}", item.Kind, group.Id, item.Name)
+            var option = new ItemOption(item.Id, $"{group.Name} › {item.DisplayName}", item.Kind, group.Id, item.Name, item.DisplayName)
             {
                 Balance = group.Kind == ItemKind.Expense ? 0 : null,
             };

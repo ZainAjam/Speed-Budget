@@ -20,6 +20,19 @@ public static class AppServices
 
     public static string DataDirectory => LocalDatabase.DefaultDirectory;
 
+    /// <summary>Whether the left panel hides itself until the pointer is over it. Remembered between runs.</summary>
+    public static bool AutoHidePanel { get; private set; }
+
+    public static event Action? InterfaceChanged;
+
+    public static async Task SetAutoHidePanelAsync(bool value)
+    {
+        AutoHidePanel = value;
+        InterfaceChanged?.Invoke();
+        try { await Store.SetLocalSettingAsync("autoHidePanel", value ? "1" : "0"); }
+        catch { /* the choice still applies for this run */ }
+    }
+
     public static void Initialize()
     {
         Db = LocalDatabase.Open();
@@ -30,6 +43,8 @@ public static class AppServices
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not move planned budgets: {ex.Message}"); }
         try { Store.EnsureBudgetStartAsync().GetAwaiter().GetResult(); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not set the start of the budget: {ex.Message}"); }
+        try { AutoHidePanel = Store.GetLocalSettingAsync("autoHidePanel").GetAwaiter().GetResult() == "1"; }
+        catch { /* the panel just stays open */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.

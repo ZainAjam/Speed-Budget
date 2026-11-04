@@ -21,6 +21,9 @@ into the release.
 - Each account's transactions screen has a label in its top right corner saying whether it is a **Budget account** or a **Tracking account**.
 - The transactions table's columns now start at a size that fits their usual contents (the Cleared and delete columns are no longer wide). The table fills the full width of the window, and the Memo column takes whatever room the other columns do not need. Column sizes you saved with an earlier version are reset once.
 - The "Tracking account" label is now an outlined label with normal text, easier to read than white on grey.
+- The button that hid the left panel is gone. In App Settings, under **User Interface**, **Auto Hide Side Panel** now controls it: off keeps the full panel showing, on hides it to a narrow strip of icons that opens while the pointer is over it.
+- In the transactions table, the Budget item cell now shows just the item (with its icon), without its budget group. The group still shows in the drop-down list.
+- A split transaction's Budget item box says "Split (n lines)". Choose a single item from its drop-down to turn it back into an ordinary transaction, or choose "Split between several items…" to change its lines.
 - In the left panel, budget accounts have a bank icon and tracking accounts have an eye icon, so you can tell them apart at a glance.
 - Accounts under Transactions in the left panel can be dragged into a new order. Budget accounts are listed first, then tracking accounts, and you can reorder within each kind.
 - The recorded transactions table now starts with the oldest transactions first. You can still switch to newest first, and it remembers your choice while the app is open.

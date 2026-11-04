@@ -15,9 +15,15 @@ public sealed partial class SettingsPage : Page
         DataPath.Text = AppServices.DataDirectory;
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
+        AutoHideToggle.IsOn = AppServices.AutoHidePanel;
         ShowBackupInfo();
         ShowDeveloper();
         Loaded += async (_, _) => await ShowUpdateStateAsync();
+    }
+
+    private async void AutoHide_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (AutoHideToggle.IsOn != AppServices.AutoHidePanel) await AppServices.SetAutoHidePanelAsync(AutoHideToggle.IsOn);
     }
 
     private void ShowBackupInfo() =>
