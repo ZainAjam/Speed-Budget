@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Input;
 namespace SpeedBudget.App.Views;
 
 /// <summary>
-/// A thin strip on the edge of a column heading (or of a panel) that can be dragged sideways. It shows the resize
+/// A thin strip across the edge of a column heading (or of a panel) that can be dragged sideways. It shows the resize
 /// cursor, and reports how far the pointer has moved since the drag began, so the owner can set a new width.
 /// </summary>
 public sealed class ResizeGrip : Grid
@@ -25,7 +25,8 @@ public sealed class ResizeGrip : Grid
 
     public ResizeGrip()
     {
-        Width = 8;
+        Width = 12;   // 6 pixels either side of the divider, so it can be grabbed from the line itself and not only to its left
+        Margin = new Thickness(0, 0, -6, 0);
         HorizontalAlignment = HorizontalAlignment.Right;
         Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);   // transparent but still catches the pointer
         ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
