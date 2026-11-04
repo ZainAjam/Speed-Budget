@@ -172,6 +172,10 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
     public Guid MonthId { get; } = monthId;
     public bool IsFirst => Entity is null;
     public bool CanDrag => !IsFirst;
+
+    /// <summary>The solid line sits on the side of the month's own transactions: above the text when newest is first, below it when oldest is first.</summary>
+    public bool LineBelow { get; init; }
+    public bool LineAbove => !LineBelow;
     public string DateText => Entity is null ? "" : Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
 
     private string _label = label;
@@ -404,10 +408,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
         if (showLines)
         {
-            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, snapshot.FirstMonthLabel, this);
+            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, snapshot.FirstMonthLabel, this) { LineBelow = SortIndex == 1 };
             entries.Add((new SortKey(DateOnly.MinValue, int.MinValue), 0, Guid.Empty, first));
             foreach (var m in await _store.GetMarkersAsync())
-                entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this)));
+                entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
         }
         foreach (var d in details)
         {

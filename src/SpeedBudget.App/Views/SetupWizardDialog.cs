@@ -13,7 +13,12 @@ namespace SpeedBudget.App.Views;
 /// </summary>
 public sealed class SetupWizardDialog : ContentDialog
 {
-    private static readonly string[] StepTitles = ["Start", "Bank accounts", "Budget groups and items", "Counterparties", "Ready"];
+    private const string StartStep = "Start", MonthStep = "Starting month", AccountsStep = "Bank accounts",
+        BudgetStep = "Budget groups and items", CounterpartiesStep = "Counterparties", ReadyStep = "Ready";
+
+    private readonly List<string> _steps;
+    private int _startMonth = DateTime.Today.Month;
+    private int _startYear = DateTime.Today.Year;
 
     private readonly ContentControl _body = new();
     private readonly ScrollViewer _scroll;
@@ -24,12 +29,18 @@ public sealed class SetupWizardDialog : ContentDialog
     private int _step;
     private string? _refocus;
     private string _error = "";
+    private readonly bool _askStartMonth;
 
     /// <summary>What was added, or null if the wizard was cancelled.</summary>
     public SetupResult? Result { get; private set; }
 
-    public SetupWizardDialog()
+    /// <param name="askStartMonth">True while the budget is empty: the wizard then asks which month the budget begins.</param>
+    public SetupWizardDialog(bool askStartMonth = false)
     {
+        _steps = askStartMonth ? [StartStep, MonthStep, AccountsStep, BudgetStep, CounterpartiesStep, ReadyStep]
+                               : [StartStep, AccountsStep, BudgetStep, CounterpartiesStep, ReadyStep];
+        _askStartMonth = askStartMonth;
+
         Resources["ContentDialogMaxWidth"] = 820.0;
         CloseButtonText = "Cancel";
         DefaultButton = ContentDialogButton.Primary;
@@ -62,18 +73,19 @@ public sealed class SetupWizardDialog : ContentDialog
 
     private void Render()
     {
-        Title = $"Set up your budget: {StepTitles[_step]}  ({_step + 1} of {StepTitles.Length})";
+        Title = $"Set up your budget: {_steps[_step]}  ({_step + 1} of {_steps.Count})";
         SecondaryButtonText = _step == 0 ? "" : "Back";
-        PrimaryButtonText = _step switch { 0 => "Next", 4 => "Set up my budget", _ => "Next" };
+        PrimaryButtonText = _step == _steps.Count - 1 ? "Set up my budget" : "Next";
         _focusTargets.Clear();
 
         var panel = new StackPanel { Spacing = 12 };
-        switch (_step)
+        switch (_steps[_step])
         {
-            case 0: BuildStart(panel); break;
-            case 1: BuildAccounts(panel); break;
-            case 2: BuildBudget(panel); break;
-            case 3: BuildCounterparties(panel); break;
+            case StartStep: BuildStart(panel); break;
+            case MonthStep: BuildStartMonth(panel); break;
+            case AccountsStep: BuildAccounts(panel); break;
+            case BudgetStep: BuildBudget(panel); break;
+            case CounterpartiesStep: BuildCounterparties(panel); break;
             default: BuildSummary(panel); break;
         }
         if (_error != "") panel.Children.Add(new TextBlock { Text = _error, TextWrapping = TextWrapping.Wrap, Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"] });
@@ -85,7 +97,7 @@ public sealed class SetupWizardDialog : ContentDialog
 
     private async void Primary_Click(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        if (_step < StepTitles.Length - 1)
+        if (_step < _steps.Count - 1)
         {
             args.Cancel = true;
             Go(_step + 1);
@@ -95,6 +107,7 @@ public sealed class SetupWizardDialog : ContentDialog
         var deferral = args.GetDeferral();
         try
         {
+            _plan.FirstMonthLabel = _askStartMonth ? MonthLabels.For(new DateOnly(_startYear, _startMonth, 1)) : null;
             Result = await AppServices.Store.ApplySetupAsync(_plan);
             AppServices.RaiseAccountsChanged();
         }
@@ -129,6 +142,41 @@ public sealed class SetupWizardDialog : ContentDialog
         };
         panel.Children.Add(choices);
         panel.Children.Add(Text("Choosing a different starting point later in the wizard replaces the lists you have edited so far.", caption: true));
+    }
+
+    // ---- The month the budget begins ----
+
+    private void BuildStartMonth(StackPanel panel)
+    {
+        panel.Children.Add(Text("Which month would you like your budget to begin with? Choose the month of your first transaction. It can be this month, or a month in the past if you want to enter older budgets and transactions. Months after it follow on automatically, and you can start each new month yourself from the Transactions screen."));
+
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        var month = new ComboBox
+        {
+            Header = "Month", Width = 200,
+            ItemsSource = Enumerable.Range(1, 12).Select(m => culture.DateTimeFormat.GetMonthName(m)).ToList(),
+            SelectedIndex = _startMonth - 1,
+        };
+        var year = new NumberBox
+        {
+            Header = "Year", Width = 140, Minimum = 1950, Maximum = 2100, Value = _startYear,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline, SmallChange = 1, LargeChange = 1,
+            ValidationMode = NumberBoxValidationMode.InvalidInputOverwritten,
+        };
+        var preview = Text("", strong: true);
+        void Update()
+        {
+            if (month.SelectedIndex >= 0) _startMonth = month.SelectedIndex + 1;
+            if (!double.IsNaN(year.Value)) _startYear = (int)Math.Clamp(year.Value, 1950, 2100);
+            preview.Text = $"Your budget will begin with {MonthLabels.For(new DateOnly(_startYear, _startMonth, 1))}.";
+        }
+        month.SelectionChanged += (_, _) => Update();
+        year.ValueChanged += (_, _) => Update();
+        Update();
+
+        panel.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { month, year } });
+        panel.Children.Add(preview);
+        panel.Children.Add(Text("You can rename this first month later by selecting its line on the Transactions screen.", caption: true));
     }
 
     // ---- Step 2: accounts ----
@@ -252,6 +300,7 @@ public sealed class SetupWizardDialog : ContentDialog
         var counterparties = _plan.Counterparties.Count(c => c.Selected);
 
         panel.Children.Add(Text("Here is what will be set up:", strong: true));
+        if (_askStartMonth) panel.Children.Add(Text($"•  The budget begins with {MonthLabels.For(new DateOnly(_startYear, _startMonth, 1))}"));
         panel.Children.Add(Text($"•  {Plural(accounts.Count, "bank account")}" + (accounts.Count > 0 ? $": {string.Join(", ", accounts.Select(a => a.Name.Trim()))}" : "")));
         panel.Children.Add(Text($"•  {Plural(groups.Count, "budget group")} with {Plural(items, "budget item")}"));
         panel.Children.Add(Text($"•  {Plural(counterparties, "counterparty", "counterparties")}"));

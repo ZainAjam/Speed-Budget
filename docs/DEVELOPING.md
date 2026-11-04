@@ -10,7 +10,7 @@ For installing and using the app, see the [README](../README.md). The design not
 | `src/SpeedBudget.Data` | SQLite storage (EF Core), sync-ready change tracking, backups, export, setup templates. |
 | `src/SpeedBudget.App` | The WinUI 3 app (unpackaged, self-contained). |
 | `tests/` | Engine and data tests. |
-| `scripts/` | `package.ps1` builds the installer and update files; `publish.ps1` makes a plain zip. |
+| `scripts/` | `package.ps1` builds the installer and update files; `publish.ps1` makes a plain zip; `make-icon.ps1` redraws the app icon. |
 | `.github/workflows/` | `ci.yml` builds and tests every push; `release.yml` publishes a release from a tag. |
 
 ## Build and run

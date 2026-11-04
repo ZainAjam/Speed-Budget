@@ -524,7 +524,12 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         static bool Same(string a, string b) => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
         int accounts = 0, groups = 0, items = 0;
 
+        // The first month can only be chosen while the budget is still empty; later runs must not rename existing months.
+        var firstSetup = await IsEmptyAsync(ct);
+
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        if (firstSetup && !string.IsNullOrWhiteSpace(plan.FirstMonthLabel)) await SetFirstMonthLabelAsync(plan.FirstMonthLabel.Trim(), ct);
 
         var existingAccounts = await GetAccountsAsync(ct);
         foreach (var account in plan.Accounts.Where(a => !string.IsNullOrWhiteSpace(a.Name)))

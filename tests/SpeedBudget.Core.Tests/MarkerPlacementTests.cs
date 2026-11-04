@@ -73,4 +73,15 @@ public class MarkerPlacementTests
     {
         Assert.Equal(expected, MonthLabels.Next(previous, new DateOnly(2027, 3, 14), CultureInfo.InvariantCulture));
     }
+
+    [Theory]
+    [InlineData(2024, 3, "March 2024", "April 2024")]
+    [InlineData(2019, 12, "December 2019", "January 2020")]
+    public void A_month_label_can_be_made_for_any_past_date_and_followed(int year, int month, string label, string next)
+    {
+        var made = MonthLabels.For(new DateOnly(year, month, 1), CultureInfo.InvariantCulture);
+
+        Assert.Equal(label, made);
+        Assert.Equal(next, MonthLabels.Next(made, new DateOnly(2027, 1, 1), CultureInfo.InvariantCulture));
+    }
 }

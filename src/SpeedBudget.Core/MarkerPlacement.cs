@@ -47,6 +47,10 @@ public static class MonthLabels
 {
     private const string Format = "MMMM yyyy";
 
+    /// <summary>The label for the month a date falls in, such as "March 2024".</summary>
+    public static string For(DateOnly date, CultureInfo? culture = null) =>
+        date.ToString(Format, culture ?? CultureInfo.CurrentCulture);
+
     /// <summary>The month after a label like "January 2027", or the fallback date's month if the label isn't in that form.</summary>
     public static string Next(string? previousLabel, DateOnly fallback, CultureInfo? culture = null)
     {

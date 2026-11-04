@@ -22,6 +22,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        WindowPlacement.Attach(this);
         var icon = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
 

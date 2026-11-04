@@ -33,7 +33,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="104" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="160" />
                     <ColumnDefinition Width="{x:Bind ItemColumnWidth}" />
                     <ColumnDefinition Width="{x:Bind AccountColumnWidth}" />
                     <ColumnDefinition Width="104" />
@@ -75,13 +75,14 @@
 
         <DataTemplate x:Key="MarkerTemplate" x:DataType="vm:MarkerRow">
             <StackPanel Padding="8,12,8,8" Spacing="4">
-                <Rectangle Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Rectangle Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind LineAbove}" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="⠿" Opacity="0.6" VerticalAlignment="Center"
                                Visibility="{x:Bind CanDrag}" ToolTipService.ToolTip="Drag this line to change where the month starts" />
                     <TextBlock Text="{x:Bind Heading, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                 </StackPanel>
+                <Rectangle Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind LineBelow}" />
             </StackPanel>
         </DataTemplate>
 
@@ -170,10 +171,13 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="5" ColumnSpacing="24">
+        <!-- The table and the side panel. If the window is too narrow for them, this area scrolls sideways instead of squeezing the Counterparty column away. -->
+        <ScrollViewer Grid.Row="5" x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
+                      VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
+        <Grid x:Name="TableRegion">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Border CornerRadius="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
                 <Grid>
@@ -184,7 +188,7 @@
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="104" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" MinWidth="160" />
                             <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind ViewModel.AccountColumnWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="104" />
@@ -220,7 +224,9 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Column="1">
+            <!-- Only takes room while a transaction or month line is selected -->
+            <Grid x:Name="DetailHost" Grid.Column="1" Width="344" Padding="24,0,0,0" Visibility="Collapsed">
+            <ScrollViewer>
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
                     <TextBlock Text="Edit transaction" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
@@ -258,7 +264,7 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <StackPanel Grid.Column="1" Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBox Header="Month name" Text="{x:Bind ViewModel.SelectedMarker.Label, Mode=TwoWay, FallbackValue=''}" />
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Opacity="0.7"
@@ -276,6 +282,8 @@
                            Text="The first month has no line to move. Its name can be changed here."
                            Visibility="{x:Bind ViewModel.SelectedMarker.IsFirst, Mode=OneWay, FallbackValue=Collapsed}" />
             </StackPanel>
+            </Grid>
         </Grid>
+        </ScrollViewer>
     </Grid>
 </Page>

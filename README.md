@@ -26,6 +26,8 @@ You need 64-bit Windows 10 (version 1809 or later) or Windows 11.
 
 A short setup wizard starts by itself. It helps you create:
 
+- the **month your budget begins**: pick the month of your first transaction. It can be this month or one in the past,
+  so you can enter older budgets and transactions (you can rename that first month later);
 - your **bank accounts**, and whether each is a *budget account* (money you budget with, like a cheque or savings
   account) or a *tracked account* (outside your budget, like a retirement fund or a home loan);
 - your **budget groups and items**, from a ready-made template (Household, Minimal, or empty) that you can tick and edit;
@@ -41,7 +43,8 @@ Nothing is saved until the last step, you can change everything later, and you c
 - **Transactions** are what actually happens: money out or money in, on a date, with a **counterparty** (who it was
   with: the shop, the person, your employer) and the budget item it counts against.
 - **Months are drawn by you, not by the calendar.** In the transaction list there is a line that says
-  "*February 2027 starts here*". Everything after the line belongs to that month. If your pay arrives on the 25th, put
+  "*February 2027 starts here*" (with the solid line on the side of that month's own transactions, so it sits above the
+  text when the newest is first and below it when the oldest is first). Everything after the line belongs to that month. If your pay arrives on the 25th, put
   the line there. You can drag the line to move it.
 - On the **Budget** screen you give each item an amount for the month. The screen shows what you budgeted, what you
   spent and what is **left**. Money left on an item carries over to the next month on that same item. If you overspend an

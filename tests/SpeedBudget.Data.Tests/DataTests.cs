@@ -593,6 +593,32 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task Setup_sets_the_first_month_only_while_the_budget_is_empty()
+    {
+        var plan = SetupTemplates.Create("Minimal");
+        plan.FirstMonthLabel = "March 2024";
+        await _store.ApplySetupAsync(plan);
+        Assert.Equal("March 2024", await _store.GetFirstMonthLabelAsync());
+
+        var again = SetupTemplates.Create("Minimal");
+        again.FirstMonthLabel = "June 2030";   // a later run must not rename the existing first month
+        await _store.ApplySetupAsync(again);
+        Assert.Equal("March 2024", await _store.GetFirstMonthLabelAsync());
+    }
+
+    [Fact]
+    public async Task A_past_first_month_names_the_months_that_follow_it()
+    {
+        var plan = new SetupPlan { FirstMonthLabel = "November 2023" };
+        await _store.ApplySetupAsync(plan);
+
+        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync(), 3);
+
+        Assert.Equal("November 2023", months[0].Label);
+        Assert.Equal(new[] { "December 2023", "January 2024", "February 2024" }, months.Skip(1).Select(m => m.Label));
+    }
+
+    [Fact]
     public async Task Setup_skips_a_new_group_with_nothing_ticked()
     {
         var plan = new SetupPlan();

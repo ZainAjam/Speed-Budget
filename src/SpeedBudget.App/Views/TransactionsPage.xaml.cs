@@ -14,6 +14,28 @@ public sealed partial class TransactionsPage : Page
     {
         InitializeComponent();
         Loaded += async (_, _) => await ViewModel.LoadAsync();
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(TransactionsViewModel.HasSelection) or nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
+        };
+    }
+
+    // The fixed columns need about 700 pixels and the Counterparty column at least 160 more. The side panel adds its own width.
+    private const double TableMinWidth = 860;
+    private const double DetailPanelWidth = 344;
+
+    private void UpdateDetailPanel()
+    {
+        DetailHost.Visibility = ViewModel.HasSelection || ViewModel.HasMarkerSelected ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTableWidth();
+    }
+
+    private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTableWidth();
+
+    private void UpdateTableWidth()
+    {
+        var minimum = TableMinWidth + (DetailHost.Visibility == Visibility.Visible ? DetailPanelWidth : 0);
+        TableRegion.Width = Math.Max(TableScroll.ActualWidth, minimum);
     }
 
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>
