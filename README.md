@@ -70,7 +70,7 @@ belongs to.
 money leaves (or arrives in, if you type an inflow) and the Counterparty box is the other account. A transfer between a
 budget account and a tracked account counts as spending or income against a budget item you choose.
 
-**Edit a transaction in place.** Click a row in the recorded transactions table and its cells turn into boxes: change the
+**Edit a transaction in place.** Press the pencil at the end of a row in the recorded transactions table and its cells turn into boxes (clicking a value only highlights the row): change the
 date, counterparty, memo, budget item, account, outflow, inflow or bank date right there. This works for transfers too: their Counterparty box picks the account on the other side, and the date, memo and amount change on both sides together. The
 Press Enter in a box, or click another row, to save your changes; press Esc, or click outside the table, to cancel them and put the row back as it was. At the end of every row a yellow pencil turns edit mode on for it (while editing it becomes a green tick that saves the row), and the bin deletes the transaction. The table has a **Memo** column for a note on each transaction.
 

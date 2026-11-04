@@ -383,7 +383,7 @@ public sealed partial class TransactionsPage : Page
     /// <summary>The pencil on a row: turns edit mode on for it.</summary>
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is TransactionRow row) ViewModel.SelectedEntry = row;
+        if ((sender as FrameworkElement)?.DataContext is TransactionRow row) ViewModel.BeginEdit(row);
     }
 
     /// <summary>The tick on the row being edited: saves it and takes it out of edit mode, like Enter.</summary>

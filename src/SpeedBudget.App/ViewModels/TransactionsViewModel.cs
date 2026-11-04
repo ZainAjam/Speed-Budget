@@ -425,6 +425,14 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public bool CanChangeSelectedMarker => SelectedMarker is { IsFirst: false };
 
     private TransactionRow? _editing;
+
+    /// <summary>Turns edit mode on for a row (the pencil, or a new row). Another row that was being edited is saved first.</summary>
+    public void BeginEdit(TransactionRow row)
+    {
+        if (!ReferenceEquals(SelectedEntry, row)) SelectedEntry = row;
+        _editing = row;
+        row.IsEditing = true;
+    }
     private TransactionRow? _draft;
     private bool _rebuilding;
     private DateOnly _budgetStart;
@@ -467,18 +475,20 @@ public sealed partial class TransactionsViewModel : ObservableObject
     {
         if (await row.CommitAsync() || !row.IsNew || !Rows.Contains(row)) return;
         await Task.Yield();
-        SelectedEntry = row;
+        BeginEdit(row);
     }
 
     partial void OnSelectedEntryChanged(object? value)
     {
         // Choosing another row saves the edits made to the one being left.
-        if (_editing is { IsDirty: true } leaving && !(_rebuilding && leaving.IsNew)) _ = CommitOnLeaveAsync(leaving);
+        if (_editing is { IsDirty: true } leaving && !ReferenceEquals(leaving, value) && !(_rebuilding && leaving.IsNew)) _ = CommitOnLeaveAsync(leaving);
 
-        // The selected transaction is the one being edited in place.
-        if (_editing is not null) _editing.IsEditing = false;
-        _editing = value as TransactionRow;
-        if (_editing is not null) _editing.IsEditing = true;
+        // Selecting a row only highlights it. A row is edited in place only after its pencil is pressed.
+        if (_editing is not null && !ReferenceEquals(_editing, value))
+        {
+            _editing.IsEditing = false;
+            _editing = null;
+        }
         foreach (var name in new[] { nameof(Selected), nameof(SelectedMarker), nameof(HasSelection), nameof(HasMarkerSelected), nameof(CanChangeSelectedMarker) })
             OnPropertyChanged(name);
     }
@@ -659,6 +669,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         }
         else if (draft is not null) { draft.MarkDiscarded(); _draft = null; }
         SelectedEntry = toSelect;
+        if (toSelect is TransactionRow { IsNew: true } unsaved) BeginEdit(unsaved);   // a new row being filled in stays open
         _rebuilding = false;
     }
 
@@ -887,7 +898,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         if (SortIndex == 0) Rows.Insert(0, row); else Rows.Add(row);   // the latest record: first when newest is first
         Message = "";
         SyncColumnLayout();
-        SelectedEntry = row;
+        BeginEdit(row);
         return row;
     }
 
