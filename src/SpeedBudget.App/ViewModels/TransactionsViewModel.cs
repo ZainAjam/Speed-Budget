@@ -785,6 +785,17 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>
+    /// Takes the selection off, so no row is being edited. It waits for any edit still being saved first, because
+    /// saving some edits reloads the list and would select the row again.
+    /// </summary>
+    public async Task DeselectAsync()
+    {
+        await _gate.WaitAsync();
+        try { SelectedEntry = null; }
+        finally { _gate.Release(); }
+    }
+
     public async Task DeleteSelectedAsync()
     {
         if (Selected is not { } row) return;

@@ -10,6 +10,7 @@ into the release.
 - Transfers can be edited in the table too. Every field is editable on both transactions and transfers, including the account. For a transfer, the Counterparty box picks the account on the other side; the date, memo and amount are shared by both sides, and the names and budget item follow along.
 - Every column of the transactions table can be resized, including Cleared and the delete column. Columns to the right of Counterparty are now resized from their left edge: drag it left to make the column wider, and the edge follows your pointer.
 - A budget-account transaction, or a transfer to a tracked account, that has no budget item now says "Choose a budget item" in its Budget item cell.
+- Press Esc, or click anywhere outside the table, to let go of the row you are editing: nothing in the table keeps focus, and a value you were typing is saved first.
 - New **Memo** column in the transactions table.
 - Open a transaction's budget item drop-down and choose **Split between several items** to share it over several budget items. This works when adding a new transaction too.
 - Reconciling has been removed from the Transactions screens (the Reconcile button, the Hide reconciled filter and the padlock). Transactions that were already reconciled can now be edited like any other.

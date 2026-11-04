@@ -14,6 +14,8 @@ public sealed partial class TransactionsPage : Page
     public TransactionsPage()
     {
         InitializeComponent();
+        // Handled presses count too: the boxes and buttons in the table handle theirs.
+        AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         Loaded += async (_, _) =>
         {
             await LoadLayoutAsync();
@@ -45,13 +47,40 @@ public sealed partial class TransactionsPage : Page
         DetailHost.IsHitTestVisible = DetailOpen;
     }
 
-    private void CloseDetail_Click(object sender, RoutedEventArgs e) => ViewModel.SelectedEntry = null;
+    private void CloseDetail_Click(object sender, RoutedEventArgs e) => ClearEditing();
 
+    /// <summary>Esc: let go of whatever is being edited, and close the month line panel if it is open.</summary>
     private void CloseDetail_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        if (!DetailOpen) return;   // leave Esc alone when there is nothing to close
+        if (ViewModel.SelectedEntry is null) return;   // leave Esc alone when there is nothing to let go of
         args.Handled = true;
-        ViewModel.SelectedEntry = null;
+        ClearEditing();
+    }
+
+    /// <summary>
+    /// Takes the focus off any box in the table and the selection off its row. Focus moves first, so a value being typed
+    /// is committed by the box losing focus before the row goes back to plain text.
+    /// </summary>
+    private void ClearEditing()
+    {
+        EntryList.Focus(FocusState.Programmatic);
+        _ = ViewModel.DeselectAsync();
+    }
+
+    /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row being edited.</summary>
+    private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (ViewModel.SelectedEntry is null) return;
+        var source = e.OriginalSource as DependencyObject;
+        if (IsWithin(source, TableRegion) || IsWithin(source, DetailHost)) return;
+        ClearEditing();
+    }
+
+    private static bool IsWithin(DependencyObject? element, DependencyObject container)
+    {
+        for (var node = element; node is not null; node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+            if (node == container) return true;
+        return false;
     }
 
     // ---- Resizing columns and the side panel ----

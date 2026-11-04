@@ -277,6 +277,9 @@
                                 <Setter Property="MinHeight" Value="0" />
                                 <Setter Property="Margin" Value="0" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="UseSystemFocusVisuals" Value="False" />
+                                <Setter Property="FocusVisualPrimaryThickness" Value="0" />
+                                <Setter Property="FocusVisualSecondaryThickness" Value="0" />
                             </Style>
                         </ListView.ItemContainerStyle>
                     </ListView>
