@@ -128,27 +128,27 @@ public sealed partial class TransactionsPage : Page
     private bool _tableGripActive;
     private double _gripScroll;
 
-    // The column after the one being dragged, and how wide it (or the spare room at the end of the table) was when the drag began.
-    private string? _gripNeighbor;
-    private double _gripNeighborStart, _gripFillerStart;
+    // The widths of every column on show, and the spare room at the end of the table, when the drag began.
+    private List<string> _gripColumns = [];
+    private Dictionary<string, double> _gripWidths = [];
+    private double _gripFillerStart;
 
-    /// <summary>The column on show to the right of this one, or null for the last column (after which comes the spare room).</summary>
-    private string? NeighborOf(string column)
+    /// <summary>The columns on show, left to right.</summary>
+    private List<string> ColumnsOnShow()
     {
         var order = new List<string> { nameof(ColumnLayout.Date), nameof(ColumnLayout.BankDate), nameof(ColumnLayout.Counterparty), nameof(ColumnLayout.Memo) };
         if (Layout.ShowItem) order.Add(nameof(ColumnLayout.Item));
         if (Layout.ShowAccount) order.Add(nameof(ColumnLayout.Account));
         order.AddRange([nameof(ColumnLayout.Outflow), nameof(ColumnLayout.Inflow), nameof(ColumnLayout.Cleared)]);
-        var index = order.IndexOf(column);
-        return index >= 0 && index + 1 < order.Count ? order[index + 1] : null;
+        return order;
     }
 
     private void Grip_Started(object? sender, EventArgs e)
     {
         _gripStart = Layout.Get(ColumnOf(sender));
         if (ColumnOf(sender) == nameof(ColumnLayout.DetailWidth)) return;
-        _gripNeighbor = NeighborOf(ColumnOf(sender));
-        _gripNeighborStart = _gripNeighbor is null ? 0 : Layout.Get(_gripNeighbor);
+        _gripColumns = ColumnsOnShow();
+        _gripWidths = _gripColumns.ToDictionary(c => c, Layout.Get);
         _gripFillerStart = Math.Max(ColumnLayout.ActionsMinimum, TableRegion.ActualWidth - (Layout.FixedTotal - ColumnLayout.ActionsMinimum));
         _gripScroll = TableScroll.HorizontalOffset;
         TableRegion.MinWidth = TableRegion.ActualWidth;
@@ -179,19 +179,49 @@ public sealed partial class TransactionsPage : Page
             return;
         }
 
-        // As in Word: dragging a divider moves it between the two columns on either side, so the table keeps its width and its
-        // place. With Shift held, the column on the left changes on its own and everything to its right moves along.
+        // As in Word: the divider moves, and the columns either side of it give and take room, so the table keeps its width and its
+        // place. Dragging right, the column on the left grows and the ones to its right shrink, nearest first, each down to its
+        // minimum. Dragging left, the columns on the left shrink (this one first, then those before it) and the one on the right
+        // grows. With Shift held, the column on the left changes on its own and everything to its right moves along.
         var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
-        var change = dx;
-        if (!shift)
+        var index = _gripColumns.IndexOf(column);
+        if (index < 0) return;
+        var widths = new Dictionary<string, double>(_gripWidths);
+
+        if (shift)
         {
-            var room = _gripNeighbor is null ? _gripFillerStart - ColumnLayout.ActionsMinimum : _gripNeighborStart - ColumnLayout.MinimumOf(_gripNeighbor);
-            change = Math.Min(change, room);
-            if (_gripNeighbor is not null) change = Math.Max(change, _gripNeighborStart - 600);   // the neighbour may not get wider than a column can be
+            widths[column] = _gripWidths[column] + dx;
         }
-        Layout.Set(column, _gripStart + change);
-        var applied = Layout.Get(column) - _gripStart;
-        if (_gripNeighbor is not null) Layout.Set(_gripNeighbor, shift ? _gripNeighborStart : _gripNeighborStart - applied);
+        else if (dx >= 0)
+        {
+            var room = _gripFillerStart - ColumnLayout.ActionsMinimum;
+            for (var j = index + 1; j < _gripColumns.Count; j++) room += _gripWidths[_gripColumns[j]] - ColumnLayout.MinimumOf(_gripColumns[j]);
+            var amount = Math.Min(Math.Min(dx, room), 600 - _gripWidths[column]);
+            widths[column] = _gripWidths[column] + amount;
+            for (var j = index + 1; j < _gripColumns.Count && amount > 0; j++)
+            {
+                var name = _gripColumns[j];
+                var take = Math.Min(amount, _gripWidths[name] - ColumnLayout.MinimumOf(name));
+                widths[name] = _gripWidths[name] - take;
+                amount -= take;
+            }
+        }
+        else
+        {
+            var room = 0.0;
+            for (var j = 0; j <= index; j++) room += _gripWidths[_gripColumns[j]] - ColumnLayout.MinimumOf(_gripColumns[j]);
+            var amount = Math.Min(-dx, room);
+            if (index + 1 < _gripColumns.Count) amount = Math.Min(amount, 600 - _gripWidths[_gripColumns[index + 1]]);
+            if (index + 1 < _gripColumns.Count) widths[_gripColumns[index + 1]] = _gripWidths[_gripColumns[index + 1]] + amount;
+            for (var j = index; j >= 0 && amount > 0; j--)
+            {
+                var name = _gripColumns[j];
+                var take = Math.Min(amount, _gripWidths[name] - ColumnLayout.MinimumOf(name));
+                widths[name] = _gripWidths[name] - take;
+                amount -= take;
+            }
+        }
+        foreach (var (name, width) in widths) Layout.Set(name, width);
     }
 
     private async void Grip_Completed(object? sender, EventArgs e)
