@@ -17,8 +17,8 @@ they happen, and see at a glance what is left on every budget item. Everything s
 
 You need 64-bit Windows 10 (version 1809 or later) or Windows 11.
 
-**Updates are automatic.** When a newer version is released, a bar appears at the top of the app: press
-**Update and restart**. The app takes a backup of your data first, and an update never changes your budget.
+**Updates are automatic.** When a newer version is released, a bar appears at the top of the app. Press
+**What's changed** to read what is new first, then **Update and restart**. The app takes a backup of your data first, and an update never changes your budget.
 
 **To uninstall,** use Settings > Apps > Installed apps in Windows. This removes the program but keeps your data.
 

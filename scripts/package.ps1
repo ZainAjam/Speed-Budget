@@ -11,12 +11,16 @@
     installing, updating or uninstalling (the program itself lives in %LocalAppData%\SpeedBudgetApp).
 .PARAMETER Version
     The version to release, such as 0.2.0. Defaults to the Version in SpeedBudget.App.csproj.
+.PARAMETER NotesFile
+    A markdown file of "what's changed" notes to put in the release. By default the "## <version>" section of
+    CHANGELOG.md is used. The app shows these notes before a person updates.
 .EXAMPLE
     ./scripts/package.ps1
     ./scripts/package.ps1 -Version 0.2.0
 #>
 param(
-    [string]$Version
+    [string]$Version,
+    [string]$NotesFile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,6 +29,26 @@ $project = Join-Path $root 'src/SpeedBudget.App/SpeedBudget.App.csproj'
 if (-not $Version) {
     [xml]$csproj = Get-Content $project
     $Version = ($csproj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+}
+
+# The notes people read before updating: the "## <version>" section of CHANGELOG.md, unless a file is given.
+if (-not $NotesFile) {
+    $changelog = Join-Path $root 'CHANGELOG.md'
+    if (Test-Path $changelog) {
+        $lines = Get-Content $changelog
+        $start = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match "^##\s+\[?$([regex]::Escape($Version))\]?\s*$" })
+        if ($start -ge 0) {
+            $end = $lines.Count
+            for ($i = $start + 1; $i -lt $lines.Count; $i++) { if ($lines[$i] -match '^##\s') { $end = $i; break } }
+            $body = ($lines[($start + 1)..($end - 1)] -join "`n").Trim()
+            if ($body) {
+                $NotesFile = Join-Path $root "artifacts/release-notes-$Version.md"
+                New-Item -ItemType Directory -Force (Split-Path $NotesFile) | Out-Null
+                Set-Content -Path $NotesFile -Value $body -Encoding utf8
+            }
+        }
+    }
+    if (-not $NotesFile) { Write-Warning "No '## $Version' section found in CHANGELOG.md, so this release has no notes." }
 }
 
 $publish = Join-Path $root "artifacts/publish-$Version"
@@ -38,7 +62,10 @@ try {
     dotnet publish $project -c Release -r win-x64 -p:Platform=x64 -p:Version=$Version --self-contained true -o $publish
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
 
-    dotnet vpk pack `
+    $notesArgs = @()
+    if ($NotesFile) { $notesArgs = @('--releaseNotes', $NotesFile) }
+
+    dotnet vpk pack @notesArgs `
         --packId SpeedBudgetApp `
         --packVersion $Version `
         --packDir $publish `
@@ -55,4 +82,4 @@ finally { Pop-Location }
 Write-Host ""
 Write-Host "Speed Budget $Version is packed in $releases"
 Write-Host "  Install:  run SpeedBudgetApp-win-Setup.exe"
-Write-Host "  Update:   publish the contents of that folder to your update source, then set the same address under Settings > Updates"
+Write-Host "  Update:   publish the contents of that folder to your update source, then set the same address under App Settings > Updates"

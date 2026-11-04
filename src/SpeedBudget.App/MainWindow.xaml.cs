@@ -90,6 +90,14 @@ public sealed partial class MainWindow : Window
         catch { /* an update check must never get in the way of opening the app */ }
     }
 
+    /// <summary>The banner's "What's changed": read the notes before downloading, and update from the same dialog if they look good.</summary>
+    private async void WhatsChanged_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is not { } pending) return;
+        var dialog = new UpdateNotesDialog(pending.NewVersion ?? "", pending.Notes) { XamlRoot = Nav.XamlRoot };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) UpdateNow_Click(sender, e);
+    }
+
     private async void UpdateNow_Click(object sender, RoutedEventArgs e)
     {
         if (_pendingUpdate?.Info is not { } info) return;

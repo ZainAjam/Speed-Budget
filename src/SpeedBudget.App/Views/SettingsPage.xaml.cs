@@ -86,7 +86,16 @@ public sealed partial class SettingsPage : Page
         _update = await AppUpdates.CheckAsync();
         UpdateStatus.Text = _update.Message;
         InstallButton.Visibility = _update.State == UpdateState.Available ? Visibility.Visible : Visibility.Collapsed;
+        NotesButton.Visibility = InstallButton.Visibility;
         CheckButton.IsEnabled = true;
+    }
+
+    /// <summary>Read what is in the new version first; "Update and restart" in the dialog installs it.</summary>
+    private async void WhatsChanged_Click(object sender, RoutedEventArgs e)
+    {
+        if (_update is not { State: UpdateState.Available } update) return;
+        var dialog = new UpdateNotesDialog(update.NewVersion ?? "", update.Notes) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) InstallUpdate_Click(sender, e);
     }
 
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e)

@@ -48,6 +48,11 @@ Windows may redirect its files and the shortcuts and icons will point at paths t
 
 ## Releasing on GitHub
 
+Before tagging, add a `## <version>` section to [CHANGELOG.md](../CHANGELOG.md) (for example `## 0.9.2`) describing what
+changed in plain language. The packaging script puts that section into the release, and the app shows it in a
+**What's changed** dialog when it offers the update, so people can read it before updating. A release with no section
+still works, but its dialog says no notes were published.
+
 Releases are built by GitHub Actions. Every push and pull request is built and tested (`ci.yml`). To publish a version:
 
 ```powershell

@@ -16,6 +16,9 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <InfoBar x:Name="UpdateBar" IsOpen="False" Severity="Informational" IsClosable="True">
+                <InfoBar.Content>
+                    <HyperlinkButton Content="What's changed" Click="WhatsChanged_Click" Padding="0" />
+                </InfoBar.Content>
                 <InfoBar.ActionButton>
                     <Button Content="Update and restart" Click="UpdateNow_Click" />
                 </InfoBar.ActionButton>

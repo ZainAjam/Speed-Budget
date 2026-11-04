@@ -6,7 +6,7 @@ namespace SpeedBudget.App;
 public enum UpdateState { NotInstalled, UpToDate, Available, Failed }
 
 /// <summary>The outcome of looking for an update. <see cref="Info"/> is set when one is available.</summary>
-public sealed record UpdateCheck(UpdateState State, string Message, string? NewVersion = null, UpdateInfo? Info = null);
+public sealed record UpdateCheck(UpdateState State, string Message, string? NewVersion = null, UpdateInfo? Info = null, string? Notes = null);
 
 /// <summary>
 /// Looks for, downloads and applies new versions of the installed app. The update source is a web address or a
@@ -55,7 +55,7 @@ public static class AppUpdates
             var info = await Open(source).CheckForUpdatesAsync();
             if (info is null) return new UpdateCheck(UpdateState.UpToDate, "You have the latest version.");
             var version = info.TargetFullRelease.Version.ToString();
-            return new UpdateCheck(UpdateState.Available, $"Version {version} is available.", version, info);
+            return new UpdateCheck(UpdateState.Available, $"Version {version} is available.", version, info, info.TargetFullRelease.NotesMarkdown);
         }
         catch (Exception ex)
         {
