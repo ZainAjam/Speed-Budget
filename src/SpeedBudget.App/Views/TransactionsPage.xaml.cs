@@ -18,6 +18,7 @@ public sealed partial class TransactionsPage : Page
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
         ViewModel.AskMonthAsync = AskMonthAsync;
+        ViewModel.AskStartEarlierAsync = AskStartEarlierAsync;
         Loaded += async (_, _) =>
         {
             await LoadLayoutAsync();
@@ -30,9 +31,8 @@ public sealed partial class TransactionsPage : Page
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
-            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) { ShowFirstMonth(); ShowMarkerDate(); }
+            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) { ShowStartDate(); ShowMarkerDate(); }
         };
-        FirstMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
     }
 
 
@@ -157,32 +157,44 @@ public sealed partial class TransactionsPage : Page
         await ViewModel.MoveSelectedMarkerToDateAsync(DateOnly.FromDateTime(date.DateTime));
     }
 
-    // ---- Choosing which month the first month is ----
+    // ---- The date the budget starts on ----
 
-    private bool _showingFirstMonth;
+    private bool _showingStart;
 
-    /// <summary>Fills the month and year boxes from the selected first-month row.</summary>
-    private void ShowFirstMonth()
+    /// <summary>Shows the budget's start date in the picker when the first-month row is selected.</summary>
+    private void ShowStartDate()
     {
-        if (ViewModel.SelectedMarker is not { IsFirst: true } row || !MonthLabels.TryParse(row.Label, out var month)) return;
-        _showingFirstMonth = true;
-        FirstMonthBox.SelectedIndex = month.Month - 1;
-        FirstYearBox.Value = month.Year;
-        _showingFirstMonth = false;
+        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } start }) return;
+        _showingStart = true;
+        StartDateBox.Date = new DateTimeOffset(start.ToDateTime(TimeOnly.MinValue));
+        _showingStart = false;
     }
 
-    private async void FirstMonth_Changed(object sender, SelectionChangedEventArgs e) => await ApplyFirstMonthAsync();
-
-    private async void FirstYear_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args) => await ApplyFirstMonthAsync();
-
-    private async Task ApplyFirstMonthAsync()
+    private async void StartDate_Changed(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
     {
-        if (_showingFirstMonth || FirstMonthBox.SelectedIndex < 0 || double.IsNaN(FirstYearBox.Value)) return;
-        if (ViewModel.SelectedMarker is not { IsFirst: true } row) return;
+        if (_showingStart || args.NewDate is not { } date) return;
+        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } current } || DateOnly.FromDateTime(date.DateTime) == current) return;
+        await ViewModel.SetBudgetStartAsync(DateOnly.FromDateTime(date.DateTime));
+    }
 
-        var month = new DateOnly((int)FirstYearBox.Value, FirstMonthBox.SelectedIndex + 1, 1);
-        if (MonthLabels.For(month) == row.Label) return;   // nothing changed
-        await ViewModel.SetFirstMonthAsync(month.Year, month.Month);
+    /// <summary>
+    /// Something was dated before the budget starts. Offers to start the budget from that date's month, which adds the
+    /// months in between to the budget.
+    /// </summary>
+    private async Task<bool> AskStartEarlierAsync(DateOnly date, DateOnly start)
+    {
+        var month = MonthLabels.For(date);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Before the start of your budget",
+            Content = $"This is dated {date:d MMM yyyy}, but your budget starts on {start:d MMM yyyy}. " +
+                      $"Start the budget from {month} instead? The months in between are added to your budget, and nothing already in it changes.",
+            PrimaryButtonText = $"Start from {month}",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTableWidth();

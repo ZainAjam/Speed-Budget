@@ -55,6 +55,9 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     /// <summary>For a transfer: the account on its other side, and whether that account is part of the budget.</summary>
     public Guid? OtherAccountId { get; set; }
+    /// <summary>Whether this row counts in the budget: a budget account's transaction, or a transfer with a budget account on either side.</summary>
+    public bool TouchesBudget => AccountOnBudget || (IsTransfer && OtherOnBudget);
+
     public bool OtherOnBudget => OtherAccountId is { } id && owner.IsOnBudget(id);
 
     // A new row's split lines are kept here until the row is saved.
@@ -150,6 +153,12 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     {
         if (IsNew) return _discarded || await owner.CommitNewAsync(this);
         if (!_dirty) return true;
+        // Nothing in the budget can be dated before the budget starts; the user may move the start back, or the edit is dropped.
+        if ((_dirtyDate || _dirtyStructural) && TouchesBudget && !await owner.EnsureWithinBudgetAsync(Entity.Date))
+        {
+            Cancel();
+            return true;
+        }
         var (date, split, structural) = (_dirtyDate, _dirtySplit, _dirtyStructural);
         TakeSnapshot();   // what is now saved is the new "before"
         await owner.RowChangedAsync(this, date, split, structural);
@@ -331,6 +340,9 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
     public MonthMarkerEntity? Entity { get; } = entity;
     public Guid MonthId { get; } = monthId;
     public bool IsFirst => Entity is null;
+
+    /// <summary>For the first month: the date the budget starts on.</summary>
+    public DateOnly? StartDate { get; init; }
     public bool CanDrag => !IsFirst;
 
     /// <summary>The solid line sits on the side of the month's own transactions: above the text when newest is first, below it when oldest is first.</summary>
@@ -387,6 +399,39 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private TransactionRow? _editing;
     private TransactionRow? _draft;
     private bool _rebuilding;
+    private DateOnly _budgetStart;
+
+    /// <summary>
+    /// Asked when something is dated before the budget starts: the date, and the date the budget starts on now. True means
+    /// the user agreed to start the budget earlier.
+    /// </summary>
+    public Func<DateOnly, DateOnly, Task<bool>>? AskStartEarlierAsync { get; set; }
+
+    /// <summary>
+    /// True when the date is on or after the start of the budget. Otherwise the user is asked whether to start the budget
+    /// from the date's month instead; if they agree it is moved (the months in between are added), and if not, false.
+    /// </summary>
+    public async Task<bool> EnsureWithinBudgetAsync(DateOnly date)
+    {
+        if (date >= _budgetStart) return true;
+        var earlier = new DateOnly(date.Year, date.Month, 1);
+        if (AskStartEarlierAsync is not { } ask || !await ask(date, _budgetStart))
+        {
+            Message = $"Not saved: {date:d MMM yyyy} is before the start of the budget ({_budgetStart:d MMM yyyy}).";
+            return false;
+        }
+
+        await _gate.WaitAsync();
+        try
+        {
+            var error = await _store.SetBudgetStartAsync(earlier);
+            if (error is not null) { Message = error; return false; }
+            _budgetStart = earlier;
+            return true;
+        }
+        catch (Exception ex) { Message = $"Could not move the start of the budget: {ex.Message}"; return false; }
+        finally { _gate.Release(); }
+    }
 
     /// <summary>A new row that could not be saved when the user moved on stays selected, so what was typed is not lost.</summary>
     private async Task CommitOnLeaveAsync(TransactionRow row)
@@ -511,6 +556,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var details = await _store.GetTransactionsAsync(AccountId);
         var snapshot = await _store.LoadSnapshotAsync();
         var months = BudgetEngine.Calculate(snapshot);
+        _budgetStart = snapshot.BudgetStart ?? await _store.EnsureBudgetStartAsync();
         _lastMonthLabel = months[^1].Label;
         await RefreshBalancesAsync(months);
 
@@ -527,7 +573,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
         if (showLines)
         {
-            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot), this) { LineBelow = SortIndex == 1 };
+            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot), this) { LineBelow = SortIndex == 1, StartDate = _budgetStart };
             entries.Add((new SortKey(DateOnly.MinValue, int.MinValue), 0, Guid.Empty, first));
             foreach (var m in await _store.GetMarkersAsync())
                 entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
@@ -615,23 +661,18 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The user chose which month the first month is. The first month is normally worked out from the data, but deleting
-    /// transactions can change that, so this lets the user say which month it really is.
+    /// The user chose the date the budget starts on. Earlier adds the months in between; later is refused while a transaction
+    /// or month line sits before it.
     /// </summary>
-    public async Task SetFirstMonthAsync(int year, int month)
+    public async Task SetBudgetStartAsync(DateOnly date)
     {
         await _gate.WaitAsync();
         try
         {
-            await _store.RenameFirstMonthAsync(MonthLabels.For(new DateOnly(year, month, 1)));
-            Message = "";
-            await LoadRowsAsync(Guid.Empty);
+            Message = await _store.SetBudgetStartAsync(date) ?? "";
+            await LoadRowsAsync(Guid.Empty);   // also puts the date shown back if it was refused
         }
-        catch (Exception ex)
-        {
-            Message = $"Could not save: {ex.Message}";
-            await LoadRowsAsync(Guid.Empty);   // show the month as it really is, not the one that was refused
-        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
     }
 
@@ -644,7 +685,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         try
         {
             var order = await _store.NextDayOrderAsync(date);
-            Message = await _store.MoveMarkerAsync(entity, new SortKey(date, order)) ? "" : "A month line can't be moved past another month line.";
+            Message = await _store.MoveMarkerAsync(entity, new SortKey(date, order)) ? "" : "A month line can't be moved past another month line, or back before the start of the budget.";
             await LoadRowsAsync(entity.Id);   // also puts the date shown back if the move was refused
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
@@ -690,7 +731,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 static SortKey? KeyOf(TransactionRow? t) => t is null ? null : new SortKey(t.Entity.Date, t.Entity.DayOrder);
 
                 if (MarkerPlacement.Place(KeyOf(earlier), KeyOf(later)) is { } key)
-                    Message = await _store.MoveMarkerAsync(entity, key) ? "" : "A month line can't be dragged past another month line.";
+                    Message = await _store.MoveMarkerAsync(entity, key) ? "" : "A month line can't be dragged past another month line, or back before the start of the budget.";
             }
             await LoadRowsAsync(marker.Entity?.Id);
         }
@@ -840,6 +881,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         // A date that a month line sits on could be in either month, so ask which.
         int? dayOrder = null;
         var touchesBudget = onBudget || (row.IsTransfer && row.OtherAccountId is { } other && IsOnBudget(other));
+        if (touchesBudget && !await EnsureWithinBudgetAsync(e.Date)) return false;
         if (touchesBudget && AskMonthAsync is { } ask)
         {
             var (ok, order) = await ask(e.Date);

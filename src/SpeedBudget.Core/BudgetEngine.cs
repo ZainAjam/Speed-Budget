@@ -24,13 +24,16 @@ public static class BudgetEngine
         markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
 
     /// <summary>
-    /// The name of the first month. With no budget transactions and no month lines yet, it is the current month. Once there
+    /// The name of the first month. A budget has a start date (<see cref="BudgetSnapshot.BudgetStart"/>), and the first month
+    /// is the month it falls in. Budgets that have no start date yet (older ones, before it is saved) work it out as below.
+    /// With no budget transactions and no month lines yet, it is the current month. Once there
     /// are transactions, it is the month the user said the first one belongs to (the stored label), or else the month of the
     /// earliest one. A month line dated before that pulls it back to the month before the line. It is always worked out from
     /// the data, so a leftover setting can never hold it in place. A first month the user renamed by hand keeps its name.
     /// </summary>
     public static string FirstMonthLabelFor(BudgetSnapshot s, DateOnly? today = null, System.Globalization.CultureInfo? culture = null)
     {
+        if (s.BudgetStart is { } start) return MonthLabels.For(start, culture);
         if (s.FirstMonthRenamed && !string.IsNullOrWhiteSpace(s.FirstMonthLabel)) return s.FirstMonthLabel;
 
         var markers = SortMarkers(s.Markers);

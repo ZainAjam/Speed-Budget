@@ -426,6 +426,57 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task A_budget_without_a_start_date_gets_one_from_its_data_and_then_keeps_it()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        await AddTx(cheque, new(2025, 11, 20), -10_00);
+
+        Assert.Equal(new DateOnly(2025, 11, 1), await _store.EnsureBudgetStartAsync());
+
+        // An earlier transaction no longer pulls the first month back by itself: the start date is the truth.
+        await AddTx(cheque, new(2025, 8, 3), -10_00);
+        Assert.Equal("November 2025", await _store.GetFirstMonthLabelAsync());
+    }
+
+    [Fact]
+    public async Task Moving_the_start_earlier_adds_a_line_for_every_month_and_keeps_the_old_first_month_intact()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        await AddTx(cheque, new(2025, 11, 20), -50_00, food.Id);
+        await _store.EnsureBudgetStartAsync();
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 800_00);
+
+        Assert.Null(await _store.SetBudgetStartAsync(new(2025, 8, 15)));
+
+        var snapshot = await _store.LoadSnapshotAsync();
+        var months = BudgetEngine.Calculate(snapshot);
+        Assert.Equal(new[] { "August 2025", "September 2025", "October 2025", "November 2025" }, months.Select(m => m.Label));
+        var november = months.Single(m => m.Label == "November 2025");
+        Assert.Equal(800_00, november.Items.Single(i => i.ItemId == food.Id).Budgeted);
+        Assert.Equal(-50_00, november.Items.Single(i => i.ItemId == food.Id).Activity);
+        Assert.Equal(0, months[0].Items.Sum(i => i.Budgeted + i.Activity));
+        Assert.Equal(new DateOnly(2025, 8, 15), await _store.EnsureBudgetStartAsync());
+    }
+
+    [Fact]
+    public async Task The_start_cannot_move_past_a_transaction_or_a_month_line_and_a_line_cannot_precede_it()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        await AddTx(cheque, new(2025, 11, 20), -10_00);
+        await _store.EnsureBudgetStartAsync();
+        await _store.AddMarkerAsync("December 2025", new(2025, 12, 1), copyPreviousBudget: false);
+
+        Assert.NotNull(await _store.SetBudgetStartAsync(new(2025, 11, 25)));   // after the transaction
+        Assert.NotNull(await _store.SetBudgetStartAsync(new(2025, 12, 5)));    // after the first line
+        await Assert.ThrowsAsync<ArgumentException>(() => _store.AddMarkerAsync("October 2025", new(2025, 10, 1), copyPreviousBudget: false));
+
+        // A later date that is still before everything is fine.
+        Assert.Null(await _store.SetBudgetStartAsync(new(2025, 11, 10)));
+        Assert.Equal(new DateOnly(2025, 11, 10), await _store.EnsureBudgetStartAsync());
+    }
+
+    [Fact]
     public async Task Invalid_transfers_are_rejected()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

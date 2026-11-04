@@ -34,9 +34,11 @@ A short setup wizard starts by itself. It helps you create:
 Nothing is saved until the last step, you can change everything later, and you can run the wizard again from
 **App Settings** (it only adds what is missing).
 
-The budget starts on the **current calendar month**. Once you add a transaction to a budget account, the month it is dated in
-becomes the first month of your budget (so it can be a month in the past, if you are bringing in older transactions).
-If that is the wrong month, select the first "(month) starts here" line in the transactions table and choose the month.
+Your budget has a **start date**. It begins as the first day of the current month, and the first "(month) starts here" line
+at the bottom of the transactions table is where it sits. Nothing in the budget can be dated before it. If you add or edit a
+transaction dated earlier, Speed Budget asks whether to start the budget from that month instead, and adds the months in
+between. You can also select that first line and choose a different start date: an earlier one adds the months in between
+(what you have already budgeted stays where it is), a later one is allowed while no transaction or month line comes before it.
 
 ## How it works
 

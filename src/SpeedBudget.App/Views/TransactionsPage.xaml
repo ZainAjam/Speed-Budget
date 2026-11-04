@@ -307,13 +307,11 @@
                     </StackPanel>
                     <Button Content="Delete this line" Click="DeleteLine_Click" />
                 </StackPanel>
-                <!-- The first month has no line to move. Which month it is can be chosen, since deleting transactions can change it. -->
+                <!-- The first month is where the budget starts. Its date can be moved earlier (adding the months in between) or a little later. -->
                 <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.SelectedMarker.IsFirst, Mode=OneWay, FallbackValue=Collapsed}">
+                    <CalendarDatePicker x:Name="StartDateBox" Header="Your budget starts on" DateChanged="StartDate_Changed" />
                     <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
-                               Text="This is the first month, so there is no line to move. Choose which month it is. It can change by itself when transactions are deleted, so set it here whenever it is wrong." />
-                    <ComboBox x:Name="FirstMonthBox" Header="Month" HorizontalAlignment="Stretch" SelectionChanged="FirstMonth_Changed" />
-                    <NumberBox x:Name="FirstYearBox" Header="Year" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
-                               SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="FirstYear_Changed" />
+                               Text="Nothing in the budget can be dated before this. Choose an earlier date to bring in older transactions: the months in between are added and what you have already budgeted stays where it is. It can only move later while no transaction or month line comes before the new date." />
                 </StackPanel>
             </StackPanel>
             <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-8,0" Padding="8" Click="CloseDetail_Click"

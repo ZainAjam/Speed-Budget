@@ -116,13 +116,15 @@ public sealed class BudgetStore(SpeedBudgetDb db)
             allocations.Select(a => new Allocation(a.MonthId, a.BudgetItemId, a.Amount)).ToList(),
             holds.Select(h => new IncomeHold(h.MonthId, h.IncomeItemId, h.Amount)).ToList(),
             await GetStoredFirstMonthLabelAsync(ct) ?? "",
-            await GetSettingAsync(FirstMonthRenamedKey, ct) == "1");
+            await GetSettingAsync(FirstMonthRenamedKey, ct) == "1",
+            await GetBudgetStartSettingAsync(ct));
     }
 
     private static MonthMarker ToCore(MonthMarkerEntity m) => new(m.Id, m.Date, m.DayOrder, m.Label);
 
     private const string FirstMonthLabelKey = "firstMonthLabel";
     private const string FirstMonthRenamedKey = "firstMonthRenamed";
+    private const string BudgetStartKey = "budgetStart";
 
     public async Task<string?> GetSettingAsync(string key, CancellationToken ct = default) =>
         (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == key, ct))?.Value;
@@ -157,6 +159,102 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await SetSettingAsync(FirstMonthRenamedKey, null, ct);
     }
 
+    // ---- The start of the budget ----
+
+    private async Task<DateOnly?> GetBudgetStartSettingAsync(CancellationToken ct = default) =>
+        DateOnly.TryParseExact(await GetSettingAsync(BudgetStartKey, ct), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var start) ? start : null;
+
+    /// <summary>
+    /// The date the budget starts on. The first month is the month it falls in, and nothing can come before it. A budget
+    /// that has none yet (one made before the start date existed) gets one worked out from its data, once.
+    /// </summary>
+    public async Task<DateOnly> EnsureBudgetStartAsync(CancellationToken ct = default)
+    {
+        if (await GetBudgetStartSettingAsync(ct) is { } saved) return saved;
+
+        var label = BudgetEngine.FirstMonthLabelFor(await LoadSnapshotAsync(ct));   // no start date yet, so this is worked out from the data
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var start = MonthLabels.TryParse(label, out var month) ? month : new DateOnly(today.Year, today.Month, 1);
+
+        // Nothing may come before the start, so an older budget whose data reaches back further starts at its earliest transaction.
+        var snapshot = await LoadSnapshotAsync(ct);
+        var onBudget = snapshot.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
+        if (snapshot.Transactions.Where(t => onBudget.Contains(t.AccountId)).Select(t => (DateOnly?)t.Date).Min() is { } earliest && earliest < start)
+            start = new DateOnly(earliest.Year, earliest.Month, 1);
+        await SetSettingAsync(BudgetStartKey, start.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), ct);
+        return start;
+    }
+
+    /// <summary>
+    /// Moves the start of the budget. Earlier is always possible: the months in between are added as month lines, and the old
+    /// first month keeps its transactions and budgeted amounts. Later is refused while a transaction or month line sits before
+    /// the new date. Returns a sentence saying why it was refused, or null when it was done.
+    /// </summary>
+    public async Task<string?> SetBudgetStartAsync(DateOnly newStart, CancellationToken ct = default)
+    {
+        var oldStart = await EnsureBudgetStartAsync(ct);
+        if (newStart == oldStart) return null;
+        if (newStart < EarliestMonth) return $"The budget can't start before {EarliestMonth:MMMM yyyy}.";
+
+        if (newStart < oldStart)
+        {
+            await MoveStartEarlierAsync(oldStart, newStart, ct);
+            return null;
+        }
+
+        var snapshot = await LoadSnapshotAsync(ct);
+        var onBudget = snapshot.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
+        var earliest = snapshot.Transactions.Where(t => onBudget.Contains(t.AccountId)).Select(t => (DateOnly?)t.Date).Min();
+        if (earliest is { } first && first < newStart)
+            return $"There is a transaction on {first:d MMM yyyy}, before that date. Move or delete it first, or choose a date on or before it.";
+        var firstLine = BudgetEngine.SortMarkers(snapshot.Markers).FirstOrDefault();
+        if (firstLine is not null && firstLine.Date <= newStart)
+            return $"{firstLine.Label} starts on {firstLine.Date:d MMM yyyy}. The budget has to start before its first month line.";
+
+        await SetSettingAsync(BudgetStartKey, newStart.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), ct);
+        return null;
+    }
+
+    /// <summary>
+    /// Starts the budget earlier. Every month from the new start up to the old first month gets a line (the new first month
+    /// needs none), and what was budgeted in the old first month moves to its line. Returns that line.
+    /// </summary>
+    private async Task<MonthMarkerEntity?> MoveStartEarlierAsync(DateOnly oldStart, DateOnly newStart, CancellationToken ct)
+    {
+        var oldMonth = new DateOnly(oldStart.Year, oldStart.Month, 1);
+        var newMonth = new DateOnly(newStart.Year, newStart.Month, 1);
+        var transactionOrders = await db.Transactions.Where(t => t.Date == oldStart).Select(t => t.DayOrder).ToListAsync(ct);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        MonthMarkerEntity? oldMonthLine = null;
+        for (var month = newMonth.AddMonths(1); month <= oldMonth; month = month.AddMonths(1))
+        {
+            // The old first month's line sits where it started, so its transactions stay in it.
+            var isOld = month == oldMonth;
+            var line = new MonthMarkerEntity
+            {
+                Date = isOld ? oldStart : month,
+                DayOrder = isOld ? Math.Min(0, transactionOrders.Count > 0 ? transactionOrders.Min() : 0) : 0,
+                Label = MonthLabels.For(month),
+            };
+            await MoveBudgetAsync(isOld ? BudgetEngine.FirstMonthId : BudgetEngine.VirtualMonthId(month), line.Id, ct);
+            db.Markers.Add(line);
+            if (isOld) oldMonthLine = line;
+        }
+        if (newMonth == oldMonth)
+        {
+            // Only the day changed within the same month: there is nothing to add.
+            await SetSettingAsync(BudgetStartKey, newStart.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), ct);
+            await transaction.CommitAsync(ct);
+            return null;
+        }
+        await db.SaveChangesAsync(ct);
+        await SetSettingAsync(BudgetStartKey, newStart.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), ct);
+        await transaction.CommitAsync(ct);
+        return oldMonthLine;
+    }
+
     /// <summary>The user gave the first month a name of their own, which is then kept as typed.</summary>
     public async Task RenameFirstMonthAsync(string label, CancellationToken ct = default)
     {
@@ -168,46 +266,16 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public static readonly DateOnly EarliestMonth = new(1950, 1, 1);
 
     /// <summary>
-    /// Adds an empty month before the first one, so the budget can go back in time. The old first month keeps
-    /// all its transactions and budgeted amounts: it becomes a month started by a line placed at its first
-    /// transaction. Returns null if the budget already reaches back as far as it can.
+    /// Adds an empty month before the first one, so the budget can go back in time. The old first month keeps all its
+    /// transactions and budgeted amounts: it becomes a month started by a line. Returns that line, or null if the budget
+    /// already reaches back as far as it can.
     /// </summary>
     public async Task<MonthMarkerEntity?> AddEarlierMonthAsync(CancellationToken ct = default)
     {
-        var snapshot = await LoadSnapshotAsync(ct);
-        var oldFirst = BudgetEngine.FirstMonthLabelFor(snapshot);
-        var markers = BudgetEngine.SortMarkers(snapshot.Markers);
-        var firstMarker = markers.Count > 0 ? markers[0] : null;
-
-        // Where the old first month begins: its first transaction, or else the first day of its month.
-        var transactions = snapshot.Transactions
-            .Where(t => firstMarker is null || new SortKey(t.Date, t.DayOrder) < new SortKey(firstMarker.Date, firstMarker.DayOrder))
-            .OrderBy(t => t.Date).ThenBy(t => t.DayOrder).ToList();
-        DateOnly date;
-        int dayOrder;
-        if (transactions.Count > 0) (date, dayOrder) = (transactions[0].Date, transactions[0].DayOrder);
-        else
-        {
-            date = MonthLabels.TryParse(oldFirst, out var monthStart) ? monthStart
-                 : (firstMarker?.Date.AddDays(-1) ?? DateOnly.FromDateTime(DateTime.Today));
-            if (firstMarker is not null && new SortKey(date, 0) >= new SortKey(firstMarker.Date, firstMarker.DayOrder)) date = firstMarker.Date.AddDays(-1);
-            dayOrder = 0;
-        }
-
-        var before = MonthLabels.TryParse(oldFirst, out var oldStart) ? oldStart.AddMonths(-1) : new DateOnly(date.Year, date.Month, 1).AddMonths(-1);
-        if (before < EarliestMonth) return null;
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var marker = new MonthMarkerEntity { Date = date, DayOrder = dayOrder, Label = oldFirst };
-        db.Markers.Add(marker);
-        foreach (var a in await db.Allocations.Where(a => a.MonthId == BudgetEngine.FirstMonthId).ToListAsync(ct)) a.MonthId = marker.Id;
-        foreach (var h in await db.Holds.Where(h => h.MonthId == BudgetEngine.FirstMonthId).ToListAsync(ct)) h.MonthId = marker.Id;
-        await db.SaveChangesAsync(ct);
-
-        // The new first month needs no setting of its own: it is the month before the line just added.
-        await SetSettingAsync(FirstMonthRenamedKey, null, ct);
-        await transaction.CommitAsync(ct);
-        return marker;
+        var start = await EnsureBudgetStartAsync(ct);
+        var earlier = new DateOnly(start.Year, start.Month, 1).AddMonths(-1);
+        if (earlier < EarliestMonth) return null;
+        return await MoveStartEarlierAsync(start, earlier, ct);
     }
 
     /// <summary>The balance printed on the account's latest bank statement, in cents, if one was entered.</summary>
@@ -359,6 +427,8 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// </summary>
     public async Task<MonthMarkerEntity> AddMarkerAsync(string label, DateOnly date, bool copyPreviousBudget, CancellationToken ct = default)
     {
+        if (await GetBudgetStartSettingAsync(ct) is { } start && date <= start)
+            throw new ArgumentException($"A month can't start before the budget does ({start:d MMM yyyy}). Move the start of the budget back first.");
         var order = await NextDayOrderAsync(date, ct);
         var existing = BudgetEngine.SortMarkers((await GetMarkersAsync(ct)).Select(ToCore));
         var previousMonth = BudgetEngine.MonthOf(existing, date, order);
@@ -420,6 +490,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// </summary>
     public async Task<bool> MoveMarkerAsync(MonthMarkerEntity marker, SortKey key, CancellationToken ct = default)
     {
+        if (await GetBudgetStartSettingAsync(ct) is { } start && key.Date <= start) return false;   // a month can't start before the budget does
         var others = (await GetMarkersAsync(ct)).Where(m => m.Id != marker.Id).Select(m => new SortKey(m.Date, m.DayOrder));
         if (!MarkerPlacement.FitsBetweenOtherLines(key, new SortKey(marker.Date, marker.DayOrder), others)) return false;
         marker.Date = key.Date;
@@ -695,6 +766,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
             await EnsurePayeeAsync(counterparty.Name, ct);
         var counterparties = (await GetPayeesAsync(ct)).Count - known;
 
+        await EnsureBudgetStartAsync(ct);   // a new budget starts in the current month, unless its first transaction says otherwise
         await transaction.CommitAsync(ct);
         return new SetupResult(accounts, groups, items, counterparties);
     }
