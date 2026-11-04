@@ -108,6 +108,11 @@ on the one PC.
 
 Please [open an issue](https://github.com/ZainAjam/Speed-Budget/issues) and say what you did and what you expected.
 
+## Licence
+
+Copyright (c) 2026 Zain Ajam. All rights reserved. You are welcome to download and use the app for your own
+budgeting; the source code may not be copied or reused without permission. See [LICENSE](LICENSE).
+
 ## For developers
 
 Building from source, running the tests and publishing releases are covered in
