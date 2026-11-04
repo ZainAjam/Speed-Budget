@@ -19,6 +19,7 @@ public sealed partial class TransactionsPage : Page
             await LoadLayoutAsync();
             Layout.PropertyChanged += Layout_Changed;
             UpdateTableWidth();
+            UpdateDetailPanel();
             await ViewModel.LoadAsync();
         };
         Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
@@ -31,10 +32,26 @@ public sealed partial class TransactionsPage : Page
     }
 
 
+    private bool DetailOpen => ViewModel.HasSelection || ViewModel.HasMarkerSelected;
+
+    /// <summary>Slides the edit panel in from the right edge, or back out of sight when nothing is selected.</summary>
     private void UpdateDetailPanel()
     {
-        DetailHost.Visibility = ViewModel.HasSelection || ViewModel.HasMarkerSelected ? Visibility.Visible : Visibility.Collapsed;
-        UpdateTableWidth();
+        if (DetailHost.TranslationTransition is null)
+            DetailHost.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(180) };
+
+        // Closed, it waits just off the right edge; it takes no clicks, so the table underneath works as normal.
+        DetailHost.Translation = DetailOpen ? System.Numerics.Vector3.Zero : new System.Numerics.Vector3((float)(Layout.DetailWidth + 40), 0, 0);
+        DetailHost.IsHitTestVisible = DetailOpen;
+    }
+
+    private void CloseDetail_Click(object sender, RoutedEventArgs e) => ViewModel.SelectedEntry = null;
+
+    private void CloseDetail_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (!DetailOpen) return;   // leave Esc alone when there is nothing to close
+        args.Handled = true;
+        ViewModel.SelectedEntry = null;
     }
 
     // ---- Resizing columns and the side panel ----
@@ -45,7 +62,11 @@ public sealed partial class TransactionsPage : Page
     private static bool s_layoutLoaded;
     private double _gripStart;
 
-    private void Layout_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => UpdateTableWidth();
+    private void Layout_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        UpdateTableWidth();
+        if (e.PropertyName == nameof(ColumnLayout.DetailWidth)) UpdateDetailPanel();
+    }
 
     private async Task LoadLayoutAsync()
     {
@@ -127,7 +148,7 @@ public sealed partial class TransactionsPage : Page
 
     private void UpdateTableWidth()
     {
-        var minimum = Layout.FixedTotal + ColumnLayout.CounterpartyMinimum + (DetailHost.Visibility == Visibility.Visible ? Layout.DetailWidth : 0);
+        var minimum = Layout.FixedTotal + ColumnLayout.CounterpartyMinimum;   // the edit panel floats over the table, so it needs no room of its own
         TableRegion.Width = Math.Max(TableScroll.ActualWidth, minimum);
     }
 

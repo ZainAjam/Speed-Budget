@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.7
+
+- The panel for editing a transaction or month line now slides in over the table from the right edge of the window, instead of taking up room beside it. The table keeps its full width. Close it with the X in its corner, or press Esc.
+
 ## 0.9.6
 
 - The Budget screen no longer shows totals on the budget group rows: only the budget items show figures.

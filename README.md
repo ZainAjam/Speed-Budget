@@ -64,7 +64,7 @@ Tick **Cleared** once the transaction has shown on your bank statement.
 as spending or income against a budget item you choose.
 
 **Resize the table and the side panel.** Drag the right edge of a column heading in the recorded transactions table to make
-that column wider or narrower, and drag the left edge of the edit panel on the right to make it wider or narrower. Your sizes
+that column wider or narrower, and select a transaction and the edit panel slides in over the table from the right edge; drag its left edge to make it wider or narrower, and close it with the X or Esc. Your sizes
 are remembered.
 
 **Bank date.** The table shows each transaction's date and, beside it, the date it showed on your bank statement. Entering a

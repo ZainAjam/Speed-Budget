@@ -9,6 +9,7 @@
         <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="NewTransaction_Invoked" />
         <KeyboardAccelerator Key="Up" Modifiers="Menu" Invoked="MoveLineUp_Invoked" />
         <KeyboardAccelerator Key="Down" Modifiers="Menu" Invoked="MoveLineDown_Invoked" />
+        <KeyboardAccelerator Key="Escape" Invoked="CloseDetail_Invoked" />
     </Page.KeyboardAccelerators>
 
     <Page.Resources>
@@ -181,10 +182,6 @@
         <ScrollViewer Grid.Row="5" x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
         <Grid x:Name="TableRegion">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
             <Border CornerRadius="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -240,8 +237,14 @@
                 </Grid>
             </Border>
 
-            <!-- Only takes room while a transaction or month line is selected -->
-            <Grid x:Name="DetailHost" Grid.Column="1" Width="{x:Bind Layout.DetailWidth, Mode=OneWay}" Padding="24,0,0,0" Visibility="Collapsed">
+        </Grid>
+        </ScrollViewer>
+
+            <!-- The edit panel floats over the table from the right edge. It slides in while a transaction or month line is selected. -->
+            <Grid x:Name="DetailHost" Grid.Row="5" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,0,-32,-24"
+                  Width="{x:Bind Layout.DetailWidth, Mode=OneWay}" Padding="20,16,20,16" IsHitTestVisible="False"
+                  Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+                  BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
             <ScrollViewer>
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
                     <TextBlock Text="Edit transaction" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -302,10 +305,12 @@
                                SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="FirstYear_Changed" />
                 </StackPanel>
             </StackPanel>
+            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-8,0" Padding="8" Click="CloseDetail_Click"
+                    Background="Transparent" BorderThickness="0" AutomationProperties.Name="Close the edit panel" ToolTipService.ToolTip="Close (Esc)">
+                <FontIcon Glyph="&#xE711;" FontSize="12" />
+            </Button>
             <!-- Drag this edge to make the panel wider or narrower -->
-            <local:ResizeGrip Tag="DetailWidth" HorizontalAlignment="Left" Margin="-24,0,0,0" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+            <local:ResizeGrip Tag="DetailWidth" HorizontalAlignment="Left" Margin="-20,0,0,0" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
             </Grid>
-        </Grid>
-        </ScrollViewer>
     </Grid>
 </Page>
