@@ -4,7 +4,7 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
-## 0.9.7.1
+## 0.9.8
 
 - The button that hid the left panel is gone. In App Settings, under **User Interface**, **Side panel** now has three choices: **Expanded** (the full panel), **Expand on hover only** (the default: a narrow strip of icons that opens while the pointer is over it) and **Collapsed** (always the narrow strip of icons). App Settings also has a line between each of its sections.
 - In the transactions table, the Budget item cell now shows just the item (with its icon), without its budget group. The group still shows in the drop-down list.
