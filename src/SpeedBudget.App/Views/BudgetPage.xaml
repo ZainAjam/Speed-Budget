@@ -75,7 +75,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="MonthTemplate" x:DataType="vm:MonthColumn">
-            <StackPanel Width="{x:Bind Width}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+            <StackPanel Width="{x:Bind Width}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
                 <!-- Summary block, shaded differently from the cash blocks -->
                 <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
                     <ItemsControl ItemsSource="{x:Bind Summary}" ItemTemplate="{StaticResource SummaryCellTemplate}" />
@@ -119,7 +119,7 @@
 
         <!-- The month headings sit above the scrolling part of the page, so they stay in view while scrolling. -->
         <DataTemplate x:Key="MonthHeaderTemplate" x:DataType="vm:MonthColumn">
-            <Grid Width="{x:Bind Width}" Height="56" Padding="12,0,8,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+            <Grid Width="{x:Bind Width}" Height="56" Padding="12,0,8,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
