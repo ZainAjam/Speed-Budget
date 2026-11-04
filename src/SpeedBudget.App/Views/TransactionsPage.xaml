@@ -198,7 +198,7 @@
                     </StackPanel>
                 </Button>
                 <Button Content="New Transfer" Click="Transfer_Click" />
-                <Button Content="Start a new month" Click="NewMonth_Click" ToolTipService.ToolTip="Ctrl+M" />
+                <Button Content="Start a new month" Click="NewMonth_Click" ToolTipService.ToolTip="Ctrl+M" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
             </StackPanel>
         </Border>
 

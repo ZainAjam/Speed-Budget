@@ -437,6 +437,7 @@ public sealed partial class TransactionsPage : Page
     private async void NewMonth_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
+        if (!ViewModel.CanStartMonth) return;   // a tracked account is outside the budget
         await StartNewMonthAsync();
     }
 

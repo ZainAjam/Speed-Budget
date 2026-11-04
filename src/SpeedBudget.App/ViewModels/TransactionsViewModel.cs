@@ -471,6 +471,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public bool HasMessage => Message != "";
 
     /// <summary>A tracked account is outside the budget, so its page has no budget item column.</summary>
+    /// <summary>Month lines belong to the budget, so a tracked account's page, which sits outside it, has no way to start a month.</summary>
+    public bool CanStartMonth => ShowItemColumn;
+
     public bool ShowItemColumn => AccountId is null || (_accounts.FirstOrDefault(a => a.Id == AccountId)?.IsOnBudget ?? true);
 
 
@@ -526,6 +529,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
                     ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name));
 
             SyncColumnLayout();
+            OnPropertyChanged(nameof(CanStartMonth));
             _loaded = true;
             await LoadRowsAsync(null);
         }
