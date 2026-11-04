@@ -4,6 +4,12 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.6
+
+- The Budget screen no longer shows totals on the budget group rows: only the budget items show figures.
+- In the recorded transactions table you can drag the right edge of a column heading to make that column wider or narrower. The sizes are remembered.
+- The panel for editing a transaction or month line can be made wider or narrower by dragging its left edge. Its size is remembered too.
+
 ## 0.9.5
 
 - The program and your data now live in two clearly named folders: **SpeedBudget-App** (the program) and **SpeedBudget-Data** (your budget and backups). Your existing data is moved across automatically the first time this version opens, and a short README in the data folder explains what it is.

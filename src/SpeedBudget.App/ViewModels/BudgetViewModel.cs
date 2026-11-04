@@ -199,16 +199,10 @@ public sealed partial class MonthColumn : ObservableObject
         var items = m.Items.ToDictionary(i => i.ItemId);
         foreach (var cell in Outflow)
         {
-            if (cell.Line.IsHeader)
-            {
-                var mine = cell.Line.GroupItemIds.Select(id => items.GetValueOrDefault(id)).Where(i => i is not null).ToList();
-                cell.Apply(mine.Sum(i => i!.Budgeted), mine.Sum(i => i!.Activity), mine.Sum(i => i!.CarriedIn));
-            }
-            else
-            {
-                var item = items.GetValueOrDefault(cell.Line.ItemId!.Value);
-                cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0, item?.CarriedIn ?? 0);
-            }
+            if (cell.Line.IsHeader) continue;   // group headings carry no figures
+
+            var item = items.GetValueOrDefault(cell.Line.ItemId!.Value);
+            cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0, item?.CarriedIn ?? 0);
         }
     }
 }

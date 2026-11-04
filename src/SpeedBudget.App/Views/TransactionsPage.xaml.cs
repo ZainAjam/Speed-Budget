@@ -14,7 +14,14 @@ public sealed partial class TransactionsPage : Page
     public TransactionsPage()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await ViewModel.LoadAsync();
+        Loaded += async (_, _) =>
+        {
+            await LoadLayoutAsync();
+            Layout.PropertyChanged += Layout_Changed;
+            UpdateTableWidth();
+            await ViewModel.LoadAsync();
+        };
+        Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(TransactionsViewModel.HasSelection) or nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
@@ -23,14 +30,51 @@ public sealed partial class TransactionsPage : Page
         FirstMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
     }
 
-    // The fixed columns need about 800 pixels and the Counterparty column at least 160 more. The side panel adds its own width.
-    private const double TableMinWidth = 964;
-    private const double DetailPanelWidth = 344;
 
     private void UpdateDetailPanel()
     {
         DetailHost.Visibility = ViewModel.HasSelection || ViewModel.HasMarkerSelected ? Visibility.Visible : Visibility.Collapsed;
         UpdateTableWidth();
+    }
+
+    // ---- Resizing columns and the side panel ----
+
+    /// <summary>The shared widths of the table's columns and the edit panel.</summary>
+    public ColumnLayout Layout => ColumnLayout.Current;
+
+    private static bool s_layoutLoaded;
+    private double _gripStart;
+
+    private void Layout_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => UpdateTableWidth();
+
+    private async Task LoadLayoutAsync()
+    {
+        if (s_layoutLoaded) return;
+        s_layoutLoaded = true;
+        try { Layout.Load(await AppServices.Store.GetLocalSettingAsync("txColumns")); }
+        catch { /* the normal sizes are fine */ }
+    }
+
+    private static string ColumnOf(object? grip) => (string)((FrameworkElement)grip!).Tag;
+
+    private void Grip_Started(object? sender, EventArgs e)
+    {
+        var column = ColumnOf(sender);
+        _gripStart = Layout.Get(column == "Counterparty" ? Layout.NextAfterCounterparty() : column);
+    }
+
+    private void Grip_Moved(object? sender, double dx)
+    {
+        var column = ColumnOf(sender);
+        if (column == "Counterparty") Layout.Set(Layout.NextAfterCounterparty(), _gripStart - dx);   // it takes the room the next column gives up
+        else if (column == nameof(ColumnLayout.DetailWidth)) Layout.Set(column, _gripStart - dx);     // the panel's edge is on its left
+        else Layout.Set(column, _gripStart + dx);
+    }
+
+    private async void Grip_Completed(object? sender, EventArgs e)
+    {
+        try { await AppServices.Store.SetLocalSettingAsync("txColumns", Layout.Serialize()); }
+        catch { /* not remembering the sizes must never get in the way */ }
     }
 
     // ---- The date a month line sits at ----
@@ -83,7 +127,7 @@ public sealed partial class TransactionsPage : Page
 
     private void UpdateTableWidth()
     {
-        var minimum = TableMinWidth + (DetailHost.Visibility == Visibility.Visible ? DetailPanelWidth : 0);
+        var minimum = Layout.FixedTotal + ColumnLayout.CounterpartyMinimum + (DetailHost.Visibility == Visibility.Visible ? Layout.DetailWidth : 0);
         TableRegion.Width = Math.Max(TableScroll.ActualWidth, minimum);
     }
 

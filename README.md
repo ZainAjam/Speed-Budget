@@ -63,6 +63,10 @@ Tick **Cleared** once the transaction has shown on your bank statement.
 **Move money between accounts.** Press **New Transfer**. A transfer between a budget account and a tracked account counts
 as spending or income against a budget item you choose.
 
+**Resize the table and the side panel.** Drag the right edge of a column heading in the recorded transactions table to make
+that column wider or narrower, and drag the left edge of the edit panel on the right to make it wider or narrower. Your sizes
+are remembered.
+
 **Bank date.** The table shows each transaction's date and, beside it, the date it showed on your bank statement. Entering a
 bank date on a transaction also marks it as cleared.
 

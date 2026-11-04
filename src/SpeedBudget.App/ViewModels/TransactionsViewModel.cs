@@ -40,8 +40,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public bool AccountOnBudget { get; } = accountOnBudget;
 
     public bool ShowItemColumn { get; } = showItemColumn;
-    public Microsoft.UI.Xaml.GridLength ItemColumnWidth { get; } = new(showItemColumn ? 170 : 0);
-    public Microsoft.UI.Xaml.GridLength AccountColumnWidth { get; } = new(showAccountColumn ? 130 : 0);
+    public ColumnLayout Layout => ColumnLayout.Current;
     public bool ShowAccountColumn { get; } = showAccountColumn;
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
@@ -261,12 +260,17 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>A tracked account is outside the budget, so its page has no budget item column.</summary>
     public bool ShowItemColumn => AccountId is null || (_accounts.FirstOrDefault(a => a.Id == AccountId)?.IsOnBudget ?? true);
 
-    public Microsoft.UI.Xaml.GridLength ItemColumnWidth => new(ShowItemColumn ? 170 : 0);
 
     /// <summary>Each account's own page only lists that account, so the Account column is only for the all-accounts page.</summary>
     public bool ShowAccountColumn => AccountId is null;
 
-    public Microsoft.UI.Xaml.GridLength AccountColumnWidth => new(ShowAccountColumn ? 130 : 0);
+
+    /// <summary>Tells the shared table layout which optional columns this page has.</summary>
+    private void SyncColumnLayout()
+    {
+        ColumnLayout.Current.ShowItem = ShowItemColumn;
+        ColumnLayout.Current.ShowAccount = ShowAccountColumn;
+    }
 
     /// <summary>On the all-accounts page the item field follows the account chosen for the new transaction.</summary>
     public bool ShowItemPicker => AccountId is null ? NewAccount?.IsOnBudget ?? true : ShowItemColumn;
@@ -287,8 +291,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     private void RaiseItemFieldChanged()
     {
-        foreach (var name in new[] { nameof(ShowItemColumn), nameof(ItemColumnWidth), nameof(ShowAccountColumn), nameof(AccountColumnWidth), nameof(ShowItemPicker), nameof(ItemFieldWidth), nameof(CaptureGuidance) })
+        foreach (var name in new[] { nameof(ShowItemColumn), nameof(ShowAccountColumn), nameof(ShowItemPicker), nameof(ItemFieldWidth), nameof(CaptureGuidance) })
             OnPropertyChanged(name);
+        SyncColumnLayout();
     }
     public bool CanReconcile => AccountId is not null;
 
@@ -388,6 +393,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         // Month lines are budget-wide, so they are hidden while looking at a tracked account.
         var viewedAccount = _accounts.FirstOrDefault(a => a.Id == AccountId);
         var showLines = viewedAccount is null || viewedAccount.IsOnBudget;
+        SyncColumnLayout();
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
         var accountsOnBudget = _accounts.ToDictionary(a => a.Id, a => a.IsOnBudget);

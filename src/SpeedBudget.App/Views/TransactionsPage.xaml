@@ -27,19 +27,21 @@
         </Style>
         <Style x:Key="HeadingText" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
             <Setter Property="Foreground" Value="White" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
 
         <DataTemplate x:Key="TransactionTemplate" x:DataType="vm:TransactionRow">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="104" />
-                    <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="*" MinWidth="160" />
-                    <ColumnDefinition Width="{x:Bind ItemColumnWidth}" />
-                    <ColumnDefinition Width="{x:Bind AccountColumnWidth}" />
-                    <ColumnDefinition Width="104" />
-                    <ColumnDefinition Width="104" />
-                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="{x:Bind Layout.ItemColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind Layout.AccountColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
+                    <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource CellBorder}">
                     <TextBlock Text="{x:Bind DateText, Mode=OneWay}" VerticalAlignment="Center" />
@@ -191,14 +193,14 @@
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="104" />
-                            <ColumnDefinition Width="104" />
+                            <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="*" MinWidth="160" />
-                            <ColumnDefinition Width="{x:Bind ViewModel.ItemColumnWidth, Mode=OneWay}" />
-                            <ColumnDefinition Width="{x:Bind ViewModel.AccountColumnWidth, Mode=OneWay}" />
-                            <ColumnDefinition Width="104" />
-                            <ColumnDefinition Width="104" />
-                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="{x:Bind Layout.ItemColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Layout.AccountColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Layout.OutflowColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Layout.InflowColumn, Mode=OneWay}" />
+                            <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>
@@ -212,6 +214,14 @@
                         <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
                         <Border Grid.Column="7" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
+                        <!-- Drag the right edge of a heading to resize that column. The Counterparty edge trades room with the next column. -->
+                        <local:ResizeGrip Grid.Column="0" Tag="Date" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="1" Tag="BankDate" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="2" Tag="Counterparty" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="3" Tag="Item" Visibility="{x:Bind ViewModel.ShowItemColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="4" Tag="Account" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="5" Tag="Outflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="6" Tag="Inflow" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
                     <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}"
                               ItemTemplateSelector="{StaticResource EntrySelector}"
@@ -231,7 +241,7 @@
             </Border>
 
             <!-- Only takes room while a transaction or month line is selected -->
-            <Grid x:Name="DetailHost" Grid.Column="1" Width="344" Padding="24,0,0,0" Visibility="Collapsed">
+            <Grid x:Name="DetailHost" Grid.Column="1" Width="{x:Bind Layout.DetailWidth, Mode=OneWay}" Padding="24,0,0,0" Visibility="Collapsed">
             <ScrollViewer>
                 <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
                     <TextBlock Text="Edit transaction" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -292,6 +302,8 @@
                                SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="FirstYear_Changed" />
                 </StackPanel>
             </StackPanel>
+            <!-- Drag this edge to make the panel wider or narrower -->
+            <local:ResizeGrip Tag="DetailWidth" HorizontalAlignment="Left" Margin="-24,0,0,0" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
             </Grid>
         </Grid>
         </ScrollViewer>

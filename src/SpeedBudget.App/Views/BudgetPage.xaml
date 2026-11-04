@@ -66,11 +66,11 @@
                 </Grid.ColumnDefinitions>
                 <NumberBox app:Money.Format="True" AcceptsExpression="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
                            Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" ToolTipService.ToolTip="You can type a sum here, such as 1200+350 or 3000/2" Visibility="{x:Bind Line.IsItem}" />
-                <TextBlock Text="{x:Bind BudgetedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Style="{StaticResource BodyStrongTextBlockStyle}" Visibility="{x:Bind Line.IsHeader}" />
-                <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <!-- A group's heading row shows no figures: only the items under it do -->
+                <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Visibility="{x:Bind Line.IsItem}" />
                 <TextBlock Grid.Column="2" Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind LeftTip, Mode=OneWay}"
-                           HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                           HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind Line.IsItem}" />
             </Grid>
         </DataTemplate>
 
