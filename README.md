@@ -9,7 +9,7 @@ they happen, and see at a glance what is left on every budget item. Everything s
 ## Install
 
 1. Open the [Releases page](https://github.com/ZainAjam/Speed-Budget/releases) and download
-   **`SpeedBudgetApp-win-Setup.exe`** from the newest release.
+   **`SpeedBudget-App-win-Setup.exe`** from the newest release.
 2. Run it. It installs for your own account only, so it needs no administrator rights and nothing else to be installed.
    Speed Budget then opens, and you get a Start menu and desktop shortcut.
 3. **Windows may warn you the first time** ("Windows protected your PC") because the installer is not signed with a paid
@@ -103,7 +103,7 @@ counterparty anywhere to edit it, drag items to reorder them, and pick an icon f
 
 ## Your data, backups and settings
 
-Everything is kept in a single file on your PC, in `%LocalAppData%\SpeedBudget`. There is no account and nothing is sent
+Everything is kept in a single file on your PC, in `%LocalAppData%\SpeedBudget-Data` (the program itself is in `SpeedBudget-App` beside it). There is no account and nothing is sent
 anywhere. The **App Settings** screen (bottom left) lets you:
 
 - **Back up now.** A backup is also made automatically each day the app opens, and the newest 14 are kept.

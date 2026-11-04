@@ -780,6 +780,62 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public void The_data_folder_from_older_versions_is_moved_to_its_new_name_with_everything_in_it()
+    {
+        var local = Directory.CreateTempSubdirectory("sb-local").FullName;
+        try
+        {
+            var old = Path.Combine(local, "SpeedBudget");
+            Directory.CreateDirectory(Path.Combine(old, "backups"));
+            File.WriteAllText(Path.Combine(old, "budget.db"), "my budget");
+            File.WriteAllText(Path.Combine(old, "backups", "b1.db"), "backup");
+
+            var folder = LocalDatabase.ResolveDirectory(local);
+
+            Assert.Equal(Path.Combine(local, "SpeedBudget-Data"), folder);
+            Assert.Equal("my budget", File.ReadAllText(Path.Combine(folder, "budget.db")));
+            Assert.Equal("backup", File.ReadAllText(Path.Combine(folder, "backups", "b1.db")));
+            Assert.False(Directory.Exists(old));
+            Assert.True(File.Exists(Path.Combine(folder, "README.txt")));
+        }
+        finally { Directory.Delete(local, recursive: true); }
+    }
+
+    [Fact]
+    public void An_existing_new_data_folder_is_used_as_it_is_and_the_old_one_is_left_alone()
+    {
+        var local = Directory.CreateTempSubdirectory("sb-local").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(local, "SpeedBudget"));
+            File.WriteAllText(Path.Combine(local, "SpeedBudget", "budget.db"), "old");
+            Directory.CreateDirectory(Path.Combine(local, "SpeedBudget-Data"));
+            File.WriteAllText(Path.Combine(local, "SpeedBudget-Data", "budget.db"), "new");
+
+            var folder = LocalDatabase.ResolveDirectory(local);
+
+            Assert.Equal("new", File.ReadAllText(Path.Combine(folder, "budget.db")));
+            Assert.Equal("old", File.ReadAllText(Path.Combine(local, "SpeedBudget", "budget.db")));   // never overwritten or deleted
+        }
+        finally { Directory.Delete(local, recursive: true); }
+    }
+
+    [Fact]
+    public void A_fresh_install_gets_an_empty_data_folder_with_a_readme()
+    {
+        var local = Directory.CreateTempSubdirectory("sb-local").FullName;
+        try
+        {
+            var folder = LocalDatabase.ResolveDirectory(local);
+
+            Assert.Equal(Path.Combine(local, "SpeedBudget-Data"), folder);
+            Assert.Contains("do not delete", File.ReadAllText(Path.Combine(folder, "README.txt")), StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(new[] { "README.txt" }, Directory.GetFileSystemEntries(folder).Select(Path.GetFileName));
+        }
+        finally { Directory.Delete(local, recursive: true); }
+    }
+
+    [Fact]
     public async Task Balances_cover_one_account_or_all_of_them()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true, openingBalance: 1_000_00);

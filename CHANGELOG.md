@@ -4,6 +4,12 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.5
+
+- The program and your data now live in two clearly named folders: **SpeedBudget-App** (the program) and **SpeedBudget-Data** (your budget and backups). Your existing data is moved across automatically the first time this version opens, and a short README in the data folder explains what it is.
+- Because the program's folder has a new name, earlier pre-releases cannot update themselves to this version. **Uninstall the old Speed Budget** (Settings > Apps > Installed apps), then run this version's installer. Your budget is not touched by uninstalling.
+- Includes everything from the earlier pre-releases listed below.
+
 ## 0.9.2
 
 - The Budget screen now shows every month between your month lines, even the ones you forgot to start. You can budget in them, and nothing is hidden.

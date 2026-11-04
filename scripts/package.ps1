@@ -3,12 +3,12 @@
     Builds the Speed Budget installer and the update files.
 .DESCRIPTION
     Publishes a self-contained build and packs it with Velopack into artifacts/releases:
-      SpeedBudgetApp-win-Setup.exe      the installer to run on a PC (per user, no admin rights, no .NET needed)
-      SpeedBudgetApp-<version>-full.nupkg and -delta.nupkg, releases.win.json
+      SpeedBudget-App-win-Setup.exe     the installer to run on a PC (per user, no admin rights, no .NET needed)
+      SpeedBudget-App-<version>-full.nupkg and -delta.nupkg, releases.win.json
                                         the update files; publish this whole folder to the update source
     Keep earlier releases in the output folder when packing a new version: that is what lets Velopack
-    build small delta updates. Your data lives in %LocalAppData%\SpeedBudget and is never touched by
-    installing, updating or uninstalling (the program itself lives in %LocalAppData%\SpeedBudgetApp).
+    build small delta updates. Your data lives in %LocalAppData%\SpeedBudget-Data and is never touched by
+    installing, updating or uninstalling (the program itself lives in %LocalAppData%\SpeedBudget-App).
 .PARAMETER Version
     The version to release, such as 0.2.0. Defaults to the Version in SpeedBudget.App.csproj.
 .PARAMETER NotesFile
@@ -66,7 +66,7 @@ try {
     if ($NotesFile) { $notesArgs = @('--releaseNotes', $NotesFile) }
 
     dotnet vpk pack @notesArgs `
-        --packId SpeedBudgetApp `
+        --packId SpeedBudget-App `
         --packVersion $Version `
         --packDir $publish `
         --mainExe SpeedBudget.App.exe `
@@ -81,5 +81,5 @@ finally { Pop-Location }
 
 Write-Host ""
 Write-Host "Speed Budget $Version is packed in $releases"
-Write-Host "  Install:  run SpeedBudgetApp-win-Setup.exe"
+Write-Host "  Install:  run SpeedBudget-App-win-Setup.exe"
 Write-Host "  Update:   publish the contents of that folder to your update source, then set the same address under App Settings > Updates"

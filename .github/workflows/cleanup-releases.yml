@@ -1,0 +1,23 @@
+name: Remove old pre-releases
+
+# One-off: pushing the tag "cleanup-old-releases" deletes the three early pre-releases (and their tags) that were
+# replaced by 0.9.5. This file is removed again right after it has run.
+on:
+  push:
+    tags: ['cleanup-old-releases']
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Delete v0.9, v0.9.1 and v0.9.2 and their tags
+        run: |
+          for tag in v0.9 v0.9.1 v0.9.2; do
+            gh release delete "$tag" --repo "${{ github.repository }}" --cleanup-tag --yes || echo "no release for $tag"
+          done
+          gh release list --repo "${{ github.repository }}"

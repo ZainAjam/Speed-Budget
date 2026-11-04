@@ -3,7 +3,7 @@
     Builds a self-contained Speed Budget for Windows and zips it, ready to copy to another PC.
 .DESCRIPTION
     The result needs no .NET or Windows App SDK installed on the target PC. Unzip it anywhere and run
-    SpeedBudget.App.exe. Data is stored per user in %LocalAppData%\SpeedBudget.
+    SpeedBudget.App.exe. Data is stored per user in %LocalAppData%\SpeedBudget-Data.
 .EXAMPLE
     ./scripts/publish.ps1
     ./scripts/publish.ps1 -Platform arm64

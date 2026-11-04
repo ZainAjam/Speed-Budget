@@ -22,7 +22,7 @@ dotnet run --project src/SpeedBudget.App -p:Platform=x64
 dotnet test SpeedBudget.sln -p:Platform=x64
 ```
 
-Your data is one SQLite file in `%LocalAppData%\SpeedBudget`. Set the `SPEEDBUDGET_DATA` environment variable to use a
+Your data is one SQLite file in `%LocalAppData%\SpeedBudget-Data`. Set the `SPEEDBUDGET_DATA` environment variable to use a
 different folder, for example to try things out without touching your real budget. Database changes need an EF
 migration (`dotnet ef migrations add ...` in `src/SpeedBudget.Data`); the app applies migrations at startup.
 
@@ -41,11 +41,12 @@ tools yet.
 
 This builds a self-contained app and packs it with [Velopack](https://velopack.io) into `artifacts/releases/`:
 
-- `SpeedBudgetApp-win-Setup.exe` installs the app for the current user (no admin rights, no .NET needed).
+- `SpeedBudget-App-win-Setup.exe` installs the app for the current user (no admin rights, no .NET needed).
 - The `.nupkg` files and `releases.win.json` are the updates. Keep earlier releases in the folder so updates can be
   small deltas.
 
-The program installs to `%LocalAppData%\SpeedBudgetApp`, separate from the data in `%LocalAppData%\SpeedBudget`, so
+The program installs to `%LocalAppData%\SpeedBudget-App` (Velopack names the folder after the package id), separate from the data in
+`%LocalAppData%\SpeedBudget-Data`, so
 installing, updating and uninstalling never touch a budget. The installer is unsigned; a code-signing certificate
 (passed to `vpk pack` with `--signParams`) removes the SmartScreen warning.
 

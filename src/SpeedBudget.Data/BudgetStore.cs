@@ -14,7 +14,47 @@ public static class LocalDatabase
     public static string DefaultDirectory =>
         Environment.GetEnvironmentVariable("SPEEDBUDGET_DATA") is { Length: > 0 } custom
             ? custom
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SpeedBudget");
+            : s_default.Value;
+
+    private static readonly Lazy<string> s_default = new(() => ResolveDirectory(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)));
+
+    /// <summary>The data folder's name. It is separate from the program's folder (SpeedBudget-App), so uninstalling never touches it.</summary>
+    public const string DataFolderName = "SpeedBudget-Data";
+
+    private const string OldDataFolderName = "SpeedBudget";
+
+    /// <summary>
+    /// The data folder under the given local app data folder. Versions before 0.9.5 kept the data in a folder called
+    /// SpeedBudget; if that is found and the new one does not exist yet, it is moved across (or, if it cannot be moved,
+    /// used where it is, so nothing is ever lost). A short README is left in the folder to say what it is.
+    /// </summary>
+    public static string ResolveDirectory(string localAppData)
+    {
+        var current = Path.Combine(localAppData, DataFolderName);
+        var old = Path.Combine(localAppData, OldDataFolderName);
+        var result = current;
+
+        if (!Directory.Exists(current) && Directory.Exists(old))
+        {
+            try { Directory.Move(old, current); }
+            catch { result = old; }   // for example the old program is still running and holds the file open: try again next time
+        }
+
+        try
+        {
+            Directory.CreateDirectory(result);
+            var readme = Path.Combine(result, "README.txt");
+            if (!File.Exists(readme))
+                File.WriteAllLines(readme,
+                [
+                    "This folder holds your Speed Budget data (your budget is the file budget.db) and its backups.",
+                    "Please do not delete it. The Speed Budget program itself is kept in the SpeedBudget-App folder next to this one,",
+                    "so installing, updating or uninstalling the program never touches this data.",
+                ]);
+        }
+        catch { /* the README is a courtesy; the app works without it */ }
+        return result;
+    }
 
     /// <summary>Reads or creates the device id kept beside the database file.</summary>
     public static string GetOrCreateDeviceId(string directory)
