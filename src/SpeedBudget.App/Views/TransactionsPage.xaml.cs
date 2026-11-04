@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Input;
 using SpeedBudget.App.ViewModels;
 using SpeedBudget.Core;
 using Windows.System;
+using Windows.UI.Core;
 
 namespace SpeedBudget.App.Views;
 
@@ -126,10 +127,28 @@ public sealed partial class TransactionsPage : Page
     private bool _tableGripActive;
     private double _gripScroll;
 
+    // The column after the one being dragged, and how wide it (or the spare room at the end of the table) was when the drag began.
+    private string? _gripNeighbor;
+    private double _gripNeighborStart, _gripFillerStart;
+
+    /// <summary>The column on show to the right of this one, or null for the last column (after which comes the spare room).</summary>
+    private string? NeighborOf(string column)
+    {
+        var order = new List<string> { nameof(ColumnLayout.Date), nameof(ColumnLayout.BankDate), nameof(ColumnLayout.Counterparty), nameof(ColumnLayout.Memo) };
+        if (Layout.ShowItem) order.Add(nameof(ColumnLayout.Item));
+        if (Layout.ShowAccount) order.Add(nameof(ColumnLayout.Account));
+        order.AddRange([nameof(ColumnLayout.Outflow), nameof(ColumnLayout.Inflow), nameof(ColumnLayout.Cleared)]);
+        var index = order.IndexOf(column);
+        return index >= 0 && index + 1 < order.Count ? order[index + 1] : null;
+    }
+
     private void Grip_Started(object? sender, EventArgs e)
     {
         _gripStart = Layout.Get(ColumnOf(sender));
         if (ColumnOf(sender) == nameof(ColumnLayout.DetailWidth)) return;
+        _gripNeighbor = NeighborOf(ColumnOf(sender));
+        _gripNeighborStart = _gripNeighbor is null ? 0 : Layout.Get(_gripNeighbor);
+        _gripFillerStart = Math.Max(ColumnLayout.ActionsMinimum, TableRegion.ActualWidth - (Layout.FixedTotal - ColumnLayout.ActionsMinimum));
         _gripScroll = TableScroll.HorizontalOffset;
         TableRegion.MinWidth = TableRegion.ActualWidth;
         _tableGripActive = true;
@@ -153,8 +172,25 @@ public sealed partial class TransactionsPage : Page
     private void Grip_Moved(object? sender, double dx)
     {
         var column = ColumnOf(sender);
-        // Every column is resized from its right edge: drag right to widen. The side panel is on the other side, so its edge works the other way.
-        Layout.Set(column, column == nameof(ColumnLayout.DetailWidth) ? _gripStart - dx : _gripStart + dx);
+        if (column == nameof(ColumnLayout.DetailWidth))
+        {
+            Layout.Set(column, _gripStart - dx);   // the side panel's edge is on its left, so dragging left widens it
+            return;
+        }
+
+        // As in Word: dragging a divider moves it between the two columns on either side, so the table keeps its width and its
+        // place. With Shift held, the column on the left changes on its own and everything to its right moves along.
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
+        var change = dx;
+        if (!shift)
+        {
+            var room = _gripNeighbor is null ? _gripFillerStart - ColumnLayout.ActionsMinimum : _gripNeighborStart - ColumnLayout.MinimumOf(_gripNeighbor);
+            change = Math.Min(change, room);
+            if (_gripNeighbor is not null) change = Math.Max(change, _gripNeighborStart - 600);   // the neighbour may not get wider than a column can be
+        }
+        Layout.Set(column, _gripStart + change);
+        var applied = Layout.Get(column) - _gripStart;
+        if (_gripNeighbor is not null) Layout.Set(_gripNeighbor, shift ? _gripNeighborStart : _gripNeighborStart - applied);
     }
 
     private async void Grip_Completed(object? sender, EventArgs e)
