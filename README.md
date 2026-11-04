@@ -10,25 +10,56 @@ they happen, and see at a glance what is left on every budget item. Everything s
 
 *The pictures use made-up example data.*
 
-**Plan your spending.** Give every budget item an amount for the month, and see what was spent and what is left.
-Several months sit side by side, and the figures at the top show what you still have available to budget.
+### Getting started
+
+**First time you open it.** A short setup wizard helps you create your bank accounts, budget groups and items, and the
+counterparties you deal with most. You can start from a typical household list, a short minimal list, or empty.
+
+![The setup wizard on first run](docs/images/wizard.png)
+
+### Plan your spending
+
+Give every budget item an amount for the month, and see what was spent and what is left. Several months sit side by
+side, and the figures at the top show what you still have available to budget.
 
 ![The Budget screen showing three months side by side](docs/images/budget.png)
 
-**Record your transactions.** Each bank account has its own page with its balances, month lines that show where each
-budget month starts, and a table you edit in place with the pencil at the end of a row.
+### Transactions
+
+Each bank account has its own page with its balances, month lines that show where each budget month starts, and a table
+you edit in place with the pencil at the end of a row.
 
 ![A bank account's recorded transactions](docs/images/transactions.png)
 
-**Edit in the table.** Press a row's pencil and its cells become boxes. Pick a budget item from the drop-down, which
-shows what is left on each item, or split the transaction between several items.
+Press a row's pencil and its cells become boxes. Pick a budget item from the drop-down, which shows what is left on each
+item, or split the transaction between several items.
 
 ![Editing a transaction in place and choosing its budget item](docs/images/editing.png)
 
-**Track accounts outside your budget.** Accounts such as a retirement fund can be tracked without affecting the budget.
-They are labelled as tracking accounts and have no budget item column.
+Accounts such as a retirement fund can be tracked without affecting the budget. They are labelled as tracking accounts and
+have no budget item column.
 
 ![A tracking account's page](docs/images/tracking-account.png)
+
+### Configurations
+
+**Accounts.** Add your bank accounts, and choose for each whether it counts toward the budget or is only tracked.
+
+![The Accounts screen](docs/images/accounts.png)
+
+**Counterparties.** See who you pay and who pays you, and rename a counterparty everywhere it is used.
+
+![The Counterparties screen](docs/images/counterparties.png)
+
+**Budget Items.** Organise your budget into groups of items and income, and drag items between groups.
+
+![The Budget Items screen](docs/images/budget-items.png)
+
+### App Settings
+
+Choose how the side panel behaves, back up and export your data, check for updates and more.
+
+![The App Settings screen](docs/images/settings.png)
 
 ## Install
 
