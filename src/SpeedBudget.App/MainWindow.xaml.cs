@@ -110,10 +110,11 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { UpdateBar.Message = $"The update failed: {ex.Message}"; }
     }
 
-    /// <summary>A section title in the left panel: bold and a little larger than the items, so it reads as a heading.</summary>
+    /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
     private static NavigationViewItemHeader Heading(string text) => new()
     {
         Content = text, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+        Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
     };
 
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _balanceTimer;
