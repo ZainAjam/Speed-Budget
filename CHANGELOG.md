@@ -21,6 +21,7 @@ into the release.
 - Each account's transactions screen has a label in its top right corner saying whether it is a **Budget account** or a **Tracking account**.
 - The transactions table's columns now start at a size that fits their usual contents (the Cleared and delete columns are no longer wide). The table fills the full width of the window, and the Memo column takes whatever room the other columns do not need. Column sizes you saved with an earlier version are reset once.
 - The "Tracking account" label is now an outlined label with normal text, easier to read than white on grey.
+- In the left panel, budget accounts have a bank icon and tracking accounts have an eye icon, so you can tell them apart at a glance.
 - Accounts under Transactions in the left panel can be dragged into a new order. Budget accounts are listed first, then tracking accounts, and you can reorder within each kind.
 - The recorded transactions table now starts with the oldest transactions first. You can still switch to newest first, and it remembers your choice while the app is open.
 - The "Activity" and "Configurations" headings in the left panel are bold and blue.

@@ -156,7 +156,9 @@ public sealed partial class MainWindow : Window
         row.Children.Add(name);
         row.Children.Add(amount);
 
-        var item = new NavigationViewItem { Content = row, Tag = $"tx:{account.Id}", Icon = new SymbolIcon(Symbol.Contact2) };
+        var item = new NavigationViewItem { Content = row, Tag = $"tx:{account.Id}",
+            // A bank (building) for an account in the budget; an eye for one that is only being watched.
+            Icon = new FontIcon { Glyph = account.IsOnBudget ? "" : "" } };
 
         // Accounts can be dragged into a new order, within their own kind (budget accounts above tracked ones).
         row.CanDrag = true;
