@@ -18,6 +18,7 @@ public sealed partial class TransactionsPage : Page
         // Handled presses count too: the boxes and buttons in the table handle theirs.
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
+        StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
         ViewModel.AskMonthAsync = AskMonthAsync;
         ViewModel.AskStartEarlierAsync = AskStartEarlierAsync;
         Loaded += async (_, _) =>
@@ -222,20 +223,40 @@ public sealed partial class TransactionsPage : Page
 
     private bool _showingStart;
 
-    /// <summary>Shows the budget's start date in the picker when the first-month row is selected.</summary>
+    /// <summary>Shows the budget's start date and first month in the boxes when the first-month row is selected.</summary>
     private void ShowStartDate()
     {
-        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } start }) return;
+        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } start, StartMonth: { } month }) return;
         _showingStart = true;
         StartDateBox.Date = new DateTimeOffset(start.ToDateTime(TimeOnly.MinValue));
+        StartMonthBox.SelectedIndex = month.Month - 1;
+        StartYearBox.Value = month.Year;
         _showingStart = false;
     }
 
     private async void StartDate_Changed(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
     {
-        if (_showingStart || args.NewDate is not { } date) return;
-        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } current } || DateOnly.FromDateTime(date.DateTime) == current) return;
-        await ViewModel.SetBudgetStartAsync(DateOnly.FromDateTime(date.DateTime));
+        if (_showingStart || args.NewDate is not { } picked) return;
+        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } current, StartMonth: { } currentMonth }) return;
+        var date = DateOnly.FromDateTime(picked.DateTime);
+        if (date == current) return;
+
+        // While the first month simply follows the date, it keeps following it; once the user has chosen another month, that stays.
+        var follows = currentMonth.Year == current.Year && currentMonth.Month == current.Month;
+        await ViewModel.SetBudgetStartAsync(date, follows ? new DateOnly(date.Year, date.Month, 1) : currentMonth);
+    }
+
+    private async void StartMonth_Changed(object sender, SelectionChangedEventArgs e) => await ApplyStartMonthAsync();
+
+    private async void StartYear_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args) => await ApplyStartMonthAsync();
+
+    private async Task ApplyStartMonthAsync()
+    {
+        if (_showingStart || StartMonthBox.SelectedIndex < 0 || double.IsNaN(StartYearBox.Value)) return;
+        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } start, StartMonth: { } current }) return;
+        var month = new DateOnly((int)StartYearBox.Value, StartMonthBox.SelectedIndex + 1, 1);
+        if (month == current) return;
+        await ViewModel.SetBudgetStartAsync(start, month);
     }
 
     /// <summary>

@@ -477,6 +477,28 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task A_budget_can_start_on_a_date_in_one_month_and_count_as_the_start_of_the_next()
+    {
+        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var food = AddItem("Food", ItemKind.Expense);
+        await _store.EnsureBudgetStartAsync();
+
+        Assert.Null(await _store.SetBudgetStartAsync(new(2026, 10, 24), new(2026, 11, 1)));
+        var tx = await AddTx(cheque, new(2026, 10, 28), -20_00, food.Id);   // dated in October, but after the line that starts November
+
+        Assert.Equal(new DateOnly(2026, 10, 24), await _store.EnsureBudgetStartAsync());
+        Assert.Equal("November 2026", await _store.GetFirstMonthLabelAsync());
+        var months = BudgetEngine.Calculate(await _store.LoadSnapshotAsync());
+        Assert.Equal(-20_00, months.Single(m => m.Label == "November 2026").Items.Single(i => i.ItemId == food.Id).Activity);
+
+        // The next line has to be for a later month, and the first month has to come before it.
+        await _store.AddMarkerAsync("December 2026", new(2026, 12, 1), copyPreviousBudget: false);
+        Assert.NotNull(await _store.SetBudgetStartAsync(new(2026, 10, 24), new(2026, 12, 1)));
+        Assert.Null(await _store.SetBudgetStartAsync(new(2026, 10, 24), new(2026, 9, 1)));
+        Assert.Equal("September 2026", await _store.GetFirstMonthLabelAsync());
+    }
+
+    [Fact]
     public async Task Invalid_transfers_are_rejected()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

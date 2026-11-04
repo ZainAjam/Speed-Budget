@@ -39,7 +39,8 @@ public sealed record BudgetSnapshot(
     IReadOnlyList<IncomeHold> Holds,
     string FirstMonthLabel = "",
     bool FirstMonthRenamed = false,
-    DateOnly? BudgetStart = null);
+    DateOnly? BudgetStart = null,
+    DateOnly? BudgetStartMonth = null);
 
 /// <param name="CarriedIn">The positive balance this item brought in from the month before. Overspending is not carried: it is overflow.</param>
 public sealed record ItemMonth(Guid ItemId, long Budgeted, long Activity, long CarriedIn = 0)

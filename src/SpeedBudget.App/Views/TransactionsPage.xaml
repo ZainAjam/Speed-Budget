@@ -310,8 +310,12 @@
                 <!-- The first month is where the budget starts. Its date can be moved earlier (adding the months in between) or a little later. -->
                 <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.SelectedMarker.IsFirst, Mode=OneWay, FallbackValue=Collapsed}">
                     <CalendarDatePicker x:Name="StartDateBox" Header="Your budget starts on" DateChanged="StartDate_Changed" />
+                    <TextBlock Text="The transactions that follow belong to the budget month of" TextWrapping="Wrap" />
+                    <ComboBox x:Name="StartMonthBox" Header="Month" HorizontalAlignment="Stretch" SelectionChanged="StartMonth_Changed" />
+                    <NumberBox x:Name="StartYearBox" Header="Year" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
+                               SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="StartYear_Changed" />
                     <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
-                               Text="Nothing in the budget can be dated before this. Choose an earlier date to bring in older transactions: the months in between are added and what you have already budgeted stays where it is. It can only move later while no transaction or month line comes before the new date." />
+                               Text="The date is where the budget starts in the list, and nothing can be dated before it. The month is the budget month it counts as: a budget that starts on 24 October can be the start of November. Choose an earlier date or month to bring in older transactions: the months in between are added and what you have already budgeted stays where it is. The date can only move later while no transaction or month line comes before it." />
                 </StackPanel>
             </StackPanel>
             <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-8,0" Padding="8" Click="CloseDetail_Click"

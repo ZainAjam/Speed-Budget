@@ -343,6 +343,9 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
 
     /// <summary>For the first month: the date the budget starts on.</summary>
     public DateOnly? StartDate { get; init; }
+
+    /// <summary>For the first month: the month it counts as (the first day of it), which need not be the month the start date is in.</summary>
+    public DateOnly? StartMonth { get; init; }
     public bool CanDrag => !IsFirst;
 
     /// <summary>The solid line sits on the side of the month's own transactions: above the text when newest is first, below it when oldest is first.</summary>
@@ -400,6 +403,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private TransactionRow? _draft;
     private bool _rebuilding;
     private DateOnly _budgetStart;
+    private DateOnly _budgetStartMonth;
 
     /// <summary>
     /// Asked when something is dated before the budget starts: the date, and the date the budget starts on now. True means
@@ -557,6 +561,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var snapshot = await _store.LoadSnapshotAsync();
         var months = BudgetEngine.Calculate(snapshot);
         _budgetStart = snapshot.BudgetStart ?? await _store.EnsureBudgetStartAsync();
+        _budgetStartMonth = snapshot.BudgetStartMonth ?? new DateOnly(_budgetStart.Year, _budgetStart.Month, 1);
         _lastMonthLabel = months[^1].Label;
         await RefreshBalancesAsync(months);
 
@@ -573,7 +578,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
         if (showLines)
         {
-            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot), this) { LineBelow = SortIndex == 1, StartDate = _budgetStart };
+            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot), this) { LineBelow = SortIndex == 1, StartDate = _budgetStart, StartMonth = _budgetStartMonth };
             entries.Add((new SortKey(DateOnly.MinValue, int.MinValue), 0, Guid.Empty, first));
             foreach (var m in await _store.GetMarkersAsync())
                 entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
@@ -661,15 +666,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The user chose the date the budget starts on. Earlier adds the months in between; later is refused while a transaction
-    /// or month line sits before it.
+    /// The user chose the date the budget starts on and the month it counts as. Earlier adds the months in between; later is
+    /// refused while a transaction or month line sits before it.
     /// </summary>
-    public async Task SetBudgetStartAsync(DateOnly date)
+    public async Task SetBudgetStartAsync(DateOnly date, DateOnly month)
     {
         await _gate.WaitAsync();
         try
         {
-            Message = await _store.SetBudgetStartAsync(date) ?? "";
+            Message = await _store.SetBudgetStartAsync(date, month) ?? "";
             await LoadRowsAsync(Guid.Empty);   // also puts the date shown back if it was refused
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }

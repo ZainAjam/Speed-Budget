@@ -39,6 +39,8 @@ at the bottom of the transactions table is where it sits. Nothing in the budget 
 transaction dated earlier, Speed Budget asks whether to start the budget from that month instead, and adds the months in
 between. You can also select that first line and choose a different start date: an earlier one adds the months in between
 (what you have already budgeted stays where it is), a later one is allowed while no transaction or month line comes before it.
+The date and the month are separate: a budget that starts on 24 October can be the start of November. Select the first
+line and choose both the date it starts on and the budget month that the transactions after it belong to.
 
 ## How it works
 
