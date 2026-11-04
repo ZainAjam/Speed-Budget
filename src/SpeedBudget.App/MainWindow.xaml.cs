@@ -158,7 +158,7 @@ public sealed partial class MainWindow : Window
         catch { /* the balances are a convenience; a failed refresh leaves the old figures */ }
     }
 
-    /// <summary>Lists "All accounts" and each open account under Transactions, so each can be viewed on its own.</summary>
+    /// <summary>Lists each open account under Transactions, so each can be viewed on its own.</summary>
     private async void RebuildAccountPages()
     {
         var selectedTag = (Nav.SelectedItem as NavigationViewItem)?.Tag as string;
@@ -182,7 +182,6 @@ public sealed partial class MainWindow : Window
         UpdateWatcherStrip();
 
         _transactions.MenuItems.Clear();
-        _transactions.MenuItems.Add(new NavigationViewItem { Content = "All accounts", Tag = "tx:all", Icon = new SymbolIcon(Symbol.AllApps) });
         _balanceBlocks.Clear();
         foreach (var account in accounts)
             _transactions.MenuItems.Add(AccountItem(account, balances.GetValueOrDefault(account.Id)));
