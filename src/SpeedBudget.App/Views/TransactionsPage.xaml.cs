@@ -16,6 +16,7 @@ public sealed partial class TransactionsPage : Page
         InitializeComponent();
         // Handled presses count too: the boxes and buttons in the table handle theirs.
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
+        AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
         Loaded += async (_, _) =>
         {
             await LoadLayoutAsync();
@@ -58,13 +59,23 @@ public sealed partial class TransactionsPage : Page
     }
 
     /// <summary>
-    /// Takes the focus off any box in the table and the selection off its row. Focus moves first, so a value being typed
-    /// is committed by the box losing focus before the row goes back to plain text.
+    /// Esc or a click away: takes the focus off any box in the table and puts the row back to how it was before it was
+    /// edited. Focus moves first so the box lets go of what was typed, and then everything typed is discarded.
     /// </summary>
     private void ClearEditing()
     {
         EntryList.Focus(FocusState.Programmatic);
-        _ = ViewModel.DeselectAsync();
+        _ = ViewModel.CancelEditAsync();
+    }
+
+    /// <summary>Enter in a text or number box: save the row's edits and finish editing it.</summary>
+    private void Page_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter || ViewModel.Selected is null) return;
+        if (FocusManager.GetFocusedElement(XamlRoot) is not TextBox box || !IsWithin(box, TableRegion)) return;
+        e.Handled = true;
+        EntryList.Focus(FocusState.Programmatic);   // the box hands over what was typed
+        _ = ViewModel.CommitEditAsync();
     }
 
     /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row being edited.</summary>
@@ -242,6 +253,7 @@ public sealed partial class TransactionsPage : Page
     private async Task SplitAsync(object? sender)
     {
         if ((sender as FrameworkElement)?.DataContext is not TransactionRow row) return;
+        await row.CommitAsync();   // the split saves straight away, so save the other edits first
         var dialog = SplitDialog.ForRow(ViewModel, row, await ViewModel.GetLinesAsync(row));
         dialog.XamlRoot = XamlRoot;
         await dialog.ShowAsync();

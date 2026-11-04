@@ -88,8 +88,53 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     /// <summary>The selected row shows editing boxes in place of its text.</summary>
     [ObservableProperty] public partial bool IsEditing { get; set; }
 
+    // ---- Editing session: changes are held until committed, and can be thrown away ----
+
+    private sealed record Snapshot(DateOnly Date, DateOnly? BankDate, string Payee, string? Memo, bool IsCleared, long Amount,
+        Guid AccountId, ItemOption Item, Guid? OtherAccountId);
+
+    private Snapshot? _before;
+    private bool _dirtyDate, _dirtySplit, _dirtyStructural;
+
+    /// <summary>The row has edits that have not been saved yet.</summary>
+    public bool IsDirty { get; private set; }
+
+    private void TakeSnapshot()
+    {
+        _before = new Snapshot(Entity.Date, Entity.BankDate, Entity.Payee, Entity.Memo, Entity.IsCleared, Entity.Amount,
+            Entity.AccountId, _item, OtherAccountId);
+        IsDirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
+    }
+
+    /// <summary>Saves the edits made since the row went into edit mode, if there are any.</summary>
+    public async Task CommitAsync()
+    {
+        if (!IsDirty) return;
+        var (date, split, structural) = (_dirtyDate, _dirtySplit, _dirtyStructural);
+        TakeSnapshot();   // what is now saved is the new "before"
+        await owner.RowChangedAsync(this, date, split, structural);
+    }
+
+    /// <summary>Puts back the values the row had before it went into edit mode. Nothing was saved, so nothing is undone in the data.</summary>
+    public void Cancel()
+    {
+        if (_before is not { } b) return;
+        Entity.Date = b.Date;
+        Entity.BankDate = b.BankDate;
+        Entity.Payee = b.Payee;
+        Entity.Memo = b.Memo;
+        Entity.IsCleared = b.IsCleared;
+        Entity.Amount = b.Amount;
+        Entity.AccountId = b.AccountId;
+        _item = b.Item;
+        OtherAccountId = b.OtherAccountId;
+        IsDirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
+        OnPropertyChanged(string.Empty);   // every box shows its old value again
+    }
+
     partial void OnIsEditingChanged(bool value)
     {
+        if (value) TakeSnapshot();
         foreach (var n in new[] { nameof(ShowPayeeEditor), nameof(ShowTransferEditor), nameof(ShowPayeeText), nameof(ShowAmountEditor), nameof(ShowAmountText),
                                   nameof(ShowItemEditor), nameof(ShowSplitButton), nameof(ShowItemText), nameof(NotEditing) })
             OnPropertyChanged(n);
@@ -211,6 +256,15 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     {
         foreach (var n in names) OnPropertyChanged(n);
         if (names.Contains(nameof(Payee))) OnPropertyChanged(nameof(PayeeText));
+        if (IsEditing)
+        {
+            // Held until the row is committed (Enter, or choosing another row); Esc or a click away drops it.
+            IsDirty = true;
+            _dirtyDate |= dateChanged;
+            _dirtySplit |= splitChanged;
+            _dirtyStructural |= structural;
+            return;
+        }
         _ = owner.RowChangedAsync(this, dateChanged, splitChanged, structural);
     }
 }
@@ -282,6 +336,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     partial void OnSelectedEntryChanged(object? value)
     {
+        // Choosing another row saves the edits made to the one being left.
+        if (_editing is { IsDirty: true } leaving) _ = leaving.CommitAsync();
+
         // The selected transaction is the one being edited in place.
         if (_editing is not null) _editing.IsEditing = false;
         _editing = value as TransactionRow;
@@ -549,7 +606,16 @@ public sealed partial class TransactionsViewModel : ObservableObject
             // Clearing a row can make it drop out of a filtered list. A transfer's names and item depend on its accounts and amount.
             var disappears = HideCleared && row.IsCleared;
             if (dateChanged || structural || disappears || (row.IsTransfer && splitChanged))
-                await LoadRowsAsync(disappears ? null : row.Entity.Id);
+            {
+                // Keep whichever row is selected now: the edited one, or the one the user moved on to.
+                var keep = row.IsEditing ? row.Entity.Id : SelectedEntry switch
+                {
+                    TransactionRow t => t.Entity.Id,
+                    MarkerRow { Entity: { } m } => m.Id,
+                    _ => (Guid?)null,
+                };
+                await LoadRowsAsync(disappears ? null : keep);
+            }
             else await RefreshBalancesAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
@@ -783,6 +849,20 @@ public sealed partial class TransactionsViewModel : ObservableObject
         catch (ArgumentException ex) { return ex.Message; }
         catch (Exception ex) { return $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>Throws away the edits made to the row being edited, so it shows its old values, and lets go of it.</summary>
+    public async Task CancelEditAsync()
+    {
+        _editing?.Cancel();
+        await DeselectAsync();
+    }
+
+    /// <summary>Saves the edits made to the row being edited and lets go of it.</summary>
+    public async Task CommitEditAsync()
+    {
+        if (_editing is { } row) await row.CommitAsync();
+        await DeselectAsync();
     }
 
     /// <summary>
