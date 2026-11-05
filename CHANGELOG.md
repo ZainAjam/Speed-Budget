@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.13
 
+- Transfers between two accounts that are both in your budget (or both outside it) now show "Not Applicable" under Budget item, since they don't use a budget item.
 - Once you press **Update and restart**, the button (and the What's changed link) go away while the update downloads, so it can't be started twice.
 
 ## 0.9.12

@@ -329,7 +329,10 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
     public string BankDateText => Entity.BankDate is { } bank ? bank.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : "";
-    public string ItemName => IsSplit ? $"Split ({LineCount} lines)" : _item.Id is null ? "" : _item.Label;
+    /// <summary>A transfer between two accounts that are both in the budget (or both outside it) has no budget item: it moves money, not budget.</summary>
+    public string ItemName => IsSplit ? $"Split ({LineCount} lines)"
+        : IsTransfer && _item.Id is null && AccountOnBudget == OtherOnBudget ? "Not Applicable"
+        : _item.Id is null ? "" : _item.Label;
 
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
