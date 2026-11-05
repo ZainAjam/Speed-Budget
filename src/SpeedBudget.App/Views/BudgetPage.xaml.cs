@@ -161,12 +161,17 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     // ---- Editing budgeted amounts from the keyboard ----
 
-    /// <summary>On entering a cell: remember its value for Esc, and select it so typing replaces it.</summary>
+    /// <summary>On entering a cell: remember its value for Esc. A click leaves the cursor at the end of the amount; the keyboard selects it.</summary>
     private void Budgeted_GotFocus(object sender, RoutedEventArgs e)
     {
         if (sender is not NumberBox box) return;
         box.Tag = box.Value;
-        Money.FindTextBox(box)?.SelectAll();
+        if (Money.FindTextBox(box) is not { } input) return;
+
+        // Clicking a cell puts the cursor at the end of the amount; arriving by keyboard selects it so typing replaces it.
+        if (box.FocusState != FocusState.Keyboard)
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => { input.SelectionStart = input.Text.Length; input.SelectionLength = 0; });
+        else input.SelectAll();
     }
 
     /// <summary>
