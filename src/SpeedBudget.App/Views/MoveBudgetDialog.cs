@@ -83,11 +83,19 @@ public sealed class MoveBudgetDialog : ContentDialog
         };
         _amount.ValueChanged += (_, _) => Validate();
 
-        Content = new StackPanel
+        var body = new StackPanel
         {
-            Spacing = 12, MinWidth = 420,
+            Spacing = 12, MinWidth = 420, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Children = { new TextBlock { Text = intro, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }, _item, _amount, _limit },
         };
+        // Pressing anywhere else in the dialog closes the open list (the list itself sits outside this panel).
+        body.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) =>
+        {
+            for (var node = e.OriginalSource as DependencyObject; node is not null; node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+                if (node == _item) return;
+            _item.IsSuggestionListOpen = false;
+        }), true);
+        Content = body;
         if (choices.Count == 0)
             _limit.Text = "There is no other budget item this can be used with.";
     }
