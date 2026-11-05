@@ -16,13 +16,20 @@ public sealed record BudgetChoice(Guid ItemId, string Label, long LeftCents)
 /// </summary>
 public sealed class MoveBudgetDialog : ContentDialog
 {
-    private readonly ComboBox _item = new() { HorizontalAlignment = HorizontalAlignment.Stretch, DisplayMemberPath = nameof(BudgetChoice.Display) };
+    // Type to narrow the list down, or pick from it.
+    private readonly AutoSuggestBox _item = new()
+    {
+        HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Type to search, or choose from the list",
+        DisplayMemberPath = nameof(BudgetChoice.Display), TextMemberPath = nameof(BudgetChoice.Label),
+    };
+    private IReadOnlyList<BudgetChoice> _all = [];
+    private BudgetChoice? _chosen;
     private readonly NumberBox _amount = new() { Header = "Amount (R)", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };
     private readonly TextBlock _limit = new() { Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
     private readonly Func<BudgetChoice, long> _maxFor;
     private readonly long _suggested;
 
-    public BudgetChoice? Chosen => _item.SelectedItem as BudgetChoice;
+    public BudgetChoice? Chosen => _chosen;
 
     public long AmountCents => AppServices.ToCents(_amount.Value);
 
@@ -40,10 +47,29 @@ public sealed class MoveBudgetDialog : ContentDialog
         IsPrimaryButtonEnabled = false;
 
         _item.Header = itemHeader;
+        _all = choices;
         _item.ItemsSource = choices;
         Money.Apply(_amount);
 
-        _item.SelectionChanged += (_, _) => ChoiceChanged();
+        _item.GotFocus += (_, _) => { if (_chosen is null) { _item.ItemsSource = _all; _item.IsSuggestionListOpen = true; } };
+        _item.TextChanged += (s, e) =>
+        {
+            if (e.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+            _chosen = null;
+            var text = s.Text.Trim();
+            _item.ItemsSource = text == "" ? _all : _all.Where(c => c.Label.Contains(text, StringComparison.CurrentCultureIgnoreCase)).ToList();
+            Validate();
+        };
+        _item.SuggestionChosen += (_, e) => { _chosen = e.SelectedItem as BudgetChoice; ChoiceChanged(); };
+        // Enter on what was typed picks the first match.
+        _item.QuerySubmitted += (_, e) =>
+        {
+            var pick = e.ChosenSuggestion as BudgetChoice ?? (_item.ItemsSource as IEnumerable<BudgetChoice>)?.FirstOrDefault();
+            if (pick is null) return;
+            _chosen = pick;
+            _item.Text = pick.Label;
+            ChoiceChanged();
+        };
         _amount.ValueChanged += (_, _) => Validate();
 
         Content = new StackPanel

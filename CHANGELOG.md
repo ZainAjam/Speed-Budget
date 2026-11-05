@@ -8,6 +8,7 @@ into the release.
 
 - When the figures above **Available to budget** are hidden, Available to budget now stays in view under the month headings while you scroll.
 - Budget amount boxes no longer show an X while you edit them.
+- When you move or allocate budget, the budget item list shows just the item names (no group) and you can type to search it.
 - Clicking a budget amount now puts the cursor at the end of it instead of highlighting it, so you can add to it. Moving into a cell with the arrow keys or Tab still highlights it, so typing replaces it.
 - Sums in budget amounts now work when the amount has spaces in it, such as `1 250 + 350`.
 - **Undo and redo.** Ctrl+Z undoes your last change to anything you can edit, on any screen: a budgeted amount, a transaction you added, edited or deleted, a budget move, an expected transaction, a counterparty, a budget item or an account. Ctrl+Y (or Ctrl+Shift+Z) puts it back. While you are typing in a box, Ctrl+Z still undoes just the typing. The history lasts until you close the app.

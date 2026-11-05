@@ -535,7 +535,7 @@ public sealed partial class BudgetViewModel : ObservableObject
         if (column is null) return [];
         return column.Outflow
             .Where(c => c.Line.IsItem && !c.Line.IsArchived && c.Line.ItemId != excluding && (!onlyWithMoneyLeft || c.LeftCents > 0))
-            .Select(c => new Views.BudgetChoice(c.Line.ItemId!.Value, $"{c.Line.Group?.Name} › {c.Line.Name}", c.LeftCents))
+            .Select(c => new Views.BudgetChoice(c.Line.ItemId!.Value, c.Line.Name, c.LeftCents))
             .ToList();
     }
 
