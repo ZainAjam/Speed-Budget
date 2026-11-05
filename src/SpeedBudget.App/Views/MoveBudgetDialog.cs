@@ -51,7 +51,18 @@ public sealed class MoveBudgetDialog : ContentDialog
         _item.ItemsSource = choices;
         Money.Apply(_amount);
 
-        _item.GotFocus += (_, _) => { if (_chosen is null) { _item.ItemsSource = _all; _item.IsSuggestionListOpen = true; } };
+        // The list opens when the box is clicked or Down is pressed, not when the dialog appears.
+        void ShowAll()
+        {
+            if (_chosen is not null || _item.Text.Trim() != "") return;
+            _item.ItemsSource = _all;
+            _item.IsSuggestionListOpen = true;
+        }
+        _item.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ShowAll()), true);
+        _item.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Down) ShowAll();
+        }), true);
         _item.TextChanged += (s, e) =>
         {
             if (e.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
