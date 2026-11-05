@@ -74,7 +74,7 @@
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
-                <NumberBox app:Money.Format="True" AcceptsExpression="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
+                <NumberBox app:Money.Format="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
                            Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" ToolTipService.ToolTip="You can type a sum here, such as 1200+350 or 3000/2" Visibility="{x:Bind Line.IsItem}" />
                 <!-- A group's heading row shows no figures: only the items under it do -->
                 <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -87,10 +87,16 @@
             </Grid>
         </DataTemplate>
 
+        <!-- "Available to budget", kept in view beside the month headings while the summary block is hidden -->
+        <DataTemplate x:Key="FrozenAvailableTemplate" x:DataType="vm:MonthColumn">
+            <ContentControl Width="{x:Bind Width}" Content="{x:Bind AvailableCell}" ContentTemplate="{StaticResource SummaryCellTemplate}"
+                            HorizontalContentAlignment="Stretch" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0" IsTabStop="False" />
+        </DataTemplate>
+
         <DataTemplate x:Key="MonthTemplate" x:DataType="vm:MonthColumn">
             <StackPanel Width="{x:Bind Width}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
                 <!-- Summary block, shaded differently from the cash blocks -->
-                <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
+                <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6" Visibility="{x:Bind SummaryOpen, Mode=OneWay}">
                     <ItemsControl ItemsSource="{x:Bind Summary}" ItemTemplate="{StaticResource SummaryCellTemplate}" />
                 </Border>
                 <Border Height="16" />
@@ -228,11 +234,28 @@
 
             <!-- Same columns as the body below, so each heading sits over its month. The right margin matches the scroll bar's. -->
             <Grid Grid.Row="2" Margin="0,0,16,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="240" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <ItemsControl Grid.Column="1" ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource MonthHeaderTemplate}" HorizontalAlignment="Right">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <!-- While the summary block is hidden, "Available to budget" stays here with the month headings -->
+                <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6"
+                        Visibility="{x:Bind ViewModel.SummaryClosed, Mode=OneWay}" />
+                <ContentControl Grid.Row="1" Content="{x:Bind vm:BudgetViewModel.AvailableLabel}" ContentTemplate="{StaticResource SummaryLabelTemplate}"
+                                HorizontalContentAlignment="Stretch" IsTabStop="False" Margin="0,6" Visibility="{x:Bind ViewModel.SummaryClosed, Mode=OneWay}" />
+                <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource FrozenAvailableTemplate}"
+                              HorizontalAlignment="Right" Margin="0,6" Visibility="{x:Bind ViewModel.SummaryClosed, Mode=OneWay}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />
@@ -254,7 +277,7 @@
                         </Grid.ColumnDefinitions>
                         <!-- Names column -->
                         <StackPanel Grid.Column="0">
-                            <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6">
+                            <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6" Visibility="{x:Bind ViewModel.SummaryOpen, Mode=OneWay}">
                                 <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />
                             </Border>
                             <Border Height="16" />

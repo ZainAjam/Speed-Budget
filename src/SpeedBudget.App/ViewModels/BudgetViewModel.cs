@@ -200,6 +200,12 @@ public sealed partial class MonthColumn : ObservableObject
     /// <summary>How wide this month is drawn: wider when it is the only month on show.</summary>
     public double Width { get; }
     public IReadOnlyList<SummaryCell> Summary { get; }
+
+    /// <summary>The "Available to budget" cell, which stays in view under the month heading while the other figures are hidden.</summary>
+    public SummaryCell AvailableCell => Summary[6];
+
+    /// <summary>Whether the summary block (all of its figures) is showing in the scrolling part of the page.</summary>
+    [ObservableProperty] public partial bool SummaryOpen { get; set; } = SummaryView.Expanded;
     public ObservableCollection<IncomeCell> Income { get; } = new();
     public ObservableCollection<OutflowCell> Outflow { get; } = new();
 
@@ -242,6 +248,8 @@ public sealed partial class MonthColumn : ObservableObject
 public sealed partial class BudgetViewModel : ObservableObject
 {
     /// <summary>The labels down the left of the summary block, in the order of each month's summary cells.</summary>
+    public static SummaryLabel AvailableLabel => SummaryLabels[6];
+
     public static readonly IReadOnlyList<SummaryLabel> SummaryLabels = new[]
     {
         new SummaryLabel("Income this month"), new SummaryLabel("Held for next month"), new SummaryLabel("Released from last month"),
@@ -266,6 +274,8 @@ public sealed partial class BudgetViewModel : ObservableObject
     public void SetSummaryExpanded(bool expanded)
     {
         SummaryView.Expanded = expanded;
+        SummaryOpen = expanded;
+        foreach (var column in Columns) column.SummaryOpen = expanded;
         foreach (var label in SummaryLabels)
         {
             if (!label.IsStrong) label.IsVisible = expanded;
@@ -274,6 +284,13 @@ public sealed partial class BudgetViewModel : ObservableObject
         foreach (var column in Columns)
             foreach (var cell in column.Summary.Where(c => !c.IsStrong)) cell.IsVisible = expanded;
     }
+
+    /// <summary>True while the summary block is showing; when it is hidden "Available to budget" is frozen above the table instead.</summary>
+    [ObservableProperty] public partial bool SummaryOpen { get; set; } = SummaryView.Expanded;
+
+    public bool SummaryClosed => !SummaryOpen;
+
+    partial void OnSummaryOpenChanged(bool value) => OnPropertyChanged(nameof(SummaryClosed));
 
     [ObservableProperty] public partial bool CanGoBack { get; set; }
     [ObservableProperty] public partial bool CanGoForward { get; set; }

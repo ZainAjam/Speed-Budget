@@ -28,6 +28,7 @@ public static class Money
     public static void Apply(NumberBox box)
     {
         box.NumberFormatter = new MoneyFormatter();
+        box.AcceptsExpression = false;   // the formatter reads sums itself, so amounts such as "1 250 + 350" work too
         box.Loaded -= RightAlign;
         box.Loaded += RightAlign;
     }
@@ -38,11 +39,37 @@ public static class Money
         if (sender is NumberBox box && FindTextBox(box) is { } input)
         {
             input.TextAlignment = Microsoft.UI.Xaml.TextAlignment.Right;
+            input.Loaded -= HideClear;
+            input.Loaded += HideClear;
+            HideClear(input, e);
             input.PreviewKeyDown -= DecimalKey;
             input.PreviewKeyDown += DecimalKey;
             input.PointerWheelChanged -= IgnoreWheel;
             input.PointerWheelChanged += IgnoreWheel;
         }
+    }
+
+    /// <summary>The text box's own clear (X) button would sit over the amount while it is edited, so it is taken out of play.</summary>
+    private static void HideClear(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox input) return;
+        input.ApplyTemplate();
+        if (FindNamed(input, "DeleteButton") is Button clear)
+        {
+            clear.Width = 0; clear.MinWidth = 0; clear.Opacity = 0; clear.IsHitTestVisible = false; clear.IsTabStop = false;
+            clear.Margin = new Thickness(0); clear.Padding = new Thickness(0);
+        }
+    }
+
+    private static FrameworkElement? FindNamed(DependencyObject parent, string name)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is FrameworkElement { Name: var n } fe && n == name) return fe;
+            if (FindNamed(child, name) is { } found) return found;
+        }
+        return null;
     }
 
     /// <summary>
@@ -109,7 +136,66 @@ internal sealed class MoneyFormatter : INumberFormatter2, INumberParser
     public long? ParseInt(string text) => ParseDouble(text) is { } d ? (long)Math.Round(d) : null;
     public ulong? ParseUInt(string text) => ParseDouble(text) is { } d and >= 0 ? (ulong)Math.Round(d) : null;
 
+    /// <summary>
+    /// An amount, or a sum such as "1 200 + 350", "3000/2" or "(1500-300)*2". Spaces only ever group digits, so they are ignored.
+    /// </summary>
     public double? ParseDouble(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var t = new string(text.Where(c => !char.IsWhiteSpace(c) && c != '\u00A0' && c != '\u202F').ToArray())
+            .Replace('\u2212', '-').Replace('\u00D7', '*').Replace('\u00F7', '/');
+        if (!t.Skip(1).Any(c => c is '+' or '-' or '*' or '/' or '(' or ')') && !t.StartsWith('(')) return ParseNumber(t);
+
+        var at = 0;
+        var result = Sum(t, ref at);
+        return result is { } v && at == t.Length && double.IsFinite(v) ? v : null;
+    }
+
+    private double? Sum(string t, ref int at)
+    {
+        var left = Product(t, ref at);
+        while (left is not null && at < t.Length && t[at] is '+' or '-')
+        {
+            var op = t[at++];
+            var right = Product(t, ref at);
+            if (right is null) return null;
+            left = op == '+' ? left + right : left - right;
+        }
+        return left;
+    }
+
+    private double? Product(string t, ref int at)
+    {
+        var left = Factor(t, ref at);
+        while (left is not null && at < t.Length && t[at] is '*' or '/')
+        {
+            var op = t[at++];
+            var right = Factor(t, ref at);
+            if (right is null || (op == '/' && right == 0)) return null;
+            left = op == '*' ? left * right : left / right;
+        }
+        return left;
+    }
+
+    private double? Factor(string t, ref int at)
+    {
+        if (at >= t.Length) return null;
+        if (t[at] == '-') { at++; return Factor(t, ref at) is { } n ? -n : null; }
+        if (t[at] == '+') { at++; return Factor(t, ref at); }
+        if (t[at] == '(')
+        {
+            at++;
+            var inner = Sum(t, ref at);
+            if (inner is null || at >= t.Length || t[at] != ')') return null;
+            at++;
+            return inner;
+        }
+        var start = at;
+        while (at < t.Length && (char.IsDigit(t[at]) || t[at] is '.' or ',')) at++;
+        return at > start ? ParseNumber(t[start..at]) : null;
+    }
+
+    private double? ParseNumber(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         var t = new string(text.Where(c => !char.IsWhiteSpace(c) && c != '\u00A0' && c != '\u202F').ToArray());
