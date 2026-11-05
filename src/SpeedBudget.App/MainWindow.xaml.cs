@@ -171,14 +171,24 @@ public sealed partial class MainWindow : Window
 
     private async void UpdateNow_Click(object sender, RoutedEventArgs e)
     {
-        if (_pendingUpdate?.Info is not { } info) return;
+        if (_pendingUpdate?.Info is not { } info || UpdateButton.Visibility == Visibility.Collapsed) return;
+        // The update is under way, so the buttons are no longer needed.
+        UpdateButton.Visibility = Visibility.Collapsed;
+        WhatsChangedLink.Visibility = Visibility.Collapsed;
+        UpdateBar.IsClosable = false;
         try
         {
             UpdateBar.Message = "Downloading the update. Speed Budget will restart when it is ready.";
             BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
             await AppUpdates.DownloadAndRestartAsync(info);
         }
-        catch (Exception ex) { UpdateBar.Message = $"The update failed: {ex.Message}"; }
+        catch (Exception ex)
+        {
+            UpdateBar.Message = $"The update failed: {ex.Message}";
+            UpdateButton.Visibility = Visibility.Visible;   // so it can be tried again
+            WhatsChangedLink.Visibility = Visibility.Visible;
+            UpdateBar.IsClosable = true;
+        }
     }
 
     private void ApplyPanelMode()

@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.13
+
+- Once you press **Update and restart**, the button (and the What's changed link) go away while the update downloads, so it can't be started twice.
+
 ## 0.9.12
 
 - When the figures above **Available to budget** are hidden, Available to budget now stays in view under the month headings while you scroll.
