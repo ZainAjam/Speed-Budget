@@ -433,6 +433,84 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return null;
     }
 
+    /// <summary>Sets (or, with an empty string, clears) the icon shown in front of a counterparty's name.</summary>
+    public async Task SetPayeeEmojiAsync(PayeeEntity payee, string? emoji, CancellationToken ct = default)
+    {
+        payee.Emoji = string.IsNullOrEmpty(emoji) ? null : emoji;
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ---- Expected transactions ----
+
+    /// <summary>The expected transactions of an account, soonest first (those with no date last).</summary>
+    public async Task<List<ExpectedTransactionEntity>> GetExpectedAsync(Guid accountId, CancellationToken ct = default) =>
+        (await db.Expected.Where(e => e.AccountId == accountId).ToListAsync(ct))
+        .OrderBy(e => e.ExpectedDate ?? DateOnly.MaxValue).ThenBy(e => e.UpdatedAt, StringComparer.Ordinal).ToList();
+
+    public async Task<ExpectedTransactionEntity> AddExpectedAsync(ExpectedTransactionEntity expected, CancellationToken ct = default)
+    {
+        expected.Payee = expected.Payee.Trim();
+        expected.Memo = string.IsNullOrWhiteSpace(expected.Memo) ? null : expected.Memo.Trim();
+        db.Expected.Add(expected);
+        await db.SaveChangesAsync(ct);
+        return expected;
+    }
+
+    /// <summary>Saves changes made to an expected transaction.</summary>
+    public async Task UpdateExpectedAsync(ExpectedTransactionEntity expected, CancellationToken ct = default)
+    {
+        expected.Payee = expected.Payee.Trim();
+        expected.Memo = string.IsNullOrWhiteSpace(expected.Memo) ? null : expected.Memo.Trim();
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteExpectedAsync(ExpectedTransactionEntity expected, CancellationToken ct = default)
+    {
+        db.Expected.Remove(expected);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// An expected transaction has happened: it becomes a real transaction on the given date and leaves the expected list.
+    /// The transaction is saved with its budget item when it has one.
+    /// </summary>
+    public async Task<TransactionEntity> RecordExpectedAsync(ExpectedTransactionEntity expected, DateOnly date, int? dayOrder = null, CancellationToken ct = default)
+    {
+        var transaction = new TransactionEntity
+        {
+            AccountId = expected.AccountId, Date = date, Payee = expected.Payee, Memo = expected.Memo, Amount = expected.Amount,
+            DayOrder = dayOrder ?? await NextDayOrderAsync(date, ct),
+        };
+        await using var scope = await db.Database.BeginTransactionAsync(ct);
+        await AddTransactionAsync(transaction, [new SplitLineEntity { BudgetItemId = expected.BudgetItemId, Amount = expected.Amount }], ct);
+        db.Expected.Remove(expected);
+        await db.SaveChangesAsync(ct);
+        await scope.CommitAsync(ct);
+        return transaction;
+    }
+
+    /// <summary>
+    /// Renames a budget item, gives it an icon, and (when asked) renames its group or moves it to another group, all in one go.
+    /// Returns an error sentence, or null.
+    /// </summary>
+    public async Task<string?> UpdateItemAsync(Guid itemId, string name, string? emoji, Guid groupId, string groupName, CancellationToken ct = default)
+    {
+        name = name.Trim();
+        groupName = groupName.Trim();
+        if (name == "") return "A budget item needs a name.";
+        if (groupName == "") return "A budget group needs a name.";
+        var item = await db.Items.SingleAsync(i => i.Id == itemId, ct);
+        var group = await db.Groups.SingleAsync(g => g.Id == groupId, ct);
+        if (group.Kind != item.Kind) return "Income items can only be in income groups, and expense items in expense groups.";
+
+        item.Name = name;
+        item.Emoji = string.IsNullOrEmpty(emoji) ? null : emoji;
+        group.Name = groupName;
+        await db.SaveChangesAsync(ct);
+        if (item.GroupId != groupId) return await MoveItemToAsync(itemId, groupId, null, null, ct);
+        return null;
+    }
+
     /// <summary>Deletes a payee that no transaction uses. Returns false, leaving it alone, if it is in use.</summary>
     public async Task<bool> DeletePayeeAsync(PayeeEntity payee, CancellationToken ct = default)
     {
@@ -484,7 +562,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         const string flag = "plannedMonthsMigrated";
         if (await GetSettingAsync(flag, ct) == "1") return;
 
-        var legacy = Enumerable.Range(1, BudgetEngine.PlannedMonthCount).Select(BudgetEngine.LegacyPlannedMonthId).ToList();
+        var legacy = Enumerable.Range(1, BudgetEngine.LegacyPlannedMonthCount).Select(BudgetEngine.LegacyPlannedMonthId).ToList();
         if (await db.Allocations.AnyAsync(a => legacy.Contains(a.MonthId), ct) || await db.Holds.AnyAsync(h => legacy.Contains(h.MonthId), ct))
         {
             // The nth planned month was the nth month after the last month line.
@@ -742,6 +820,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.Groups.ExecuteDeleteAsync(ct);
         await db.Accounts.ExecuteDeleteAsync(ct);
         await db.Payees.ExecuteDeleteAsync(ct);
+        await db.Expected.ExecuteDeleteAsync(ct);
         await db.Settings.ExecuteDeleteAsync(ct);
         await db.SyncState.ExecuteDeleteAsync(ct);
         await transaction.CommitAsync(ct);
@@ -810,6 +889,24 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var row = await db.Allocations.FirstOrDefaultAsync(a => a.MonthId == monthId && a.BudgetItemId == itemId, ct);
         if (row is null) db.Allocations.Add(new AllocationEntity { MonthId = monthId, BudgetItemId = itemId, Amount = amount });
         else row.Amount = amount;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Adds to (or takes from) the budgeted amounts of several items in a month, all in one save. Used to move budget between items.</summary>
+    public async Task AdjustAllocationsAsync(Guid monthId, IEnumerable<(Guid ItemId, long Delta)> deltas, CancellationToken ct = default)
+    {
+        var existing = await db.Allocations.Where(a => a.MonthId == monthId).ToListAsync(ct);
+        foreach (var (itemId, delta) in deltas)
+        {
+            var row = existing.FirstOrDefault(a => a.BudgetItemId == itemId);
+            if (row is null)
+            {
+                row = new AllocationEntity { MonthId = monthId, BudgetItemId = itemId, Amount = delta };
+                db.Allocations.Add(row);
+                existing.Add(row);
+            }
+            else row.Amount += delta;
+        }
         await db.SaveChangesAsync(ct);
     }
 
@@ -1061,6 +1158,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         changes.AddRange(await db.Transactions.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.SplitLines.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.Payees.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
+        changes.AddRange(await db.Expected.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         changes.AddRange(await db.Settings.IgnoreQueryFilters().Where(e => e.UpdatedAt.CompareTo(after) > 0).ToListAsync(ct));
         return changes.OrderBy(c => c.UpdatedAt, StringComparer.Ordinal).ToList();
     }

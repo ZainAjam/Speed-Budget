@@ -70,7 +70,7 @@ public static class BudgetEngine
     }
 
     /// <summary>How many months after the latest one are offered for budgeting ahead.</summary>
-    public const int PlannedMonthCount = 3;
+    public const int PlannedMonthCount = 12;
 
     /// <summary>
     /// Id of a month that has no month line (yet): one the user skipped between two lines, or one still to come. It is
@@ -79,6 +79,9 @@ public static class BudgetEngine
     /// </summary>
     public static Guid VirtualMonthId(DateOnly month) =>
         new(System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes($"calendar-month:{month.Year:D4}-{month.Month:D2}")));
+
+    /// <summary>How many planned months the first versions kept, under fixed ids. Only needed to move old budgets over.</summary>
+    public const int LegacyPlannedMonthCount = 3;
 
     /// <summary>The id the first versions used for the nth planned month after the latest line. Only needed to move old budgets over.</summary>
     public static Guid LegacyPlannedMonthId(int ordinal) =>

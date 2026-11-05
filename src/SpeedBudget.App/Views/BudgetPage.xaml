@@ -45,7 +45,8 @@
         </DataTemplate>
 
         <DataTemplate x:Key="SummaryCellTemplate" x:DataType="vm:SummaryCell">
-            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}">
+            <Grid Height="{x:Bind app:Glyphs.SummaryRowHeight(IsStrong)}" Padding="8,0" Visibility="{x:Bind IsVisible, Mode=OneWay}"
+                  Background="Transparent" ContextRequested="Available_ContextRequested">
                 <TextBlock Text="{x:Bind Text, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" HorizontalAlignment="Stretch" HorizontalTextAlignment="Center"
                            VerticalAlignment="Center" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" FontSize="{x:Bind app:Glyphs.SummarySize(IsStrong)}" />
             </Grid>
@@ -78,8 +79,11 @@
                 <!-- A group's heading row shows no figures: only the items under it do -->
                 <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                            Visibility="{x:Bind Line.IsItem}" />
-                <TextBlock Grid.Column="2" Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind LeftTip, Mode=OneWay}"
-                           HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind Line.IsItem}" />
+                <!-- Right-click moves budget between items (or covers an overspent one) -->
+                <Border Grid.Column="2" Background="Transparent" ContextRequested="Left_ContextRequested" Visibility="{x:Bind Line.IsItem}">
+                    <TextBlock Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind LeftTip, Mode=OneWay}"
+                               HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                </Border>
             </Grid>
         </DataTemplate>
 
@@ -237,7 +241,8 @@
                 </ItemsControl>
             </Grid>
 
-            <ScrollViewer x:Name="BudgetScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" IsTabStop="True">
+            <ScrollViewer x:Name="BudgetScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" IsTabStop="True" UseSystemFocusVisuals="False"
+                          FocusVisualPrimaryThickness="0" FocusVisualSecondaryThickness="0">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
                                Text="There are no budget items yet. Add some under Budget Items." />

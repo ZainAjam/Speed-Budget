@@ -20,12 +20,28 @@ public sealed partial class PayeeRow(PayeeEntity entity, int uses, PayeesViewMod
         }
     }
 
+    /// <summary>The icon shown in front of the counterparty's name, or an empty string for none.</summary>
+    public string Emoji
+    {
+        get => Entity.Emoji ?? "";
+        set
+        {
+            var chosen = string.IsNullOrEmpty(value) ? null : value;
+            if (Entity.Emoji == chosen) return;
+            _ = owner.SetEmojiAsync(this, chosen);
+        }
+    }
+
+    public string Display => string.IsNullOrEmpty(Entity.Emoji) ? Name : $"{Entity.Emoji} {Name}";
+
     public string UsageText => Uses switch { 0 => "Not used yet", 1 => "Used on 1 transaction", _ => $"Used on {Uses} transactions" };
 
     /// <summary>Redraws the name and usage, for when a rename was refused and the box must go back to the old name.</summary>
     public void Refresh()
     {
         OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(Display));
+        OnPropertyChanged(nameof(Emoji));
         OnPropertyChanged(nameof(UsageText));
     }
 
@@ -118,6 +134,19 @@ public sealed partial class PayeesViewModel : ObservableObject
         }
         catch (Exception ex) { Message = $"Could not rename: {ex.Message}"; row.Refresh(); }
         finally { _gate.Release(); }
+    }
+
+    public async Task SetEmojiAsync(PayeeRow row, string? emoji)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await _store.SetPayeeEmojiAsync(row.Entity, emoji);
+            Message = "";
+        }
+        catch (Exception ex) { Message = $"Could not save the icon: {ex.Message}"; }
+        finally { _gate.Release(); }
+        row.Refresh();
     }
 
     /// <summary>Deletes the selected payee unless transactions use it. Returns true when deleted.</summary>

@@ -101,6 +101,27 @@ public class IncomeHoldEntity : SyncEntity
 public class PayeeEntity : SyncEntity
 {
     public string Name { get; set; } = "";
+
+    /// <summary>An optional emoji shown in front of the counterparty's name.</summary>
+    public string? Emoji { get; set; }
+}
+
+/// <summary>
+/// A transaction that is expected but has not happened yet. It does not touch any balance or budget. When it happens it is
+/// recorded as a real transaction (with the date it happened) and removed from the expected list.
+/// </summary>
+public class ExpectedTransactionEntity : SyncEntity
+{
+    public Guid AccountId { get; set; }
+    public string Payee { get; set; } = "";
+    public string? Memo { get; set; }
+
+    /// <summary>Money out is negative, money in positive, in cents.</summary>
+    public long Amount { get; set; }
+    public Guid? BudgetItemId { get; set; }
+
+    /// <summary>When it is expected, if known. Only a guide: the real date is given when it is recorded.</summary>
+    public DateOnly? ExpectedDate { get; set; }
 }
 
 public class TransactionEntity : SyncEntity

@@ -293,6 +293,98 @@ public sealed partial class BudgetPage : Page
         menu.ShowAt(button);
     }
 
+    // ---- Moving budget between items ----
+
+    /// <summary>Right-click on "Available to budget": give some of it to an item, or cover an overspend from an item with money left.</summary>
+    private void Available_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: SummaryCell { IsStrong: true } cell } target) return;
+        args.Handled = true;
+        if (cell.Cents == 0) return;
+
+        var menu = new MenuFlyout();
+        if (cell.Cents > 0)
+        {
+            var give = new MenuFlyoutItem { Text = "Allocate some of this to a budget item…", Icon = new FontIcon { Glyph = "\uE710" } };
+            give.Click += async (_, _) => await AllocateAvailableAsync(cell);
+            menu.Items.Add(give);
+        }
+        else
+        {
+            var cover = new MenuFlyoutItem { Text = "Cover the shortfall from a budget item…", Icon = new FontIcon { Glyph = "\uE8AB" } };
+            cover.Click += async (_, _) => await CoverFromAsync(cell.MonthId, -cell.Cents, toItem: null);
+            menu.Items.Add(cover);
+        }
+        ShowMenu(menu, target, args);
+    }
+
+    /// <summary>Right-click on a "Left" figure: move some of what is left to another item (green), or cover the shortfall from one (red).</summary>
+    private void Left_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: OutflowCell { Line.IsItem: true } cell } target) return;
+        args.Handled = true;
+        if (cell.LeftCents == 0) return;
+
+        var menu = new MenuFlyout();
+        if (cell.LeftCents > 0)
+        {
+            var move = new MenuFlyoutItem { Text = "Move some of this to another budget item…", Icon = new FontIcon { Glyph = "\uE8AB" } };
+            move.Click += async (_, _) => await MoveLeftAsync(cell);
+            menu.Items.Add(move);
+        }
+        else
+        {
+            var cover = new MenuFlyoutItem { Text = "Cover the shortfall from another budget item…", Icon = new FontIcon { Glyph = "\uE8AB" } };
+            cover.Click += async (_, _) => await CoverFromAsync(cell.MonthId, -cell.LeftCents, toItem: cell.Line.ItemId);
+            menu.Items.Add(cover);
+        }
+        ShowMenu(menu, target, args);
+    }
+
+    private static void ShowMenu(MenuFlyout menu, FrameworkElement target, ContextRequestedEventArgs args)
+    {
+        if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
+        else menu.ShowAt(target);
+    }
+
+    /// <summary>Gives part of a month's available budget to an item: its budgeted amount goes up by that much.</summary>
+    private async Task AllocateAvailableAsync(SummaryCell cell)
+    {
+        var dialog = new MoveBudgetDialog("Allocate available budget",
+            $"{Format.Money(cell.Cents)} is available to budget. Choose the item to give some of it to, and how much.",
+            "Budget item", "Allocate", ViewModel.ChoicesFor(cell.MonthId), _ => cell.Cents, cell.Cents) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
+        await ViewModel.MoveBudgetAsync(cell.MonthId, (chosen.ItemId, dialog.AmountCents));
+    }
+
+    /// <summary>Moves part of an item's remaining budget to another item.</summary>
+    private async Task MoveLeftAsync(OutflowCell cell)
+    {
+        var from = cell.Line.ItemId!.Value;
+        var dialog = new MoveBudgetDialog($"Move budget from {cell.Line.Name}",
+            $"{Format.Money(cell.LeftCents)} is left on {cell.Line.Name}. Choose the item to move some of it to, and how much.",
+            "Move it to", "Move", ViewModel.ChoicesFor(cell.MonthId, excluding: from), _ => cell.LeftCents, cell.LeftCents) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
+        var amount = dialog.AmountCents;
+        await ViewModel.MoveBudgetAsync(cell.MonthId, (from, -amount), (chosen.ItemId, amount));
+    }
+
+    /// <summary>
+    /// Covers a shortfall by taking budget off an item that has some left. With an item given, the shortfall is on that item and
+    /// the budget goes to it; without one the shortfall is the month's available budget, so the budget just comes back to it.
+    /// </summary>
+    private async Task CoverFromAsync(Guid monthId, long shortfall, Guid? toItem)
+    {
+        var choices = ViewModel.ChoicesFor(monthId, excluding: toItem, onlyWithMoneyLeft: true);
+        var dialog = new MoveBudgetDialog("Cover the shortfall",
+            $"The shortfall is {Format.Money(shortfall)}. Choose a budget item with money left to take it from, and how much.",
+            "Take it from", "Cover", choices, c => Math.Min(shortfall, c.LeftCents), shortfall) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
+        var amount = dialog.AmountCents;
+        if (toItem is { } to) await ViewModel.MoveBudgetAsync(monthId, (chosen.ItemId, -amount), (to, amount));
+        else await ViewModel.MoveBudgetAsync(monthId, (chosen.ItemId, -amount));
+    }
+
     /// <summary>Right-click (or the menu key) on an "Available now" figure: hold some of it for next month.</summary>
     private void Income_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {

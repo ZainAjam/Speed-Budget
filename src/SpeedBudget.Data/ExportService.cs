@@ -72,6 +72,7 @@ public static class ExportService
             transactions = await db.Transactions.AsNoTracking().ToListAsync(ct),
             splitLines = await db.SplitLines.AsNoTracking().ToListAsync(ct),
             payees = await db.Payees.AsNoTracking().ToListAsync(ct),
+            expectedTransactions = await db.Expected.AsNoTracking().ToListAsync(ct),
             settings = await db.Settings.AsNoTracking().ToListAsync(ct),
         };
         return JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true });

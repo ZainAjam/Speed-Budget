@@ -112,6 +112,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="About" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="AboutText" Opacity="0.8" />
+                <HyperlinkButton Content="Change log" NavigateUri="https://github.com/ZainAjam/Speed-Budget/blob/master/CHANGELOG.md" Padding="0" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

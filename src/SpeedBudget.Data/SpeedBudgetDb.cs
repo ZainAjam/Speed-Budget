@@ -18,6 +18,7 @@ public class SpeedBudgetDb : DbContext
     public DbSet<TransactionEntity> Transactions => Set<TransactionEntity>();
     public DbSet<SplitLineEntity> SplitLines => Set<SplitLineEntity>();
     public DbSet<PayeeEntity> Payees => Set<PayeeEntity>();
+    public DbSet<ExpectedTransactionEntity> Expected => Set<ExpectedTransactionEntity>();
     public DbSet<SettingEntity> Settings => Set<SettingEntity>();
     public DbSet<SyncStateEntity> SyncState => Set<SyncStateEntity>();
 
@@ -38,6 +39,8 @@ public class SpeedBudgetDb : DbContext
         b.Entity<SplitLineEntity>().HasIndex(e => e.UpdatedAt);
         b.Entity<PayeeEntity>().HasQueryFilter(e => !e.IsDeleted).HasIndex(e => e.Name);
         b.Entity<PayeeEntity>().HasIndex(e => e.UpdatedAt);
+        b.Entity<ExpectedTransactionEntity>().HasQueryFilter(e => !e.IsDeleted).HasIndex(e => e.AccountId);
+        b.Entity<ExpectedTransactionEntity>().HasIndex(e => e.UpdatedAt);
         b.Entity<SettingEntity>().HasQueryFilter(e => !e.IsDeleted).HasIndex(e => e.UpdatedAt);
         b.Entity<SyncStateEntity>().HasKey(e => e.Key);
     }

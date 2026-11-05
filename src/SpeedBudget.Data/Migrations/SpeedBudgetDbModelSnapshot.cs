@@ -95,6 +95,51 @@ namespace SpeedBudget.Data.Migrations
                     b.ToTable("Allocations");
                 });
 
+            modelBuilder.Entity("SpeedBudget.Data.ExpectedTransactionEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("BudgetItemId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("ExpectedDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Memo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Payee")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedAt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("Expected");
+                });
+
             modelBuilder.Entity("SpeedBudget.Data.GroupEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -263,6 +308,9 @@ namespace SpeedBudget.Data.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Emoji")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDeleted")

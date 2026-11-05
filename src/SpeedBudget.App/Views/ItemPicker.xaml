@@ -25,10 +25,15 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" Foreground="{x:Bind BalanceBrush}"
                                                    Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                        <Button Grid.Column="2" Click="Edit_Click" Visibility="{x:Bind CanEdit}" Padding="6" Background="Transparent" BorderThickness="0"
+                                                AutomationProperties.Name="Edit" ToolTipService.ToolTip="Edit">
+                                            <FontIcon Glyph="&#xE70F;" FontSize="12" Foreground="#E9B72C" />
+                                        </Button>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

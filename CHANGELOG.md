@@ -4,6 +4,18 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.11
+
+- A new app icon: two gold coins, the front one marked R, which reads clearly as money at any size.
+- **Expected transactions.** Every account page has an "Expected transactions" bar along the bottom. It opens a flyout where you note down what you expect but has not happened yet (who, memo, budget item, amount, and optionally when). Nothing in it changes a balance or your budget. When one happens, press **Happened**, give the date, and it moves into the Recorded transactions table on that date.
+- **Moving budget around.** Right-click **Available to budget**: when it is green you can allocate some of it to any budget item; when it is red you can cover the shortfall from items that have money left. Right-click a **Left** amount: when green, move some of it to another item; when red, cover the shortfall from another item that has money left.
+- Right-click a transaction row for **Edit** and **Delete**. The old "Edit Counterparty" right-click menu is gone.
+- A pencil beside each counterparty in the counterparty drop-down edits its name and icon, and a pencil beside each budget item in the budget item drop-down edits the item (name and icon) and its budget group. Counterparties can now have an icon, which shows in the drop-down and the table, and under Counterparties.
+- The budget now looks 12 months ahead instead of 3.
+- Pressing Enter in a budget amount no longer leaves a white border around the budget table.
+- All keyboard shortcut tooltips are gone. Every shortcut is listed under the new **Keyboard Shortcuts** item above App Settings in the left panel.
+- App Settings, About, has a **Change log** link.
+
 ## 0.9.10
 
 - The budget item drop-down in the transactions table now lists just the items (with their icons), without their budget group.

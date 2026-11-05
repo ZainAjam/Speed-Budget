@@ -103,6 +103,11 @@ public sealed partial class OutflowCell : LineCell
 
     public Guid MonthId { get; }
 
+    public long BudgetedCents => _budgeted;
+
+    /// <summary>What is left on the item this month, including anything carried forward. Green when above zero, red below.</summary>
+    public long LeftCents { get; private set; }
+
     public OutflowCell(BudgetLine line, Guid monthId, BudgetViewModel owner) : base(line)
     {
         MonthId = monthId;
@@ -137,6 +142,7 @@ public sealed partial class OutflowCell : LineCell
         _budgeted = budgeted;
         OnPropertyChanged(nameof(Budgeted));
         var left = carriedIn + budgeted + activity;
+        LeftCents = left;
         LeftTip = carriedIn > 0 ? $"Includes {Format.Money(carriedIn)} carried forward from last month" : null;
         BudgetedText = Format.Money(budgeted);
         SpentText = Format.Money(-activity);
@@ -171,6 +177,10 @@ public sealed partial class SummaryCell(bool isStrong) : ObservableObject
 {
     public bool IsStrong { get; } = isStrong;
 
+    /// <summary>For "Available to budget": the month it belongs to and the amount (negative when overspent).</summary>
+    public Guid MonthId { get; set; }
+    public long Cents { get; set; }
+
     [ObservableProperty] public partial bool IsVisible { get; set; } = isStrong || SummaryView.Expanded;
 
     [ObservableProperty] public partial string Text { get; set; } = "";
@@ -198,7 +208,7 @@ public sealed partial class MonthColumn : ObservableObject
         MonthId = monthId;
         HasPrevious = hasPrevious;
         Width = width;
-        Summary = Enumerable.Range(0, 7).Select(i => new SummaryCell(isStrong: i == 6)).ToList();
+        Summary = Enumerable.Range(0, 7).Select(i => new SummaryCell(isStrong: i == 6) { MonthId = monthId }).ToList();
         foreach (var line in incomeLines) Income.Add(new IncomeCell(line, monthId));
         foreach (var line in outflowLines) Outflow.Add(new OutflowCell(line, monthId, owner));
     }
@@ -213,6 +223,7 @@ public sealed partial class MonthColumn : ObservableObject
         var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.CarriedOver, -m.Budgeted, m.Available };
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
         Summary[6].Brush = Format.Signed(m.Available);
+        Summary[6].Cents = m.Available;
 
         var income = m.IncomeItems.ToDictionary(i => i.ItemId);
         foreach (var cell in Income) cell.Apply(income.GetValueOrDefault(cell.ItemId) ?? new IncomeItemMonth(cell.ItemId, 0, 0, 0));
@@ -493,6 +504,31 @@ public sealed partial class BudgetViewModel : ObservableObject
         try
         {
             await _store.SetAllocationAsync(monthId, itemId, cents);
+            Message = "";
+            await RecalculateAsync();
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>The budget items of a month that budget can be moved to or from, with what is left on each. Archived items are left out.</summary>
+    public List<Views.BudgetChoice> ChoicesFor(Guid monthId, Guid? excluding = null, bool onlyWithMoneyLeft = false)
+    {
+        var column = Columns.FirstOrDefault(c => c.MonthId == monthId);
+        if (column is null) return [];
+        return column.Outflow
+            .Where(c => c.Line.IsItem && !c.Line.IsArchived && c.Line.ItemId != excluding && (!onlyWithMoneyLeft || c.LeftCents > 0))
+            .Select(c => new Views.BudgetChoice(c.Line.ItemId!.Value, $"{c.Line.Group?.Name} › {c.Line.Name}", c.LeftCents))
+            .ToList();
+    }
+
+    /// <summary>Changes what is budgeted on several items of a month at once (the amounts are added, so a negative one takes budget away).</summary>
+    public async Task MoveBudgetAsync(Guid monthId, params (Guid ItemId, long Delta)[] deltas)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await _store.AdjustAllocationsAsync(monthId, deltas);
             Message = "";
             await RecalculateAsync();
         }

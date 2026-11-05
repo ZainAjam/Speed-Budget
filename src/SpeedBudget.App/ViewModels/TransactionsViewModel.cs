@@ -30,6 +30,10 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
     /// <summary>True for the "split between several items" row at the top of the list, which is not a real item.</summary>
     public bool IsSplitRow { get; init; }
 
+    /// <summary>Whether the pencil for editing this item shows. Set by the drop-down that lists it.</summary>
+    public bool PencilShown { get; set; }
+    public bool CanEdit => PencilShown;
+
     public long? Balance { get; set; }
     public string BalanceText => Balance is { } b ? Format.Money(b) : "";
     public Microsoft.UI.Xaml.Media.Brush BalanceBrush => Balance is { } b ? Format.Signed(b) : Format.Theme("TextFillColorPrimaryBrush");
@@ -52,7 +56,23 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     /// <summary>The lists the row's drop-downs choose from.</summary>
     public ObservableCollection<string> Payees => owner.Payees;
+    public IReadOnlyDictionary<string, string> PayeeIcons => owner.PayeeIcons;
     public ObservableCollection<ItemOption> ItemOptions => owner.ItemOptions;
+
+    /// <summary>A counterparty's name or icon was edited: show the row's counterparty as it is now.</summary>
+    public void RefreshPayee()
+    {
+        OnPropertyChanged(nameof(Payee));
+        OnPropertyChanged(nameof(PayeeText));
+    }
+
+    /// <summary>The budget items were edited: point the row at the current version of its item.</summary>
+    public void RefreshItem()
+    {
+        if (_item.Id is { } id) _item = owner.ItemOptions.FirstOrDefault(o => o.Id == id) ?? owner.NoItem;
+        OnPropertyChanged(nameof(Item));
+        OnPropertyChanged(nameof(ItemName));
+    }
     public TransactionEntity Entity { get; } = entity;
     public string AccountName { get; } = accountName;
 
@@ -313,7 +333,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
-    public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : Entity.Payee;
+    public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : owner.WithIcon(Entity.Payee);
 
     public override string ToString() => $"{DateText} {Entity.Payee}";
 
@@ -385,6 +405,14 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     private readonly BudgetStore _store = AppServices.Store;
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    public TransactionsViewModel() => Expected = new ExpectedViewModel(this);
+
+    /// <summary>Lets the Expected transactions flyout take its turn with everything else this page does to the database.</summary>
+    internal SemaphoreSlim Gate => _gate;
+
+    /// <summary>The expected transactions of the account on show, shown in the flyout along the bottom of the page.</summary>
+    public ExpectedViewModel Expected { get; }
     private List<AccountEntity> _accounts = new();
     private IReadOnlyList<PayeeHint> _hints = Array.Empty<PayeeHint>();
     private bool _loaded;
@@ -399,6 +427,13 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     /// <summary>Payee names for the drop-down, kept in order as payees are added.</summary>
     public ObservableCollection<string> Payees { get; } = new();
+
+    /// <summary>The icon of each counterparty that has one, by name.</summary>
+    public Dictionary<string, string> PayeeIcons { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A counterparty's name with its icon in front, when it has one.</summary>
+    public string WithIcon(string name) => PayeeIcons.TryGetValue(name, out var icon) && icon != "" ? $"{icon} {name}" : name;
+
     public ObservableCollection<ItemOption> ItemOptions { get; } = new();
     public ItemOption NoItem { get; } = new(null, "(no item)", null);
 
@@ -548,8 +583,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var items = await _store.GetItemsAsync();
             await _store.EnsurePayeesFromTransactionsAsync();
             _hints = await _store.GetPayeeHintsAsync();
-            Payees.Clear();
-            foreach (var payee in await _store.GetPayeesAsync()) Payees.Add(payee.Name);
+            await LoadPayeesAsync();
 
             PageTitle = AccountId is { } id ? _accounts.FirstOrDefault(a => a.Id == id)?.Name ?? "Account" : "All accounts";
             var viewed = _accounts.FirstOrDefault(a => a.Id == AccountId);
@@ -567,18 +601,78 @@ public sealed partial class TransactionsViewModel : ObservableObject
             foreach (var a in _accounts.Where(a => !a.IsClosed || a.Id == AccountId))
                 EntryAccounts.Add(new AccountOption(a.Id, a.IsClosed ? $"{a.Name} (closed)" : a.Name, a.IsOnBudget));
 
-            ItemOptions.Clear();
-            ItemOptions.Add(NoItem);
-            foreach (var g in groups)
-                foreach (var i in items.Where(i => i.GroupId == g.Id))
-                    ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name,
-                        $"{i.DisplayName}{(i.IsArchived ? " (archived)" : "")}"));
+            RebuildItemOptions(groups, items);
 
             SyncColumnLayout();
             OnPropertyChanged(nameof(CanStartMonth));
             _loaded = true;
             await LoadRowsAsync(null);
         }
+        finally { _gate.Release(); }
+        await Expected.LoadAsync();
+    }
+
+    private async Task LoadPayeesAsync()
+    {
+        Payees.Clear();
+        PayeeIcons.Clear();
+        foreach (var payee in await _store.GetPayeesAsync())
+        {
+            Payees.Add(payee.Name);
+            if (!string.IsNullOrEmpty(payee.Emoji)) PayeeIcons[payee.Name] = payee.Emoji;
+        }
+    }
+
+    private void RebuildItemOptions(IReadOnlyList<GroupEntity> groups, IReadOnlyList<ItemEntity> items)
+    {
+        ItemOptions.Clear();
+        ItemOptions.Add(NoItem);
+        foreach (var g in groups)
+            foreach (var i in items.Where(i => i.GroupId == g.Id))
+                ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name,
+                    $"{i.DisplayName}{(i.IsArchived ? " (archived)" : "")}"));
+    }
+
+    /// <summary>Changes a counterparty's name (on all of its transactions) and icon, and updates what is on screen. Returns an error sentence, or null.</summary>
+    public async Task<string?> EditPayeeAsync(string oldName, string newName, string emoji)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var payee = (await _store.GetPayeesAsync()).FirstOrDefault(p => string.Equals(p.Name, oldName, StringComparison.OrdinalIgnoreCase));
+            if (payee is null) return "That counterparty could not be found.";
+            newName = newName.Trim();
+            if (!string.Equals(payee.Name, newName, StringComparison.Ordinal))
+            {
+                var error = await _store.RenamePayeeAsync(payee, newName);
+                if (error is not null) return error;
+            }
+            await _store.SetPayeeEmojiAsync(payee, emoji);
+
+            await LoadPayeesAsync();
+            _hints = await _store.GetPayeeHintsAsync();
+            foreach (var row in Rows.OfType<TransactionRow>()) row.RefreshPayee();
+            Message = "";
+            return null;
+        }
+        catch (Exception ex) { return $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Changes a budget item's name and icon and its group (which group it is in, and that group's name), and updates what is on screen. Returns an error sentence, or null.</summary>
+    public async Task<string?> EditItemAsync(Guid itemId, string name, string emoji, Guid groupId, string groupName)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var error = await _store.UpdateItemAsync(itemId, name, emoji, groupId, groupName);
+            RebuildItemOptions(await _store.GetGroupsAsync(), await _store.GetItemsAsync());
+            await RefreshBalancesAsync();
+            foreach (var row in Rows.OfType<TransactionRow>()) row.RefreshItem();
+            if (error is null) Message = "";
+            return error;
+        }
+        catch (Exception ex) { return $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
     }
 
@@ -977,6 +1071,28 @@ public sealed partial class TransactionsViewModel : ObservableObject
         catch (ArgumentException ex) { Message = ex.Message; return false; }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; return false; }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// An expected transaction has happened: records it in the table on the given date (asking which month if that date is on a
+    /// month line) and takes it off the expected list. False when it was not recorded.
+    /// </summary>
+    public async Task<bool> RecordExpectedAsync(ExpectedTransactionEntity expected, DateOnly date)
+    {
+        if (_draft is not null) { Message = "Finish or cancel the row you are adding first."; return false; }
+        var account = EntryAccounts.FirstOrDefault(a => a.Id == expected.AccountId);
+        if (account is null) return false;
+
+        var item = expected.BudgetItemId is { } id ? ItemOptions.FirstOrDefault(o => o.Id == id) ?? NoItem : NoItem;
+        var entity = new TransactionEntity { AccountId = expected.AccountId, Date = date, Payee = expected.Payee, Memo = expected.Memo, Amount = expected.Amount };
+        var row = new TransactionRow(entity, item, account.Name, 1, this) { IsNew = true };
+        if (!await CommitNewAsync(row)) return false;
+
+        await _gate.WaitAsync();
+        try { await _store.DeleteExpectedAsync(expected); }
+        catch (Exception ex) { Message = $"The transaction was recorded, but it could not be taken off the expected list: {ex.Message}"; return false; }
+        finally { _gate.Release(); }
+        return true;
     }
 
     /// <summary>Budget accounts need an item on every line; tracked accounts may leave lines unassigned.</summary>

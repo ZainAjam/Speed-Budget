@@ -43,6 +43,7 @@ public sealed partial class MainWindow : Window
         Nav.FooterMenuItems.Add(payees);
         Nav.FooterMenuItems.Add(items);
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
+        Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
         // The available balance beside each account follows every change to the data.
@@ -422,6 +423,7 @@ public sealed partial class MainWindow : Window
             case "accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
             case "payees": ContentFrame.Navigate(typeof(PayeesPage), parameter); break;
             case "items": ContentFrame.Navigate(typeof(ItemsPage), parameter); break;
+            case "shortcuts": ContentFrame.Navigate(typeof(KeyboardShortcutsPage)); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):
                 ContentFrame.Navigate(typeof(TransactionsPage), id);

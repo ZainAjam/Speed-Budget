@@ -35,6 +35,19 @@ public sealed partial class ItemPicker : UserControl
         DependencyProperty.Register(nameof(ValueOverride), typeof(string), typeof(ItemPicker),
             new PropertyMetadata("", (d, _) => ((ItemPicker)d).ShowSelection()));
 
+    public static readonly DependencyProperty AllowEditProperty =
+        DependencyProperty.Register(nameof(AllowEdit), typeof(bool), typeof(ItemPicker), new PropertyMetadata(false));
+
+    /// <summary>Whether each item in the list has a pencil to edit it.</summary>
+    public bool AllowEdit
+    {
+        get => (bool)GetValue(AllowEditProperty);
+        set => SetValue(AllowEditProperty, value);
+    }
+
+    /// <summary>Raised with an item when its pencil is pressed, so the owner can edit the item and its group.</summary>
+    public event EventHandler<ItemOption>? EditRequested;
+
     /// <summary>Raised when the user picks the "Split" row, to spread the transaction over several budget items.</summary>
     public event EventHandler? SplitRequested;
 
@@ -124,6 +137,7 @@ public sealed partial class ItemPicker : UserControl
         if (AllowCreate && typed != "" && !Exists(typed))
             rows.Insert(0, new ItemOption(null, $"➕ Add “{typed}” as a new budget item…", null) { IsCreateRow = true });
         if (AllowSplit) rows.Insert(0, new ItemOption(null, "Split between several items…", null) { IsSplitRow = true });
+        foreach (var row in rows) row.PencilShown = AllowEdit && row.Id is not null;
         ResultList.ItemsSource = rows;
     }
 
@@ -164,6 +178,13 @@ public sealed partial class ItemPicker : UserControl
         }
         else if (option.IsCreateRow) Create(SearchBox.Text.Trim());
         else Choose(option);
+    }
+
+    private void Edit_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not ItemOption { Id: not null } option) return;
+        PickerFlyout.Hide();
+        EditRequested?.Invoke(this, option);
     }
 
     private void Choose(ItemOption option)

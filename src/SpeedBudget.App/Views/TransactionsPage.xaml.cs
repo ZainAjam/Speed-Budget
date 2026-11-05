@@ -31,6 +31,10 @@ public sealed partial class TransactionsPage : Page
             await ViewModel.LoadAsync();
         };
         Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
+        ViewModel.Expected.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ExpectedViewModel.IsOpen)) _ = UpdateExpectedPanelAsync();
+        };
         ViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
@@ -38,6 +42,81 @@ public sealed partial class TransactionsPage : Page
         };
     }
 
+
+    // ---- Expected transactions ----
+
+    private int _expectedChange;
+
+    /// <summary>Rises from the bar along the bottom when opened, and drops back out of sight when closed.</summary>
+    private async Task UpdateExpectedPanelAsync()
+    {
+        var change = ++_expectedChange;
+        if (ExpectedHost.TranslationTransition is null)
+            ExpectedHost.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(200) };
+
+        var hidden = new System.Numerics.Vector3(0, (float)ExpectedHost.Height + 40, 0);
+        if (ViewModel.Expected.IsOpen)
+        {
+            ExpectedHost.Translation = hidden;
+            ExpectedHost.Visibility = Visibility.Visible;
+            await Task.Delay(30);   // let it show at the bottom first, so there is something to slide from
+            if (change == _expectedChange) ExpectedHost.Translation = System.Numerics.Vector3.Zero;
+        }
+        else
+        {
+            ExpectedHost.Translation = hidden;
+            await Task.Delay(220);
+            if (change == _expectedChange) ExpectedHost.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void ExpectedToggle_Click(object sender, RoutedEventArgs e) => ViewModel.Expected.IsOpen = !ViewModel.Expected.IsOpen;
+
+    private async void ExpectedSave_Click(object sender, RoutedEventArgs e) => await ViewModel.Expected.SaveFormAsync();
+
+    private void ExpectedCancel_Click(object sender, RoutedEventArgs e) => ViewModel.Expected.CancelEdit();
+
+    private void ExpectedEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is ExpectedRow row) ViewModel.Expected.BeginEdit(row);
+    }
+
+    private async void ExpectedDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is ExpectedRow row) await ViewModel.Expected.DeleteAsync(row);
+    }
+
+    /// <summary>"Happened": asks the date it happened, then records it in the transactions table and takes it off this list.</summary>
+    private async void ExpectedHappened_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not ExpectedRow row) return;
+        var date = new CalendarDatePicker
+        {
+            Date = DateTimeOffset.Now, DateFormat = "{day.integer} {month.abbreviated} {year.full}", HorizontalAlignment = HorizontalAlignment.Stretch,
+            Header = "Date it happened",
+        };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "It happened",
+            PrimaryButtonText = "Add to transactions",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            Content = new StackPanel
+            {
+                Spacing = 12, MinWidth = 340,
+                Children =
+                {
+                    new TextBlock { Text = $"{row.PayeeText}   {row.OutflowText}{row.InflowText}", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], TextWrapping = TextWrapping.Wrap },
+                    new TextBlock { Text = "It is added to the transactions table on this date, and leaves the expected list.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 },
+                    date,
+                },
+            },
+        };
+        dialog.PrimaryButtonClick += (_, args) => { if (date.Date is null) args.Cancel = true; };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || date.Date is not { } picked) return;
+        await ViewModel.Expected.RecordAsync(row, DateOnly.FromDateTime(picked.DateTime));
+    }
 
     private bool DetailOpen => ViewModel.HasMarkerSelected;   // only month lines use the side panel; transactions are edited in their rows
 
@@ -345,20 +424,23 @@ public sealed partial class TransactionsPage : Page
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
         ViewModel.AccountId = e.Parameter is Guid id ? id : null;
 
-    /// <summary>Right-click (or the menu key) on a counterparty in the table: jump to its edit screen.</summary>
-    private void Counterparty_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    /// <summary>Right-click (or the menu key) on a transaction row: edit it or delete it.</summary>
+    private void Row_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        // A transfer's name ("Transfer to ...") is not a counterparty, so there is nothing to edit.
-        if (sender is not FrameworkElement { DataContext: TransactionRow { IsTransfer: false } row } target || string.IsNullOrWhiteSpace(row.Payee)) return;
+        if (sender is not FrameworkElement { DataContext: TransactionRow row } target) return;
+        args.Handled = true;
+        if (row.IsNew) return;   // a row still being added has its own tick and bin
 
         var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit Counterparty" };
-        edit.Click += (_, _) => (App.MainWindow as MainWindow)?.NavigateTo("payees", row.Payee);
+        var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" }, IsEnabled = !row.IsEditing };
+        edit.Click += (_, _) => ViewModel.BeginEdit(row);
+        var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+        delete.Click += async (_, _) => await DeleteRowAsync(row);
         menu.Items.Add(edit);
+        menu.Items.Add(delete);
 
         if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
         else menu.ShowAt(target);
-        args.Handled = true;
     }
 
     /// <summary>A budget item typed into the drop-down that doesn't exist: ask for its category, create it, and select it.</summary>
@@ -375,6 +457,32 @@ public sealed partial class TransactionsPage : Page
 
         var option = await ViewModel.CreateItemAsync(dialog.GroupId, dialog.ItemName);
         if (option is not null && sender is ItemPicker picker) picker.SelectedItem = option;
+    }
+
+    /// <summary>The pencil beside a counterparty in the drop-down: edit its name and icon.</summary>
+    private async void Payee_EditRequested(object? sender, string name)
+    {
+        var dialog = new PayeeEditDialog(name, ViewModel.PayeeIcons.GetValueOrDefault(name, "")) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var error = await ViewModel.EditPayeeAsync(name, dialog.PayeeName, dialog.Emoji);
+        if (error is not null) ViewModel.Message = error;
+        else (sender as PayeePicker)?.RefreshSelection();
+    }
+
+    /// <summary>The pencil beside a budget item in the drop-down: edit the item and its group.</summary>
+    private async void Item_EditRequested(object? sender, ItemOption option)
+    {
+        if (option.Id is not { } itemId) return;
+        var item = (await AppServices.Store.GetItemsAsync()).FirstOrDefault(i => i.Id == itemId);
+        if (item is null) return;
+        var groups = (await AppServices.Store.GetGroupsAsync()).Where(g => g.Kind == item.Kind).ToList();
+
+        var dialog = new ItemEditDialog(groups, item.Name, item.Emoji ?? "", item.GroupId) { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var error = await ViewModel.EditItemAsync(itemId, dialog.ItemName, dialog.Emoji, dialog.GroupId, dialog.GroupName);
+        if (error is not null) ViewModel.Message = error;
     }
 
     /// <summary>A payee typed into the drop-down that was not in the list: save it so it is there from now on.</summary>
@@ -397,7 +505,11 @@ public sealed partial class TransactionsPage : Page
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
         var row = (sender as FrameworkElement)?.DataContext as TransactionRow ?? ViewModel.Selected;
-        if (row is null) return;
+        if (row is not null) await DeleteRowAsync(row);
+    }
+
+    private async Task DeleteRowAsync(TransactionRow row)
+    {
         if (row.IsNew) { ClearEditing(); return; }   // nothing saved yet: just drop it
         var dialog = new ContentDialog
         {

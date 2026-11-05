@@ -1212,4 +1212,77 @@ public sealed class DataTests : IDisposable
         Assert.Equal(800_00, months[0].Items.Single(i => i.ItemId == food.Id).Remaining);
         Assert.Equal(-50_00, months[1].Items.Single(i => i.ItemId == food.Id).Activity);
     }
+
+    [Fact]
+    public async Task Budget_can_be_moved_between_items_in_one_save()
+    {
+        var group = await _store.AddGroupAsync("Everyday", ItemKind.Expense);
+        var food = await _store.AddItemAsync(group.Id, null, "Food", ItemKind.Expense);
+        var fun = await _store.AddItemAsync(group.Id, null, "Fun", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 1_000_00);
+
+        await _store.AdjustAllocationsAsync(BudgetEngine.FirstMonthId, [(food.Id, -300_00), (fun.Id, 300_00)]);
+
+        var items = BudgetEngine.Calculate(await _store.LoadSnapshotAsync())[0].Items;
+        Assert.Equal(700_00, items.Single(x => x.ItemId == food.Id).Budgeted);
+        Assert.Equal(300_00, items.Single(x => x.ItemId == fun.Id).Budgeted);
+    }
+
+    [Fact]
+    public void The_budget_looks_twelve_months_ahead()
+    {
+        var snapshot = new BudgetSnapshot([], [], [], [], [], []);
+        Assert.Equal(12, BudgetEngine.PlannedMonthCount);
+        var months = BudgetEngine.Calculate(snapshot, BudgetEngine.PlannedMonthCount);
+        Assert.True(months.Count(m => m.IsPlanned) >= 12);
+    }
+
+    [Fact]
+    public async Task An_expected_transaction_becomes_a_real_one_on_the_date_it_happens()
+    {
+        var cheque = AddAccount("Cheque", true);
+        var group = await _store.AddGroupAsync("Everyday", ItemKind.Expense);
+        var food = await _store.AddItemAsync(group.Id, null, "Food", ItemKind.Expense);
+        var expected = await _store.AddExpectedAsync(new ExpectedTransactionEntity
+            { AccountId = cheque.Id, Payee = " Woolworths ", Amount = -250_00, BudgetItemId = food.Id, ExpectedDate = new(2027, 3, 1) });
+        Assert.Single(await _store.GetExpectedAsync(cheque.Id));
+        Assert.Empty(await _store.GetTransactionsAsync(cheque.Id));
+
+        var recorded = await _store.RecordExpectedAsync(expected, new(2027, 3, 4));
+
+        Assert.Empty(await _store.GetExpectedAsync(cheque.Id));
+        var saved = Assert.Single(await _store.GetTransactionsAsync(cheque.Id));
+        Assert.Equal(recorded.Id, saved.Transaction.Id);
+        Assert.Equal(new DateOnly(2027, 3, 4), saved.Transaction.Date);
+        Assert.Equal("Woolworths", saved.Transaction.Payee);
+        Assert.Equal(food.Id, Assert.Single(saved.Lines).BudgetItemId);
+    }
+
+    [Fact]
+    public async Task A_budget_item_and_its_group_can_be_edited_together()
+    {
+        var everyday = await _store.AddGroupAsync("Everyday", ItemKind.Expense);
+        var fun = await _store.AddGroupAsync("Fun", ItemKind.Expense);
+        var food = await _store.AddItemAsync(everyday.Id, null, "Food", ItemKind.Expense);
+
+        var error = await _store.UpdateItemAsync(food.Id, "Groceries", "🛒", fun.Id, "Leisure");
+
+        Assert.Null(error);
+        var item = (await _store.GetItemsAsync()).Single(i => i.Id == food.Id);
+        Assert.Equal("Groceries", item.Name);
+        Assert.Equal("🛒", item.Emoji);
+        Assert.Equal(fun.Id, item.GroupId);
+        Assert.Equal("Leisure", (await _store.GetGroupsAsync()).Single(g => g.Id == fun.Id).Name);
+    }
+
+    [Fact]
+    public async Task A_counterparty_keeps_the_icon_it_is_given()
+    {
+        var payee = await _store.EnsurePayeeAsync("Woolworths");
+        await _store.SetPayeeEmojiAsync(payee, "🛒");
+        Assert.Equal("🛒", (await _store.GetPayeesAsync()).Single().Emoji);
+
+        await _store.SetPayeeEmojiAsync(payee, "");
+        Assert.Null((await _store.GetPayeesAsync()).Single().Emoji);
+    }
 }

@@ -6,6 +6,17 @@ using Windows.UI.Core;
 
 namespace SpeedBudget.App.Views;
 
+/// <summary>One row of the counterparty list: a counterparty (with its icon) or the "add what was typed" row.</summary>
+public sealed class PayeeListRow(string name, string text, bool isCreate)
+{
+    public string Name { get; } = name;
+    public string Text { get; } = text;
+    public bool IsCreate { get; } = isCreate;
+
+    /// <summary>Only a real counterparty has a pencil.</summary>
+    public bool CanEdit => !IsCreate;
+}
+
 /// <summary>
 /// A drop-down for choosing a payee, with a search box at the top of the list. When nothing in the list matches
 /// what was typed, a "Create" row adds it as a new payee without leaving the transaction being entered.
@@ -25,8 +36,21 @@ public sealed partial class PayeePicker : UserControl
         DependencyProperty.Register(nameof(Header), typeof(string), typeof(PayeePicker),
             new PropertyMetadata("", (d, _) => ((PayeePicker)d).ShowHeader()));
 
+    public static readonly DependencyProperty IconsProperty =
+        DependencyProperty.Register(nameof(Icons), typeof(IReadOnlyDictionary<string, string>), typeof(PayeePicker), new PropertyMetadata(null));
+
     /// <summary>Raised when the user adds a payee that is not in the list yet, so the owner can save it.</summary>
     public event EventHandler<string>? CreateRequested;
+
+    /// <summary>Raised with a counterparty's name when its pencil is pressed, so the owner can edit its name and icon.</summary>
+    public event EventHandler<string>? EditRequested;
+
+    /// <summary>The icon of each counterparty that has one, by name. Shown in front of the names in the list.</summary>
+    public IReadOnlyDictionary<string, string>? Icons
+    {
+        get => (IReadOnlyDictionary<string, string>?)GetValue(IconsProperty);
+        set => SetValue(IconsProperty, value);
+    }
 
     public IEnumerable<string>? ItemsSource
     {
@@ -52,16 +76,22 @@ public sealed partial class PayeePicker : UserControl
         ShowSelection();
     }
 
+    /// <summary>Redraws the chosen counterparty, for when its icon was edited.</summary>
+    public void RefreshSelection() => ShowSelection();
+
     /// <summary>Puts the keyboard focus on the picker's button, so Enter or Space opens the list.</summary>
     public void FocusPicker() => PickerButton.Focus(FocusState.Keyboard);
 
     /// <summary>Opens the list, ready to type in, so a payee can be chosen without touching the mouse.</summary>
     public void ShowFlyout() => PickerFlyout.ShowAt(PickerButton);
 
+    private string WithIcon(string name) =>
+        Icons is not null && Icons.TryGetValue(name, out var icon) && icon != "" ? $"{icon} {name}" : name;
+
     private void ShowSelection()
     {
         var empty = string.IsNullOrEmpty(SelectedPayee);
-        ValueText.Text = empty ? "Choose counterparty" : SelectedPayee;
+        ValueText.Text = empty ? "Choose counterparty" : WithIcon(SelectedPayee);
         ValueText.Opacity = empty ? 0.6 : 1;
     }
 
@@ -90,9 +120,9 @@ public sealed partial class PayeePicker : UserControl
     private void Refresh()
     {
         var typed = SearchBox.Text.Trim();
-        var rows = Matches(typed);
+        var rows = Matches(typed).Select(n => new PayeeListRow(n, WithIcon(n), isCreate: false)).ToList();
         var exists = (ItemsSource ?? Enumerable.Empty<string>()).Any(n => string.Equals(n, typed, StringComparison.OrdinalIgnoreCase));
-        if (typed != "" && !exists) rows.Insert(0, $"{CreatePrefix}{typed}”");
+        if (typed != "" && !exists) rows.Insert(0, new PayeeListRow(typed, $"{CreatePrefix}{typed}”", isCreate: true));
         ResultList.ItemsSource = rows;
     }
 
@@ -123,9 +153,16 @@ public sealed partial class PayeePicker : UserControl
 
     private void Result_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not string text) return;
-        if (text.StartsWith(CreatePrefix, StringComparison.Ordinal)) Create(SearchBox.Text.Trim());
-        else Choose(text);
+        if (e.ClickedItem is not PayeeListRow row) return;
+        if (row.IsCreate) Create(SearchBox.Text.Trim());
+        else Choose(row.Name);
+    }
+
+    private void Edit_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not PayeeListRow { IsCreate: false } row) return;
+        PickerFlyout.Hide();
+        EditRequested?.Invoke(this, row.Name);
     }
 
     private void Choose(string payee)

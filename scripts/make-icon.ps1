@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Draws the Speed Budget app icon (a wallet with a banknote on a green tile) and writes
+    Draws the Speed Budget app icon (a pair of gold coins, the front one marked R, on a green tile) and writes
     src/SpeedBudget.App/Assets/AppIcon.ico and AppIcon-256.png.
 .DESCRIPTION
     The icon is drawn in code at every size, so small sizes stay crisp. Run it again after changing the drawing.
@@ -40,24 +40,21 @@ function Draw-Icon([int]$size) {
     $grad = [System.Drawing.Drawing2D.LinearGradientBrush]::new([System.Drawing.PointF]::new(0, 4 * $u), [System.Drawing.PointF]::new(0, 96 * $u), (Color '#22C58B'), (Color '#0B7A5C'))
     $g.FillPath($grad, $tile)
 
-    # Banknote peeking out of the wallet, tilted a little
-    $g.TranslateTransform(50 * $u, 40 * $u)
-    $g.RotateTransform(-9)
-    $note = New-RoundedPath (-27 * $u) (-19 * $u) (54 * $u) (34 * $u) (4 * $u)
-    $g.FillPath((New-Object System.Drawing.SolidBrush (Color '#E8FFF4')), $note)
-    $g.DrawPath(([System.Drawing.Pen]::new((Color '#9FE3C4'), [float][Math]::Max(1, 1.6 * $u))), $note)
-    $g.FillEllipse((New-Object System.Drawing.SolidBrush (Color '#5CCB9B')), (-8 * $u), (-12 * $u), (16 * $u), (16 * $u))
-    $g.ResetTransform()
+    # A second coin behind the first, so it reads as money rather than a single badge
+    $back = New-Object System.Drawing.SolidBrush (Color '#C98A12')
+    $g.FillEllipse($back, (14 * $u), (30 * $u), (50 * $u), (50 * $u))
+    $g.FillEllipse((New-Object System.Drawing.SolidBrush (Color '#F2B72A')), (14 * $u), (27 * $u), (50 * $u), (50 * $u))
 
-    # Wallet body
-    $body = New-RoundedPath (17 * $u) (38 * $u) (66 * $u) (44 * $u) (8 * $u)
-    $bodyBrush = [System.Drawing.Drawing2D.LinearGradientBrush]::new([System.Drawing.PointF]::new(0, 38 * $u), [System.Drawing.PointF]::new(0, 82 * $u), (Color '#FFFFFF'), (Color '#D5F5E7'))
-    $g.FillPath($bodyBrush, $body)
-
-    # Clasp tab on the right with its button
-    $clasp = New-RoundedPath (62 * $u) (53 * $u) (28 * $u) (16 * $u) (8 * $u)
-    $g.FillPath((New-Object System.Drawing.SolidBrush (Color '#0E8E6A')), $clasp)
-    $g.FillEllipse((New-Object System.Drawing.SolidBrush (Color '#FFFFFF')), (68.5 * $u), (57.5 * $u), (7 * $u), (7 * $u))
+    # The main coin: a gold disc with a raised rim and a bold R (the rand sign)
+    $rim = [System.Drawing.Drawing2D.LinearGradientBrush]::new([System.Drawing.PointF]::new(0, 18 * $u), [System.Drawing.PointF]::new(0, 86 * $u), (Color '#FFE27A'), (Color '#E2A417'))
+    $g.FillEllipse((New-Object System.Drawing.SolidBrush (Color '#9A6A0A')), (30 * $u), (23 * $u), (58 * $u), (58 * $u))
+    $g.FillEllipse($rim, (30 * $u), (19 * $u), (58 * $u), (58 * $u))
+    $g.FillEllipse((New-Object System.Drawing.SolidBrush (Color '#F7C640')), (35.5 * $u), (24.5 * $u), (47 * $u), (47 * $u))
+    $font = New-Object System.Drawing.Font 'Segoe UI', ([float](34 * $u)), ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
+    $fmt = New-Object System.Drawing.StringFormat
+    $fmt.Alignment = 'Center'; $fmt.LineAlignment = 'Center'
+    $g.TextRenderingHint = 'AntiAliasGridFit'
+    $g.DrawString('R', $font, (New-Object System.Drawing.SolidBrush (Color '#8A5A00')), [System.Drawing.RectangleF]::new(35.5 * $u, 24.5 * $u, 47 * $u, 49 * $u), $fmt)
 
     $g.Dispose()
     return $bmp
