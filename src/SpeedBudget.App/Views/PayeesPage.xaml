@@ -49,7 +49,6 @@
         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="16" MaxWidth="480" HorizontalAlignment="Left"
                     Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay}">
             <TextBox Header="Name" Text="{x:Bind ViewModel.Selected.Name, Mode=TwoWay, FallbackValue=''}" />
-            <local:IconPicker Header="Icon shown in front of the name" SelectedEmoji="{x:Bind ViewModel.Selected.Emoji, Mode=TwoWay, FallbackValue=''}" />
             <TextBlock Text="{x:Bind ViewModel.Selected.UsageText, Mode=OneWay, FallbackValue=''}" Opacity="0.7" />
             <Button Content="Delete counterparty" Click="Delete_Click" />
         </StackPanel>

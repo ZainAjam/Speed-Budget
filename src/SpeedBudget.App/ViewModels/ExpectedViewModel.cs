@@ -18,8 +18,6 @@ public sealed class ExpectedRow(ExpectedTransactionEntity entity, ExpectedViewMo
     public string InflowText => Entity.Amount > 0 ? Format.Money(Entity.Amount) : "";
     public Brush OutflowBrush => Format.Theme("SystemFillColorCriticalBrush");
     public Brush InflowBrush => Format.Theme("SystemFillColorSuccessBrush");
-    public string DateText => Entity.ExpectedDate is { } d ? d.ToString("d MMM yyyy") : "No date";
-    public double DateOpacity => Entity.ExpectedDate is null ? 0.55 : 0.9;
 }
 
 /// <summary>
@@ -44,7 +42,6 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
     [ObservableProperty] public partial double FormOutflow { get; set; } = double.NaN;
     [ObservableProperty] public partial double FormInflow { get; set; } = double.NaN;
     [ObservableProperty] public partial ItemOption? FormItem { get; set; }
-    [ObservableProperty] public partial DateTimeOffset? FormDate { get; set; }
     [ObservableProperty] public partial string SaveText { get; set; } = "Add";
     [ObservableProperty] public partial string CountText { get; set; } = "Expected transactions";
 
@@ -97,7 +94,6 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
         FormOutflow = double.NaN;
         FormInflow = double.NaN;
         FormItem = Owner.NoItem;
-        FormDate = null;
         SaveText = "Add";
         Raise();
     }
@@ -112,7 +108,6 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
         FormOutflow = e.Amount < 0 ? (double)AppServices.ToRands(-e.Amount) : double.NaN;
         FormInflow = e.Amount > 0 ? (double)AppServices.ToRands(e.Amount) : double.NaN;
         FormItem = e.BudgetItemId is { } id ? Owner.ItemOptions.FirstOrDefault(o => o.Id == id) ?? Owner.NoItem : Owner.NoItem;
-        FormDate = e.ExpectedDate is { } d ? new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue)) : null;
         SaveText = "Save";
         Message = "";
         Raise();
@@ -129,7 +124,6 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
         if (cents == 0) { Message = "Enter the amount, as money out or money in."; return; }
         if (FormPayee.Trim() == "" && FormMemo.Trim() == "") { Message = "Say who it is with, or add a memo, so you can tell what it is."; return; }
 
-        DateOnly? date = FormDate is { } d ? DateOnly.FromDateTime(d.DateTime) : null;
         Guid? itemId = ShowItem ? FormItem?.Id : null;
 
         await Owner.Gate.WaitAsync();
@@ -138,14 +132,14 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
             if (_editing is { } row)
             {
                 var e = row.Entity;
-                e.Payee = FormPayee; e.Memo = FormMemo; e.Amount = cents; e.BudgetItemId = itemId; e.ExpectedDate = date;
+                e.Payee = FormPayee; e.Memo = FormMemo; e.Amount = cents; e.BudgetItemId = itemId;
                 await _store.UpdateExpectedAsync(e);
             }
             else
             {
                 await _store.AddExpectedAsync(new ExpectedTransactionEntity
                 {
-                    AccountId = accountId, Payee = FormPayee, Memo = FormMemo, Amount = cents, BudgetItemId = itemId, ExpectedDate = date,
+                    AccountId = accountId, Payee = FormPayee, Memo = FormMemo, Amount = cents, BudgetItemId = itemId,
                 });
             }
             if (FormPayee.Trim() != "") await _store.EnsurePayeeAsync(FormPayee);

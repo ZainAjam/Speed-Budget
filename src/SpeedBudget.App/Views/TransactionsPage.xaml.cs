@@ -179,6 +179,9 @@ public sealed partial class TransactionsPage : Page
     /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row being edited.</summary>
     private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        // The Expected transactions flyout closes when something outside it (and its bar) is pressed.
+        if (ViewModel.Expected.IsOpen && !IsWithin(e.OriginalSource as DependencyObject, ExpectedHost) && !IsWithin(e.OriginalSource as DependencyObject, ExpectedBar))
+            ViewModel.Expected.IsOpen = false;
         if (ViewModel.SelectedEntry is null) return;
         var source = e.OriginalSource as DependencyObject;
         if (IsWithin(source, TableRegion) || IsWithin(source, DetailHost)) return;

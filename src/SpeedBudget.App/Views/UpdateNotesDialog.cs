@@ -27,7 +27,7 @@ public sealed class UpdateNotesDialog : ContentDialog
     }
 
     /// <summary>Turns the simple markdown of a change log (headings, bullets and plain lines) into text on screen.</summary>
-    private static IEnumerable<UIElement> Render(string markdown)
+    internal static IEnumerable<UIElement> Render(string markdown)
     {
         foreach (var raw in markdown.Replace("\r\n", "\n").Split('\n'))
         {

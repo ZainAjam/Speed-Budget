@@ -4,7 +4,7 @@
     xmlns:app="using:SpeedBudget.App"
     xmlns:vm="using:SpeedBudget.App.ViewModels"
     xmlns:local="using:SpeedBudget.App.Views"
-    KeyboardAcceleratorPlacementMode="Hidden">
+    KeyboardAcceleratorPlacementMode="Hidden" Background="Transparent">
     <Page.KeyboardAccelerators>
         <KeyboardAccelerator Key="M" Modifiers="Control" Invoked="NewMonth_Invoked" />
         <KeyboardAccelerator Key="N" Modifiers="Control" Invoked="NewTransaction_Invoked" />
@@ -152,7 +152,7 @@
                                      MarkerTemplate="{StaticResource MarkerTemplate}" />
     </Page.Resources>
 
-    <Grid Margin="32,24" RowSpacing="16">
+    <Grid Margin="32,24" RowSpacing="16" Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -162,7 +162,7 @@
         </Grid.RowDefinitions>
 
         <!-- The account's name on the left, its balances in the middle and what kind of account it is on the right -->
-        <Grid ColumnSpacing="16">
+        <Grid ColumnSpacing="16" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -197,7 +197,7 @@
 
         <!-- 3. The recorded transactions -->
         <!-- The recorded transactions: what can be done in the middle (new rows go into the table; a new month starts a line in it) -->
-        <Grid Grid.Row="2" ColumnSpacing="16">
+        <Grid Grid.Row="2" ColumnSpacing="16" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -316,7 +316,7 @@
                     <StackPanel Spacing="2">
                         <TextBlock Text="{x:Bind ViewModel.Expected.CountText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
-                                   Text="Things you expect that have not happened yet. They do not change any balance or budget. When one happens, press Happened and give the date." />
+                                   Text="Things you expect that have not happened yet. They do not change any balance or budget. When one happens, press the move icon and give the date." />
                     </StackPanel>
                     <Button Grid.Column="1" Click="ExpectedToggle_Click" Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
                             AutomationProperties.Name="Close expected transactions" ToolTipService.ToolTip="Close">
@@ -333,7 +333,6 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
                     <TextBlock Text="Counterparty" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
@@ -342,7 +341,6 @@
                                Visibility="{x:Bind ViewModel.Expected.ShowItem, Mode=OneWay}" />
                     <TextBlock Grid.Column="3" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Grid.Column="4" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="5" Text="Expected on (optional)" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                 </Grid>
                 <Grid Grid.Row="3" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
@@ -351,7 +349,6 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
                     <local:PayeePicker ItemsSource="{x:Bind ViewModel.Payees}" Icons="{x:Bind ViewModel.PayeeIcons}" SelectedPayee="{x:Bind ViewModel.Expected.FormPayee, Mode=TwoWay}"
@@ -364,9 +361,7 @@
                                PlaceholderText="0.00" AutomationProperties.Name="Outflow" />
                     <NumberBox Grid.Column="4" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormInflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
                                PlaceholderText="0.00" AutomationProperties.Name="Inflow" />
-                    <CalendarDatePicker Grid.Column="5" Date="{x:Bind ViewModel.Expected.FormDate, Mode=TwoWay}" PlaceholderText="Pick a date" MinWidth="0"
-                                        DateFormat="{}{day.integer} {month.abbreviated} {year.full}" HorizontalAlignment="Stretch" AutomationProperties.Name="Expected date" />
-                    <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="8">
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="8">
                         <Button Content="{x:Bind ViewModel.Expected.SaveText, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" Click="ExpectedSave_Click" />
                         <Button Content="Cancel" Click="ExpectedCancel_Click" Visibility="{x:Bind ViewModel.Expected.CanCancelEdit, Mode=OneWay}" />
                     </StackPanel>
@@ -388,7 +383,6 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
                                 <TextBlock Text="{x:Bind PayeeText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -397,10 +391,11 @@
                                            Visibility="{x:Bind ShowItem}" />
                                 <TextBlock Grid.Column="3" Text="{x:Bind OutflowText}" Foreground="{x:Bind OutflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="4" Text="{x:Bind InflowText}" Foreground="{x:Bind InflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="5" Text="{x:Bind DateText}" Opacity="{x:Bind DateOpacity}" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="2">
-                                    <Button Content="Happened" Padding="10,4" Click="ExpectedHappened_Click" Tag="{x:Bind}"
-                                            ToolTipService.ToolTip="It happened: add it to the transactions" />
+                                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="2">
+                                    <Button Click="ExpectedHappened_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
+                                            AutomationProperties.Name="It happened: move it to the recorded transactions" ToolTipService.ToolTip="It happened: move it to the recorded transactions">
+                                        <FontIcon Glyph="&#xE8DE;" FontSize="14" Foreground="#2FB36D" />
+                                    </Button>
                                     <Button Click="ExpectedEdit_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
                                             AutomationProperties.Name="Edit this expected transaction" ToolTipService.ToolTip="Edit">
                                         <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="#E9B72C" />

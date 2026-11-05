@@ -125,6 +125,30 @@ public sealed partial class SettingsPage : Page
     }
 
     /// <summary>Read what is in the new version first; "Update and restart" in the dialog installs it.</summary>
+    /// <summary>Shows every version's notes in a pop-up, read from the change log that ships with the app.</summary>
+    private async void ChangeLog_Click(object sender, RoutedEventArgs e)
+    {
+        string text;
+        try
+        {
+            text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "CHANGELOG.md"));
+            var first = text.IndexOf("\n## ", StringComparison.Ordinal);
+            if (first >= 0) text = text[(first + 1)..];   // skip the note to writers at the top
+        }
+        catch { text = ""; }
+
+        var panel = new StackPanel { Spacing = 8, MinWidth = 520 };
+        if (text == "") panel.Children.Add(new TextBlock { Text = "The change log could not be found.", Opacity = 0.8 });
+        else foreach (var element in UpdateNotesDialog.Render(text)) panel.Children.Add(element);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "Change log", CloseButtonText = "Close", DefaultButton = ContentDialogButton.Close,
+            Content = new ScrollViewer { Content = panel, MaxHeight = 460, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+        };
+        dialog.Resources["ContentDialogMaxWidth"] = 720.0;
+        await dialog.ShowAsync();
+    }
+
     private async void WhatsChanged_Click(object sender, RoutedEventArgs e)
     {
         if (_update is not { State: UpdateState.Available } update) return;

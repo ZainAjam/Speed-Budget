@@ -8,10 +8,12 @@ namespace SpeedBudget.App.Views;
 public sealed class PayeeEditDialog : ContentDialog
 {
     private readonly TextBox _name = new() { Header = "Name" };
-    private readonly IconPicker _icon = new() { Header = "Icon shown in front of the name" };
+    private readonly string _emoji;
 
     public string PayeeName => _name.Text.Trim();
-    public string Emoji => _icon.SelectedEmoji;
+
+    /// <summary>The counterparty's icon, unchanged: icons are edited on budget items, not here.</summary>
+    public string Emoji => _emoji;
 
     public PayeeEditDialog(string name, string emoji)
     {
@@ -20,8 +22,8 @@ public sealed class PayeeEditDialog : ContentDialog
         CloseButtonText = "Cancel";
         DefaultButton = ContentDialogButton.Primary;
 
+        _emoji = emoji;
         _name.Text = name;
-        _icon.SelectedEmoji = emoji;
         _name.TextChanged += (_, _) => IsPrimaryButtonEnabled = PayeeName != "";
 
         Content = new StackPanel
@@ -31,7 +33,6 @@ public sealed class PayeeEditDialog : ContentDialog
             {
                 new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Text = "Renaming a counterparty renames it on all of its transactions." },
                 _name,
-                _icon,
             },
         };
         Opened += (_, _) => { _name.Focus(FocusState.Programmatic); _name.SelectAll(); };
