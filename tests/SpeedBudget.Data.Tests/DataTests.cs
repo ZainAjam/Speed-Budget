@@ -1285,4 +1285,58 @@ public sealed class DataTests : IDisposable
         await _store.SetPayeeEmojiAsync(payee, "");
         Assert.Null((await _store.GetPayeesAsync()).Single().Emoji);
     }
+
+    [Fact]
+    public async Task Undo_puts_back_a_budgeted_amount_and_redo_reapplies_it()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 500_00);
+        _store.StartRecordingUndo();
+        await Task.Delay(800);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 700_00);
+        Assert.Equal(700_00, _db.Allocations.Single().Amount);
+
+        var undone = await _store.UndoAsync();
+        Assert.NotNull(undone);
+        Assert.Equal(500_00, _db.Allocations.Single().Amount);
+
+        await _store.UndoAsync(redo: true);
+        Assert.Equal(700_00, _db.Allocations.Single().Amount);
+        Assert.Null(await _store.UndoAsync(redo: true));
+    }
+
+    [Fact]
+    public async Task Undo_brings_back_a_deleted_transaction_with_its_lines_and_removes_an_added_one()
+    {
+        var account = AddAccount("Cheque", true);
+        var food = AddItem("Food", ItemKind.Expense);
+        _store.StartRecordingUndo();
+
+        await _store.AddTransactionAsync(
+            new TransactionEntity { AccountId = account.Id, Date = new DateOnly(2026, 11, 3), Payee = "Shop", Amount = -50_00 },
+            new[] { new SplitLineEntity { BudgetItemId = food.Id, Amount = -50_00 } });
+        Assert.Single(await _store.GetTransactionsAsync());
+        await _store.UndoAsync();
+        Assert.Empty(await _store.GetTransactionsAsync());   // the added transaction is gone again
+
+        await _store.UndoAsync(redo: true);
+        Assert.Single(await _store.GetTransactionsAsync());
+
+        await Task.Delay(800);
+        await _store.DeleteTransactionAsync((await _store.GetTransactionsAsync()).Single().Transaction);
+        Assert.Empty(await _store.GetTransactionsAsync());
+        await _store.UndoAsync();
+        var back = Assert.Single(await _store.GetTransactionsAsync());
+        Assert.Equal(-50_00, back.Transaction.Amount);
+        Assert.Single(back.Lines);
+    }
+
+    [Fact]
+    public async Task Actions_before_recording_starts_cannot_be_undone()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 500_00);
+        Assert.False(_store.CanUndo);
+        Assert.Null(await _store.UndoAsync());
+    }
 }

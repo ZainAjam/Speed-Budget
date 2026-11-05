@@ -4,9 +4,11 @@ using SpeedBudget.App.ViewModels;
 
 namespace SpeedBudget.App.Views;
 
-public sealed partial class PayeesPage : Page
+public sealed partial class PayeesPage : Page, IReloadable
 {
     public PayeesViewModel ViewModel { get; } = new();
+
+    public Task ReloadAsync() => ViewModel.LoadAsync();
 
     public PayeesPage()
     {

@@ -8,7 +8,7 @@ using SpeedBudget.App.ViewModels;
 
 namespace SpeedBudget.App.Views;
 
-public sealed partial class BudgetPage : Page
+public sealed partial class BudgetPage : Page, IReloadable
 {
     // Widths in the XAML: the least the name column is given, and each month's column.
     private const double NameColumnWidth = 240;
@@ -32,6 +32,12 @@ public sealed partial class BudgetPage : Page
         // Pressing anywhere that is not another control ends the edit in the budget cell being typed in. Handled
         // events are included, since the scroll viewer and the text would otherwise swallow the press.
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), handledEventsToo: true);
+    }
+
+    public Task ReloadAsync()
+    {
+        _revealItem = null;
+        return RefreshAsync();
     }
 
     private async Task RefreshAsync()

@@ -63,6 +63,21 @@ public sealed partial class MainWindow : Window
             Nav.KeyboardAccelerators.Add(accelerator);
         }
 
+        // Ctrl+Z undoes the last change to anything you can edit, on any screen; Ctrl+Y (or Ctrl+Shift+Z) puts it back.
+        foreach (var (key, mods, redo) in new[] { (VirtualKey.Z, VirtualKeyModifiers.Control, false), (VirtualKey.Y, VirtualKeyModifiers.Control, true),
+                     (VirtualKey.Z, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, true) })
+        {
+            var accelerator = new KeyboardAccelerator { Key = key, Modifiers = mods };
+            accelerator.Invoked += async (_, args) =>
+            {
+                // While typing in a box, Ctrl+Z undoes the typing, as it does everywhere else.
+                if (FocusManager.GetFocusedElement(Nav.XamlRoot) is TextBox { IsReadOnly: false } box && (redo ? box.CanRedo : box.CanUndo)) return;
+                args.Handled = true;
+                await UndoAsync(redo);
+            };
+            Nav.KeyboardAccelerators.Add(accelerator);
+        }
+
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
@@ -85,6 +100,49 @@ public sealed partial class MainWindow : Window
         timer.Interval = TimeSpan.FromHours(6);
         timer.Tick += (_, _) => _ = CheckForUpdateAsync();
         timer.Start();
+    }
+
+    private readonly SemaphoreSlim _undoGate = new(1, 1);
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _toastTimer;
+
+    private void ShowToast(string text)
+    {
+        UndoToastText.Text = text;
+        UndoToast.Visibility = Visibility.Visible;
+        _toastTimer ??= DispatcherQueue.CreateTimer();
+        _toastTimer.Stop();
+        _toastTimer.Interval = TimeSpan.FromSeconds(3);
+        _toastTimer.IsRepeating = false;
+        _toastTimer.Tick -= HideToast;
+        _toastTimer.Tick += HideToast;
+        _toastTimer.Start();
+    }
+
+    private void HideToast(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        UndoToast.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Undoes (or redoes) the last change to the data, then has the page on show read it again.</summary>
+    private async Task UndoAsync(bool redo)
+    {
+        if (!await _undoGate.WaitAsync(0)) return;
+        try
+        {
+            var store = AppServices.Store;
+            if (store.HasUnsavedEdits) { ShowToast("Finish or cancel the edit you are making first."); return; }
+            if (redo ? !store.CanRedo : !store.CanUndo) { ShowToast(redo ? "Nothing to redo." : "Nothing to undo."); return; }
+
+            var result = await store.UndoAsync(redo);
+            if (result is null) return;
+            if (result.TouchedAccounts) AppServices.RaiseAccountsChanged();
+            if (ContentFrame.Content is IReloadable page) await page.ReloadAsync();
+            AppServices.Watcher.Refresh();
+            ShowToast($"{(redo ? "Redid" : "Undid")} {result.Description}.");
+        }
+        catch (Exception ex) { ShowToast($"Could not {(redo ? "redo" : "undo")}: {ex.Message}"); }
+        finally { _undoGate.Release(); }
     }
 
     private UpdateCheck? _pendingUpdate;

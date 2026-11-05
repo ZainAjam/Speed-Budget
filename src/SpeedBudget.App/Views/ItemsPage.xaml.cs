@@ -5,11 +5,13 @@ using SpeedBudget.Core;
 
 namespace SpeedBudget.App.Views;
 
-public sealed partial class ItemsPage : Page
+public sealed partial class ItemsPage : Page, IReloadable
 {
     public ItemsViewModel ViewModel { get; } = new();
 
     private Guid? _openItem;
+
+    public Task ReloadAsync() => ViewModel.LoadAsync();
 
     public ItemsPage()
     {

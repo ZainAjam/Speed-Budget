@@ -48,6 +48,7 @@ public static class AppServices
         try { SpeedBudget.App.ViewModels.SummaryView.Expanded = Store.GetLocalSettingAsync("budgetSummary").GetAwaiter().GetResult() == "1"; }
         catch { /* the figures just start hidden */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
+        Store.StartRecordingUndo();   // from here on, what the user does can be undone with Ctrl+Z
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.
         Emojis.UiQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();

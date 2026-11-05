@@ -61,6 +61,12 @@
                 </ScrollViewer>
             </Border>
             <Frame Grid.Row="2" x:Name="ContentFrame" />
+            <!-- A short note at the bottom saying what Ctrl+Z (or Ctrl+Y) just did -->
+            <Border x:Name="UndoToast" Grid.RowSpan="3" Visibility="Collapsed" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                    Margin="0,0,0,40" Padding="18,10" CornerRadius="8" BorderThickness="1"
+                    Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                <TextBlock x:Name="UndoToastText" />
+            </Border>
         </Grid>
     </NavigationView>
 </Window>

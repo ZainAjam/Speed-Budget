@@ -45,20 +45,27 @@ public class SpeedBudgetDb : DbContext
         b.Entity<SyncStateEntity>().HasKey(e => e.Key);
     }
 
+    /// <summary>The history behind Ctrl+Z: what each save changed, so it can be reversed.</summary>
+    public UndoLog Undo { get; } = new();
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
-        StampChanges();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        var rows = StampChanges();
+        var saved = base.SaveChanges(acceptAllChangesOnSuccess);
+        Undo.Record(rows);
+        return saved;
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        StampChanges();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var rows = StampChanges();
+        var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        Undo.Record(rows);
+        return saved;
     }
 
     /// <summary>Turns deletes into tombstones and stamps every added or modified row with a new clock value.</summary>
-    private void StampChanges()
+    private List<UndoRow> StampChanges()
     {
         foreach (var entry in ChangeTracker.Entries<SyncEntity>().Where(e => e.State == EntityState.Deleted).ToList())
         {
@@ -73,12 +80,23 @@ public class SpeedBudgetDb : DbContext
             }
         }
 
+        ChangeTracker.DetectChanges();
+        var rows = new List<UndoRow>();
         foreach (var entry in ChangeTracker.Entries<SyncEntity>()
                      .Where(e => e.State is EntityState.Added or EntityState.Modified).ToList())
         {
+            // Settings are not user data to undo (they include what the app remembers about itself).
+            if (Undo.Recording && entry.Entity is not SettingEntity)
+            {
+                var added = entry.State == EntityState.Added;
+                rows.Add(new UndoRow(entry.Entity.GetType(), entry.Entity.Id, added, entry.Entity.IsDeleted,
+                    added ? new Dictionary<string, object?>() : entry.Properties.ToDictionary(p => p.Metadata.Name, p => p.OriginalValue)));
+            }
+
             entry.Entity.UpdatedAt = _clock.Next().ToString();
             entry.Entity.UpdatedBy = _clock.Node;
         }
+        return rows;
     }
 }
 

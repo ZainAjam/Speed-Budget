@@ -15,6 +15,8 @@ public sealed partial class KeyboardShortcutsPage : Page
             ("Ctrl + 3", "Open Accounts"),
             ("Ctrl + 4", "Open Counterparties"),
             ("Ctrl + 5", "Open Budget Items"),
+            ("Ctrl + Z", "Undo the last change to anything you can edit, on any screen"),
+            ("Ctrl + Y or Ctrl + Shift + Z", "Redo what was just undone"),
         ]),
         ("Transactions", [
             ("Ctrl + N", "Add a new transaction row"),

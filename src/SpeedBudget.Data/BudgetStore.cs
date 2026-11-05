@@ -5,6 +5,9 @@ namespace SpeedBudget.Data;
 
 public sealed record TransactionDetail(TransactionEntity Transaction, IReadOnlyList<SplitLineEntity> Lines);
 
+/// <summary>What an undo or redo reversed, in words, and whether it touched accounts (so the account list should be rebuilt).</summary>
+public sealed record UndoResult(string Description, bool TouchedAccounts);
+
 public sealed record PayeeHint(string Payee, Guid? BudgetItemId, Guid AccountId);
 
 /// <summary>Opens the local database and gives this installation a stable device id.</summary>
@@ -633,6 +636,58 @@ public sealed class BudgetStore(SpeedBudgetDb db)
 
     public Task SaveAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 
+    // ---- Undo and redo ----
+
+    /// <summary>True while something is being edited in memory and not yet saved; undoing then would save it too.</summary>
+    public bool HasUnsavedEdits => db.ChangeTracker.HasChanges();
+
+    public bool CanUndo => db.Undo.CanUndo;
+    public bool CanRedo => db.Undo.CanRedo;
+
+    /// <summary>Starts keeping the history for Ctrl+Z. Called once the app has finished starting up.</summary>
+    public void StartRecordingUndo() => db.Undo.Recording = true;
+
+    public void ClearUndo() => db.Undo.Clear();
+
+    /// <summary>
+    /// Reverses the latest action (or, with redo, puts back the one just undone): every row it changed goes back to how it was,
+    /// and every row it added is removed. Returns what was reversed, or null when there is nothing to do.
+    /// </summary>
+    public async Task<UndoResult?> UndoAsync(bool redo = false, CancellationToken ct = default)
+    {
+        var log = db.Undo;
+        var unit = log.Pop(redo);
+        if (unit is null) return null;
+
+        log.Reversing = redo;
+        try
+        {
+            for (var i = unit.Rows.Count - 1; i >= 0; i--)
+            {
+                var row = unit.Rows[i];
+                if (await db.FindAsync(row.EntityType, [row.Id], ct) is not SyncEntity entity) continue;
+                if (row.WasAdded) { entity.IsDeleted = true; continue; }
+
+                var entry = db.Entry(entity);
+                foreach (var (name, value) in row.Old)
+                {
+                    if (name is nameof(SyncEntity.Id) or nameof(SyncEntity.UpdatedAt) or nameof(SyncEntity.UpdatedBy)) continue;
+                    entry.Property(name).CurrentValue = value;
+                }
+            }
+            await db.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            db.ChangeTracker.Clear();
+            log.Put(redo, unit);
+            throw;
+        }
+        finally { log.Reversing = null; }
+
+        return new UndoResult(unit.Describe(), unit.Rows.Any(r => r.EntityType == typeof(AccountEntity)));
+    }
+
     /// <summary>True once any transaction exists in an account that is part of the budget.</summary>
     public async Task<bool> HasBudgetTransactionsAsync(CancellationToken ct = default)
     {
@@ -810,6 +865,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// </summary>
     public async Task ResetAllAsync(CancellationToken ct = default)
     {
+        db.Undo.Clear();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.SplitLines.ExecuteDeleteAsync(ct);
         await db.Transactions.ExecuteDeleteAsync(ct);
@@ -825,6 +881,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SyncState.ExecuteDeleteAsync(ct);
         await transaction.CommitAsync(ct);
         db.ChangeTracker.Clear();
+        db.Undo.Clear();
     }
 
     /// <summary>

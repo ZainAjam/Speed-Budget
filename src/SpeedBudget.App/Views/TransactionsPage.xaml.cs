@@ -8,9 +8,11 @@ using Windows.UI.Core;
 
 namespace SpeedBudget.App.Views;
 
-public sealed partial class TransactionsPage : Page
+public sealed partial class TransactionsPage : Page, IReloadable
 {
     public TransactionsViewModel ViewModel { get; } = new();
+
+    public Task ReloadAsync() => ViewModel.LoadAsync();
 
     public TransactionsPage()
     {
