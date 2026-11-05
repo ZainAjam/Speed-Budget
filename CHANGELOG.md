@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.13
+
+- When a transaction table is sorted oldest first, it now opens scrolled to the bottom, so the last transaction you added is in view and you can add the next one straight away.
+
 ## 0.9.12
 
 - Transfers between two accounts that are both in your budget (or both outside it) now show "Not Applicable" under Budget item, since they don't use a budget item.

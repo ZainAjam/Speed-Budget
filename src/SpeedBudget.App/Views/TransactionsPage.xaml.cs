@@ -31,6 +31,18 @@ public sealed partial class TransactionsPage : Page, IReloadable
             UpdateTableWidth();
             UpdateDetailPanel();
             await ViewModel.LoadAsync();
+
+            // Oldest first puts what was added last at the bottom: open there, so it is in view without scrolling down to it.
+            if (ViewModel.SortIndex == 1 && ViewModel.Rows.Count > 0)
+            {
+                await Task.Delay(150);   // the list has laid its rows out by now
+                // Rows not yet measured make one jump fall short, so go again once the first has laid them out.
+                for (var pass = 0; pass < 3 && ViewModel.Rows.Count > 0; pass++)
+                {
+                    EntryList.ScrollIntoView(ViewModel.Rows[^1]);
+                    await Task.Delay(120);
+                }
+            }
         };
         Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
         ViewModel.Expected.PropertyChanged += (_, e) =>
