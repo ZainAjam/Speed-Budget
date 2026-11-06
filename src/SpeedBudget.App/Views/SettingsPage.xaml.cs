@@ -188,12 +188,65 @@ public sealed partial class SettingsPage : Page
     {
         try
         {
-            var path = BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
-            BackupService.Prune(AppServices.DataDirectory, 14);
+            var path = BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory, method: BackupMethod.Manual);
             ShowBackupInfo();
             Report($"Backed up to {path}", InfoBarSeverity.Success);
         }
         catch (Exception ex) { Report($"The backup failed: {ex.Message}", InfoBarSeverity.Error); }
+    }
+
+    private async void Restore_Click(object sender, RoutedEventArgs e)
+    {
+        var backups = BackupService.List(AppServices.DataDirectory);
+        if (backups.Count == 0) { Report("There are no backups to restore yet.", InfoBarSeverity.Informational); return; }
+
+        var list = new ListView { SelectionMode = ListViewSelectionMode.Single, MaxHeight = 360 };
+        foreach (var b in backups)
+        {
+            var row = new Grid { ColumnSpacing = 16, Padding = new Thickness(4, 6, 4, 6) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.Children.Add(new TextBlock { Text = b.Time.ToString("ddd d MMM yyyy, HH:mm") });
+            var method = new TextBlock { Text = b.Method == BackupMethod.Automatic ? "Automatic" : "Manual", Opacity = 0.7 };
+            Grid.SetColumn(method, 1);
+            row.Children.Add(method);
+            list.Items.Add(new ListViewItem { Content = row, Tag = b });
+        }
+
+        var panel = new StackPanel { Spacing = 8, MinWidth = 440 };
+        panel.Children.Add(new TextBlock { Text = "Choose the backup to go back to. Your current data is kept as a manual backup first, so this can be undone by restoring that one.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
+        panel.Children.Add(list);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "Restore a backup", Content = panel,
+            PrimaryButtonText = "Restore…", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close, IsPrimaryButtonEnabled = false,
+        };
+        list.SelectionChanged += (_, _) => dialog.IsPrimaryButtonEnabled = list.SelectedItem is not null;
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || (list.SelectedItem as ListViewItem)?.Tag is not BackupInfo chosen) return;
+
+        var confirm = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "Restore this backup?",
+            Content = $"Your budget goes back to how it was on {chosen.Time:d MMM yyyy} at {chosen.Time:HH:mm} ({(chosen.Method == BackupMethod.Automatic ? "automatic" : "manual")} backup). " +
+                      "Anything done since then is lost, apart from the manual backup of your current data that is saved first. Speed Budget restarts to do this.",
+            PrimaryButtonText = "Restore and restart", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+        try
+        {
+            BackupService.StageRestore(AppServices.DataDirectory, chosen.Path);
+            var exe = Environment.ProcessPath;
+            if (exe is null) throw new InvalidOperationException("The program could not be found to restart it.");
+            Diagnostics.Note($"restore {Path.GetFileName(chosen.Path)}");
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
+        {
+            try { File.Delete(BackupService.PendingRestorePath(AppServices.DataDirectory)); } catch { }
+            Report($"The restore failed: {ex.Message}", InfoBarSeverity.Error);
+        }
     }
 
     private void OpenBackups_Click(object sender, RoutedEventArgs e)

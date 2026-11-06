@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.15
 
+- **Counterparties are now edited and deleted right in the Counterparty drop-down** of the transaction table: each one has a pencil (rename, change its icon) and a bin. A counterparty that transactions still use can't be deleted, and you are told how many use it. The Counterparties page under Configurations is gone, along with its Ctrl+3 shortcut.
+- **Backups are tidier, and you can restore one.** The automatic backup runs once a day and only the newest 31 are kept, so there are never more than 31 automatic backup files. Backups you make yourself with Back up now are never deleted. File names now say how they were made (`budget-auto-…` or `budget-manual-…`). **Restore a backup…** in App Settings lists every backup with its date, time and method; pick one and the app restarts on it. Your current data is saved as a manual backup first, so a restore can itself be undone.
 - **Fix for the app closing while you moved over the left panel.** The crash log showed the panel refusing to open from inside a pointer movement ("Unspecified error"), which closed the whole app. The panel is now opened and closed a moment after the movement, and a refusal is ignored instead of closing the app.
 - The app now keeps track of what went wrong: `activity.log` in the data folder holds the last things done, and `crash.log` records each failure with those last things. If the app stops without writing anything, the next start asks Windows what happened and records it.
 - The + buttons on the budget screen are gone. Right-click **Cash Outflow** (or **Cash Inflow**) to add a budget group, and right-click a budget group to add a budget item to it. Income groups are shown in the Cash Inflow table with a heading, just like the expense groups: you can fold them, right-click them (add an item, rename, delete) and drag them into a new order.
@@ -13,7 +15,6 @@ into the release.
   - On the budget screen, right-click a budget item or a budget group to delete it (an item that already has budget or transactions is archived instead, with its history kept; deleting a group deletes its items too). Budget groups can now be dragged into a new order, as items already could.
   - In the left panel, **Add bank account** (at the bottom of the Transactions list) asks for a new account's name, type, whether it counts toward the budget, and its opening balance.
   - Right-click an account in the left panel for **Edit account** (every detail) and then **Delete account** (an account with no transactions, with a confirmation), **Close account** (an account that has transactions: it stays in the list, dimmed, with its history) or **Reopen account** (a closed one). The left panel now stays open while this menu is showing.
-  - Ctrl+3 now opens Counterparties; the old Ctrl+4 and Ctrl+5 shortcuts are gone.
 - Switching a transaction table between Newest first and Oldest first now shows the end that is latest straight away: the top of the table for newest first, the bottom for oldest first, with no visible scrolling.
 - The two buttons at the top right of Plan your spending (one month or several months) are now the same size.
 

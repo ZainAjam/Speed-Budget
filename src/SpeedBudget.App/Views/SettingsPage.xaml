@@ -41,9 +41,10 @@
                 <TextBlock x:Name="BackupInfo" TextWrapping="Wrap" Opacity="0.8" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button Content="Back up now" Click="BackUp_Click" />
+                    <Button Content="Restore a backup…" Click="Restore_Click" />
                     <Button Content="Open backups folder" Click="OpenBackups_Click" />
                 </StackPanel>
-                <TextBlock Text="A backup is made automatically when the app opens, at most once a day. The newest 14 are kept. To restore one, close the app and copy it over budget.db in the data folder."
+                <TextBlock Text="A backup is made automatically once a day, when the app opens, and only the newest 31 automatic backups are kept. Backups you make yourself with Back up now are never deleted. Backup files are named budget-auto-… or budget-manual-… so you can tell them apart."
                            Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 

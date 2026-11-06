@@ -70,7 +70,7 @@
                         <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind OtherAccountChoice, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind ShowTransferEditor, Mode=OneWay}" PlaceholderText="Other account"
                                   AutomationProperties.Name="The other account in this transfer" ToolTipService.ToolTip="The other account in this transfer" />
-                        <local:PayeePicker ItemsSource="{x:Bind Payees}" Icons="{x:Bind PayeeIcons}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested"
+                        <local:PayeePicker ItemsSource="{x:Bind Payees}" Icons="{x:Bind PayeeIcons}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" DeleteRequested="Payee_DeleteRequested"
                                            Visibility="{x:Bind ShowPayeeEditor, Mode=OneWay}"
                                            ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." />
                     </Grid>
@@ -360,7 +360,7 @@
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
                     <local:PayeePicker ItemsSource="{x:Bind ViewModel.Payees}" Icons="{x:Bind ViewModel.PayeeIcons}" SelectedPayee="{x:Bind ViewModel.Expected.FormPayee, Mode=TwoWay}"
-                                       CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" />
+                                       CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" DeleteRequested="Payee_DeleteRequested" />
                     <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Expected.FormMemo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" AutomationProperties.Name="Memo" />
                     <local:ItemPicker Grid.Column="2" Width="200" ItemsSource="{x:Bind ViewModel.ItemOptions}" SelectedItem="{x:Bind ViewModel.Expected.FormItem, Mode=TwoWay}"
                                       CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"

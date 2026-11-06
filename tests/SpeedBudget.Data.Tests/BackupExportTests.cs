@@ -39,16 +39,39 @@ public sealed class BackupExportTests : IDisposable
     }
 
     [Fact]
-    public void Backup_is_only_made_when_the_last_one_is_old_enough_and_old_ones_are_pruned()
+    public void Automatic_backups_run_once_a_day_keep_31_and_never_remove_manual_ones()
     {
         var day1 = new DateTime(2027, 1, 1, 9, 0, 0);
+        BackupService.CreateBackup(_db, _dir, day1.AddHours(-1), BackupMethod.Manual);
 
-        Assert.NotNull(BackupService.BackupIfDue(_db, _dir, TimeSpan.FromHours(24), keep: 2, now: day1));
-        Assert.NotNull(BackupService.BackupIfDue(_db, _dir, TimeSpan.FromHours(24), keep: 2, now: day1.AddDays(1)));
-        Assert.NotNull(BackupService.BackupIfDue(_db, _dir, TimeSpan.FromHours(24), keep: 2, now: day1.AddDays(2)));
+        Assert.NotNull(BackupService.BackupIfDue(_db, _dir, day1));
+        Assert.Null(BackupService.BackupIfDue(_db, _dir, day1.AddHours(5)));   // already one today
+        for (var d = 1; d <= 40; d++) Assert.NotNull(BackupService.BackupIfDue(_db, _dir, day1.AddDays(d)));
 
-        var files = Directory.GetFiles(BackupService.BackupsDirectory(_dir)).Select(Path.GetFileName).OrderBy(n => n).ToArray();
-        Assert.Equal(new[] { "budget-20270102-090000.db", "budget-20270103-090000.db" }, files);
+        var all = BackupService.List(_dir);
+        Assert.Equal(31, all.Count(b => b.Method == BackupMethod.Automatic));
+        Assert.Single(all, b => b.Method == BackupMethod.Manual);
+        Assert.Equal("budget-auto-20270210-090000.db", Path.GetFileName(all[0].Path));
+        Assert.Equal("budget-auto-20270111-090000.db", Path.GetFileName(all.Last(b => b.Method == BackupMethod.Automatic).Path));
+        Assert.Contains(all, b => Path.GetFileName(b.Path) == "budget-manual-20270101-080000.db");
+    }
+
+    [Fact]
+    public void A_staged_restore_replaces_the_database_and_keeps_the_old_one_as_a_manual_backup()
+    {
+        var dir = Path.Combine(_dir, "restore");
+        Directory.CreateDirectory(dir);
+        var dbPath = Path.Combine(dir, "budget.db");
+        var backup = Path.Combine(dir, "pick.db");
+        File.WriteAllText(dbPath, "current");
+        File.WriteAllText(backup, "older");
+
+        BackupService.StageRestore(dir, backup);
+        Assert.True(BackupService.ApplyPendingRestore(dir, dbPath, new DateTime(2027, 3, 1, 10, 0, 0)));
+
+        Assert.Equal("older", File.ReadAllText(dbPath));
+        Assert.Equal("current", File.ReadAllText(Path.Combine(BackupService.BackupsDirectory(dir), "budget-manual-20270301-100000.db")));
+        Assert.False(BackupService.ApplyPendingRestore(dir, dbPath));   // nothing staged any more
     }
 
     [Fact]

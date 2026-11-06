@@ -12,7 +12,6 @@ public sealed partial class KeyboardShortcutsPage : Page
         ("Anywhere", [
             ("Ctrl + 1", "Open Plan your spending"),
             ("Ctrl + 2", "Open the first account under Transactions"),
-            ("Ctrl + 3", "Open Counterparties"),
             ("Ctrl + Z", "Undo the last change to anything you can edit, on any screen"),
             ("Ctrl + Y or Ctrl + Shift + Z", "Redo what was just undone"),
         ]),

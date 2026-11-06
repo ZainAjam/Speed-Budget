@@ -27,10 +27,16 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind Text}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        <Button Grid.Column="1" Click="Edit_Click" Visibility="{x:Bind CanEdit}" Padding="6" Background="Transparent" BorderThickness="0"
-                                                AutomationProperties.Name="Edit" ToolTipService.ToolTip="Edit">
-                                            <FontIcon Glyph="&#xE70F;" FontSize="12" Foreground="#E9B72C" />
-                                        </Button>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{x:Bind CanEdit}">
+                                            <Button Click="Edit_Click" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    AutomationProperties.Name="Edit" ToolTipService.ToolTip="Edit">
+                                                <FontIcon Glyph="&#xE70F;" FontSize="12" Foreground="#E9B72C" />
+                                            </Button>
+                                            <Button Click="Delete_Click" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    AutomationProperties.Name="Delete" ToolTipService.ToolTip="Delete">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#E06C75" />
+                                            </Button>
+                                        </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

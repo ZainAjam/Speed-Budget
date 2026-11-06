@@ -28,7 +28,6 @@ public sealed partial class MainWindow : Window
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
 
         var budget = new NavigationViewItem { Content = "Plan your spending", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
-        var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
 
         _transactions.Content = HeadingLabel("Transactions");
         Nav.MenuItems.Add(Heading("Budget"));
@@ -37,9 +36,7 @@ public sealed partial class MainWindow : Window
         Nav.MenuItems.Add(_addAccountItem);
         Nav.ItemInvoked += (sender, args) => { if (args.InvokedItemContainer?.Tag as string == "add-account") _ = AddAccountAsync(); };
 
-        // Configurations sit at the bottom of the panel, above App Settings and a line that sets them apart.
-        Nav.FooterMenuItems.Add(Heading("Configurations"));
-        Nav.FooterMenuItems.Add(payees);
+        // At the bottom of the panel, below a line that sets them apart.
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
@@ -51,8 +48,8 @@ public sealed partial class MainWindow : Window
         _balanceTimer.Tick += (_, _) => _ = RefreshBalancesAsync();
         AppServices.Db.SavedChanges += (_, _) => DispatcherQueue.TryEnqueue(() => { _balanceTimer.Stop(); _balanceTimer.Start(); });
 
-        // Ctrl+1 to Ctrl+3 jump to Budget, Transactions and Counterparties.
-        var shortcuts = new[] { budget, null, payees };   // the second one is the first account in the list
+        // Ctrl+1 and Ctrl+2 jump to Budget and Transactions.
+        var shortcuts = new[] { budget, (NavigationViewItem?)null };   // the second one is the first account in the list
         for (var i = 0; i < shortcuts.Length; i++)
         {
             var target = shortcuts[i];
@@ -648,7 +645,6 @@ public sealed partial class MainWindow : Window
         {
             case "budget": ContentFrame.Navigate(typeof(BudgetPage), parameter); break;
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
-            case "payees": ContentFrame.Navigate(typeof(PayeesPage), parameter); break;
             case "shortcuts": ContentFrame.Navigate(typeof(KeyboardShortcutsPage)); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):

@@ -72,6 +72,8 @@ public static class LocalDatabase
 
     public static SpeedBudgetDb Open(string? directory = null)
     {
+        // A restore chosen in the app is swapped in here, before the database is opened.
+        BackupService.ApplyPendingRestore(directory ?? DefaultDirectory, Path.Combine(directory ?? DefaultDirectory, "budget.db"));
         var db = OpenWithoutMigrating(directory);
         db.Database.Migrate();
         return db;

@@ -9,10 +9,6 @@ public static class AppServices
     public static BudgetStore Store { get; private set; } = null!;
     public static WatcherService Watcher { get; private set; } = null!;
 
-    /// <summary>Automatic backups: at most one a day, keeping the newest two weeks.</summary>
-    private static readonly TimeSpan BackupInterval = TimeSpan.FromHours(24);
-    private const int BackupsToKeep = 14;
-
     /// <summary>Raised when accounts are added, renamed, closed or deleted, so menus listing them can refresh.</summary>
     public static event Action? AccountsChanged;
 
@@ -60,7 +56,8 @@ public static class AppServices
         _ = Emojis.LoadAsync(DataDirectory);
 
         // A failed backup must never stop the app from opening.
-        try { BackupService.BackupIfDue(Db, DataDirectory, BackupInterval, BackupsToKeep); }
+        // Once a day, and only the newest 31 automatic backups are kept.
+        try { BackupService.BackupIfDue(Db, DataDirectory); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Automatic backup failed: {ex.Message}"); }
     }
 

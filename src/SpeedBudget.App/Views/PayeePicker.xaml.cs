@@ -45,6 +45,9 @@ public sealed partial class PayeePicker : UserControl
     /// <summary>Raised with a counterparty's name when its pencil is pressed, so the owner can edit its name and icon.</summary>
     public event EventHandler<string>? EditRequested;
 
+    /// <summary>Raised with a counterparty's name when its bin is pressed, so the owner can delete it (after asking).</summary>
+    public event EventHandler<string>? DeleteRequested;
+
     /// <summary>The icon of each counterparty that has one, by name. Shown in front of the names in the list.</summary>
     public IReadOnlyDictionary<string, string>? Icons
     {
@@ -165,6 +168,13 @@ public sealed partial class PayeePicker : UserControl
         if ((sender as FrameworkElement)?.DataContext is not PayeeListRow { IsCreate: false } row) return;
         PickerFlyout.Hide();
         EditRequested?.Invoke(this, row.Name);
+    }
+
+    private void Delete_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not PayeeListRow { IsCreate: false } row) return;
+        PickerFlyout.Hide();
+        DeleteRequested?.Invoke(this, row.Name);
     }
 
     private void Choose(string payee)

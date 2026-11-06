@@ -674,6 +674,32 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>Changes a counterparty's name (on all of its transactions) and icon, and updates what is on screen. Returns an error sentence, or null.</summary>
+    /// <summary>How many transactions carry this counterparty's name.</summary>
+    public async Task<int> CountPayeeUsesAsync(string name)
+    {
+        await _gate.WaitAsync();
+        try { return (await _store.GetPayeeUsageAsync()).GetValueOrDefault(name.ToLower()); }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Deletes a counterparty that no transaction uses. Returns an error sentence, or null when it was deleted.</summary>
+    public async Task<string?> DeletePayeeAsync(string name)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var payee = (await _store.GetPayeesAsync()).FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (payee is null) return "That counterparty could not be found.";
+            if (!await _store.DeletePayeeAsync(payee)) return $"{name} is used by transactions, so it can't be deleted.";
+            await LoadPayeesAsync();
+            _hints = await _store.GetPayeeHintsAsync();
+            Message = "";
+            return null;
+        }
+        catch (Exception ex) { return $"Could not delete: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
     public async Task<string?> EditPayeeAsync(string oldName, string newName, string emoji)
     {
         await _gate.WaitAsync();

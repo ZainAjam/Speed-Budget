@@ -498,6 +498,27 @@ public sealed partial class TransactionsPage : Page, IReloadable
         else (sender as PayeePicker)?.RefreshSelection();
     }
 
+    /// <summary>The bin beside a counterparty in the drop-down: delete it, after asking. One that transactions use can't be deleted.</summary>
+    private async void Payee_DeleteRequested(object? sender, string name)
+    {
+        var uses = await ViewModel.CountPayeeUsesAsync(name);
+        if (uses > 0)
+        {
+            ViewModel.Message = $"{name} is used on {uses} transaction{(uses == 1 ? "" : "s")}, so it can't be deleted. Rename it with the pencil, or change those transactions first.";
+            return;
+        }
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = $"Delete {name}?", Content = "The counterparty is removed from the list.",
+            PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var error = await ViewModel.DeletePayeeAsync(name);
+        if (error is not null) ViewModel.Message = error;
+        else (sender as PayeePicker)?.RefreshSelection();
+    }
+
     /// <summary>The pencil beside a budget item in the drop-down: edit the item and its group.</summary>
     private async void Item_EditRequested(object? sender, ItemOption option)
     {
