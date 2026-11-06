@@ -83,7 +83,8 @@
                 </Border>
                 <Border Grid.Column="4" Style="{StaticResource CellBorder}" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}"
+                                   Tapped="ItemName_Tapped" />
                         <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"
                                           AllowSplit="{x:Bind CanSplit}" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}"
                                           ValueOverride="{x:Bind SplitLabel, Mode=OneWay}" />

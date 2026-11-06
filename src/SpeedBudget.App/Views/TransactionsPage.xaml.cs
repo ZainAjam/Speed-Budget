@@ -579,6 +579,42 @@ public sealed partial class TransactionsPage : Page, IReloadable
         }
     }
 
+    /// <summary>Clicking a split row's budget item (when it is not being edited) shows what the split is made of, in a pop-up over it.</summary>
+    private async void ItemName_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: TransactionRow { IsSplit: true, IsEditing: false } row } anchor) return;
+        e.Handled = true;
+
+        var lines = await ViewModel.GetLinesAsync(row);
+        var panel = new StackPanel { Spacing = 6, MinWidth = 260 };
+        panel.Children.Add(new TextBlock { Text = $"Split into {lines.Count} lines", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] });
+        foreach (var line in lines)
+        {
+            var label = ViewModel.ItemOptions.FirstOrDefault(o => o.Id == line.BudgetItemId)?.Label ?? "No budget item";
+            var grid = new Grid { ColumnSpacing = 24 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var name = new TextBlock { Text = label, TextTrimming = TextTrimming.CharacterEllipsis };
+            var amount = new TextBlock { Text = Format.Money(Math.Abs(line.Amount)), HorizontalTextAlignment = TextAlignment.Right };
+            Grid.SetColumn(amount, 1);
+            grid.Children.Add(name);
+            grid.Children.Add(amount);
+            panel.Children.Add(grid);
+        }
+        panel.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 2, 0, 2), Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"] });
+        var total = new Grid { ColumnSpacing = 24 };
+        total.ColumnDefinitions.Add(new ColumnDefinition());
+        total.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var totalLabel = new TextBlock { Text = "Total", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] };
+        var totalAmount = new TextBlock { Text = Format.Money(Math.Abs(lines.Sum(l => l.Amount))), Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], HorizontalTextAlignment = TextAlignment.Right };
+        Grid.SetColumn(totalAmount, 1);
+        total.Children.Add(totalLabel);
+        total.Children.Add(totalAmount);
+        panel.Children.Add(total);
+
+        new Flyout { Content = panel, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom }.ShowAt(anchor);
+    }
+
     private void NewTransaction_Click(object sender, RoutedEventArgs e) => NewRow(transfer: false);
 
     /// <summary>Ctrl+N: add a new transaction row.</summary>

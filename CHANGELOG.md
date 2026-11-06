@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.14
 
+- Click a split transaction's "Split (n lines)" in the Budget item column and a pop-up shows the budget items it is made of, with their amounts and the total.
 - A transaction table sorted oldest first now opens already at the bottom, instead of opening at the top and scrolling down to it.
 - **Plan your spending, refinements.**
   - Budget cells no longer show a tooltip when you hover over them.
