@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.15
+
+- The two buttons at the top right of Plan your spending (one month or several months) are now the same size.
+
 ## 0.9.14
 
 - You no longer need to type the amount before splitting a new transaction. Choose Split between several items on an empty new row and the split box opens straight away: pick whether it is money out or in, enter the lines, and the transaction's total is worked out from them. (If you have already typed an amount, the lines still have to add up to it, as before.)

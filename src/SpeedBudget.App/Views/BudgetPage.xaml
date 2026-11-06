@@ -252,11 +252,11 @@
                     </Grid>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <ToggleButton x:Name="SingleButton" Checked="SingleMonth_Checked" Unchecked="SingleMonth_Unchecked" IsChecked="{x:Bind ViewModel.ShowSingleMonth, Mode=OneWay}"
+                    <ToggleButton x:Name="SingleButton" Width="44" Height="34" Padding="0" Checked="SingleMonth_Checked" Unchecked="SingleMonth_Unchecked" IsChecked="{x:Bind ViewModel.ShowSingleMonth, Mode=OneWay}"
                                   AutomationProperties.Name="Show one month at a time" ToolTipService.ToolTip="Show one month at a time (more room for item names)">
                         <FontIcon Glyph="&#xE7C3;" FontSize="16" />
                     </ToggleButton>
-                    <ToggleButton x:Name="ManyButton" Checked="ManyMonths_Checked" Unchecked="ManyMonths_Unchecked" IsChecked="{x:Bind ViewModel.ShowManyMonths, Mode=OneWay}"
+                    <ToggleButton x:Name="ManyButton" Width="44" Height="34" Padding="0" Checked="ManyMonths_Checked" Unchecked="ManyMonths_Unchecked" IsChecked="{x:Bind ViewModel.ShowManyMonths, Mode=OneWay}"
                                   AutomationProperties.Name="Show as many months as fit" ToolTipService.ToolTip="Show as many months as fit across the screen">
                         <!-- Two pages stacked: the one-month page, with a second page showing behind it -->
                         <Grid Width="22" Height="22">
