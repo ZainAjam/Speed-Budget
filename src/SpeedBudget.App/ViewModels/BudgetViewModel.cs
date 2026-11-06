@@ -531,11 +531,12 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     public async Task<ItemEntity?> GetItemAsync(Guid itemId) => (await _store.GetItemsAsync()).FirstOrDefault(i => i.Id == itemId);
 
-    /// <summary>Adds an expense group (shown on the page with no items yet).</summary>
-    public async Task AddGroupAsync(string name)
+    /// <summary>Adds a group (an expense group shows on the page with no items yet) and returns its id.</summary>
+    public async Task<Guid> AddGroupAsync(string name, ItemKind kind)
     {
-        await _store.AddGroupAsync(name.Trim(), ItemKind.Expense);
+        var group = await _store.AddGroupAsync(name.Trim(), kind);
         await LoadAsync();
+        return group.Id;
     }
 
     /// <summary>Adds an item to a group; for income without a group given, to the first income group (made if there is none).</summary>

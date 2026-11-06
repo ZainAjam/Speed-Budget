@@ -307,10 +307,13 @@ public sealed partial class BudgetPage : Page, IReloadable
         }
         else if (line.GroupId is { } groupId)
         {
+            var add = new MenuFlyoutItem { Text = "Add budget item…", Icon = new FontIcon { Glyph = "\uE710" } };
+            add.Click += async (_, _) => await AddItemAsync(groupId, SpeedBudget.Core.ItemKind.Expense, line.Name);
             var rename = new MenuFlyoutItem { Text = "Rename budget group…", Icon = new FontIcon { Glyph = "\uE8AC" } };
             rename.Click += async (_, _) => await RenameGroupAsync(groupId, line.Name);
             var delete = new MenuFlyoutItem { Text = "Delete budget group…", Icon = new FontIcon { Glyph = "\uE74D" } };
             delete.Click += async (_, _) => await DeleteGroupAsync(groupId, line.Name, line.GroupItemIds.Count);
+            menu.Items.Add(add);
             menu.Items.Add(rename);
             menu.Items.Add(delete);
         }
@@ -322,13 +325,31 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     // ---- Adding and renaming budget groups and items ----
 
-    private async void AddIncomeItem_Click(object sender, RoutedEventArgs e) =>
-        await AddItemAsync(null, SpeedBudget.Core.ItemKind.Income, "Cash Inflow");
-
-    private async void AddItemToGroup_Click(object sender, RoutedEventArgs e)
+    /// <summary>Right-click "Cash Inflow": add an income group, or an income item.</summary>
+    private void InflowTitle_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if ((sender as FrameworkElement)?.Tag is BudgetLine { GroupId: { } groupId } header)
-            await AddItemAsync(groupId, SpeedBudget.Core.ItemKind.Expense, header.Name);
+        if (sender is not FrameworkElement target) return;
+        var menu = new MenuFlyout();
+        var group = new MenuFlyoutItem { Text = "Add budget group…", Icon = new FontIcon { Glyph = "\uE710" } };
+        group.Click += async (_, _) => await AddGroupAsync(SpeedBudget.Core.ItemKind.Income);
+        var item = new MenuFlyoutItem { Text = "Add budget item…", Icon = new FontIcon { Glyph = "\uE710" } };
+        item.Click += async (_, _) => await AddItemAsync(null, SpeedBudget.Core.ItemKind.Income, "Cash Inflow");
+        menu.Items.Add(group);
+        menu.Items.Add(item);
+        ShowMenu(menu, target, args);
+        args.Handled = true;
+    }
+
+    /// <summary>Right-click "Cash Outflow": add a budget group.</summary>
+    private void OutflowTitle_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement target) return;
+        var menu = new MenuFlyout();
+        var group = new MenuFlyoutItem { Text = "Add budget group…", Icon = new FontIcon { Glyph = "\uE710" } };
+        group.Click += async (_, _) => await AddGroupAsync(SpeedBudget.Core.ItemKind.Expense);
+        menu.Items.Add(group);
+        ShowMenu(menu, target, args);
+        args.Handled = true;
     }
 
     private async Task AddItemAsync(Guid? groupId, SpeedBudget.Core.ItemKind kind, string under)
@@ -339,12 +360,16 @@ public sealed partial class BudgetPage : Page, IReloadable
         await ViewModel.AddItemAsync(groupId, kind, dialog.NameText, dialog.Emoji);
     }
 
-    private async void AddExpenseGroup_Click(object sender, RoutedEventArgs e)
+    private async Task AddGroupAsync(SpeedBudget.Core.ItemKind kind)
     {
-        var dialog = new NameDialog("New budget group", "A group collects budget items that belong together. Add items to it afterwards with its + button.",
+        var income = kind == SpeedBudget.Core.ItemKind.Income;
+        var dialog = new NameDialog("New budget group",
+            income ? "A group collects budget items that belong together. Income groups are not shown as headings, so you are asked for the group's first item next."
+                   : "A group collects budget items that belong together. Right-click the group afterwards to add items to it.",
             "Budget group name", "", "Add") { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        await ViewModel.AddGroupAsync(dialog.NameText);
+        var groupId = await ViewModel.AddGroupAsync(dialog.NameText, kind);
+        if (income) await AddItemAsync(groupId, kind, dialog.NameText);
     }
 
     private async Task DeleteItemAsync(Guid itemId, string name)

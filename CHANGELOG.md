@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.15
 
+- The + buttons on the budget screen are gone. Right-click **Cash Outflow** (or **Cash Inflow**) to add a budget group, and right-click a budget group to add a budget item to it. Right-click Cash Inflow also offers adding an income item directly.
 - **Budget items and accounts are now managed where you use them, so the Accounts and Budget Items pages under Configurations are gone.**
   - On the budget screen, right-click a budget item or a budget group to delete it (an item that already has budget or transactions is archived instead, with its history kept; deleting a group deletes its items too). Budget groups can now be dragged into a new order, as items already could.
   - In the left panel, **Add bank account** (at the bottom of the Transactions list) asks for a new account's name, type, whether it counts toward the budget, and its opening balance.

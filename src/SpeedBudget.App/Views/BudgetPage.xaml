@@ -24,10 +24,6 @@
                         <FontIcon Glyph="{x:Bind app:Glyphs.Chevron(Group.IsExpanded), Mode=OneWay}" FontSize="12" />
                     </Button>
                     <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                    <Button Click="AddItemToGroup_Click" Tag="{x:Bind}" Padding="6" Background="Transparent" BorderThickness="0"
-                            AutomationProperties.Name="Add a budget item to this group" ToolTipService.ToolTip="Add a budget item to this group">
-                        <FontIcon Glyph="&#xE710;" FontSize="12" />
-                    </Button>
                 </StackPanel>
                 <TextBlock Text="{x:Bind Name}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            Visibility="{x:Bind IsItem}" />
@@ -334,7 +330,7 @@
                           FocusVisualPrimaryThickness="0" FocusVisualSecondaryThickness="0">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
-                               Text="There are no budget items yet. Use the + buttons beside Cash Inflow and Cash Outflow to add some." />
+                               Text="There are no budget items yet. Right-click Cash Outflow to add a budget group, then right-click the group to add items to it." />
                     <!-- The names take whatever width is left; the months sit against the right-hand edge of the page. -->
                     <Grid Margin="0,0,16,0">
                         <Grid.ColumnDefinitions>
@@ -347,29 +343,18 @@
                                 <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />
                             </Border>
                             <Border Height="16" />
-                            <Grid x:Name="InflowTitleRow" Height="48" Padding="12,0,0,2">
-                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
-                                    <TextBlock Text="Cash Inflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
-                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                                    <Button Click="AddIncomeItem_Click" Padding="6" Background="Transparent" BorderThickness="0" VerticalAlignment="Bottom"
-                                            AutomationProperties.Name="Add a budget item to Cash Inflow" ToolTipService.ToolTip="Add a budget item to Cash Inflow">
-                                        <FontIcon Glyph="&#xE710;" FontSize="14" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
-                                    </Button>
-                                </StackPanel>
+                            <!-- Right-click the title to add a budget group (or, for income, an item) -->
+                            <Grid x:Name="InflowTitleRow" Height="48" Padding="12,0,0,2" Background="Transparent" ContextRequested="InflowTitle_ContextRequested">
+                                <TextBlock Text="Cash Inflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                           Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.IncomeLines}" ItemTemplate="{StaticResource IncomeNameTemplate}" />
                             </Border>
                             <Border Height="16" />
-                            <Grid x:Name="OutflowTitleRow" Height="48" Padding="12,0,0,2">
-                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
-                                    <TextBlock Text="Cash Outflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
-                                               Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
-                                    <Button Click="AddExpenseGroup_Click" Padding="6" Background="Transparent" BorderThickness="0" VerticalAlignment="Bottom"
-                                            AutomationProperties.Name="Add a budget group to Cash Outflow" ToolTipService.ToolTip="Add a budget group to Cash Outflow">
-                                        <FontIcon Glyph="&#xE710;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
-                                    </Button>
-                                </StackPanel>
+                            <Grid x:Name="OutflowTitleRow" Height="48" Padding="12,0,0,2" Background="Transparent" ContextRequested="OutflowTitle_ContextRequested">
+                                <TextBlock Text="Cash Outflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
                                 <ItemsControl x:Name="OutflowNames" ItemsSource="{x:Bind ViewModel.OutflowLines}" ItemTemplate="{StaticResource OutflowNameTemplate}" />
