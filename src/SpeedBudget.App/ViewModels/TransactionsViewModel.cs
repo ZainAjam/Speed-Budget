@@ -465,8 +465,14 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private TransactionRow? _editing;
 
     /// <summary>Turns edit mode on for a row (the pencil, or a new row). Another row that was being edited is saved first.</summary>
+    /// <summary>True while a row is open for editing. It stays open until it is saved (Enter, or the green check) or dropped (Esc).</summary>
+    public bool IsRowEditing => _editing is { IsEditing: true };
+
+    private const string FinishFirst = "Press Enter or the green check to save the row you are editing first, or Esc to drop its changes.";
+
     public void BeginEdit(TransactionRow row)
     {
+        if (_editing is { IsEditing: true } other && !ReferenceEquals(other, row)) { Message = FinishFirst; return; }
         if (!ReferenceEquals(SelectedEntry, row)) SelectedEntry = row;
         _editing = row;
         row.IsEditing = true;
@@ -516,8 +522,16 @@ public sealed partial class TransactionsViewModel : ObservableObject
         BeginEdit(row);
     }
 
+
     partial void OnSelectedEntryChanged(object? value)
     {
+        // A row being edited stays open: clicking another row does not save it or take it out of edit mode. (Saving or dropping it clears the selection, which is let through.)
+        if (_editing is { IsEditing: true } open && value is not null && !ReferenceEquals(open, value) && !_rebuilding)
+        {
+            SelectedEntry = open;
+            return;
+        }
+
         // Choosing another row saves the edits made to the one being left.
         if (_editing is { IsDirty: true } leaving && !ReferenceEquals(leaving, value) && !(_rebuilding && leaving.IsNew)) _ = CommitOnLeaveAsync(leaving);
 
@@ -1012,6 +1026,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public TransactionRow? BeginNew(bool transfer)
     {
         if (_draft is { } existing) { SelectedEntry = existing; return existing; }
+        if (IsRowEditing) { Message = FinishFirst; return null; }
 
         var open = EntryAccounts.Where(a => !a.Name.EndsWith("(closed)")).ToList();
         var account = (AccountId is { } fixedId ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId) : null) ?? open.FirstOrDefault();

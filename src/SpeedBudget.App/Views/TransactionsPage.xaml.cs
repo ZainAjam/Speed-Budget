@@ -181,13 +181,13 @@ public sealed partial class TransactionsPage : Page, IReloadable
         DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
     }
 
-    /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row being edited.</summary>
+    /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row that is selected. A row being edited is not let go of.</summary>
     private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
         // The Expected transactions flyout closes when something outside it (and its bar) is pressed.
         if (ViewModel.Expected.IsOpen && !IsWithin(e.OriginalSource as DependencyObject, ExpectedHost) && !IsWithin(e.OriginalSource as DependencyObject, ExpectedBar))
             ViewModel.Expected.IsOpen = false;
-        if (ViewModel.SelectedEntry is null) return;
+        if (ViewModel.SelectedEntry is null || ViewModel.IsRowEditing) return;   // a row being edited is only left with Enter, the green check or Esc
         var source = e.OriginalSource as DependencyObject;
         if (IsWithin(source, TableRegion) || IsWithin(source, DetailHost)) return;
         ClearEditing();
