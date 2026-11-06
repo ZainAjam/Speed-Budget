@@ -12,7 +12,8 @@ into the release.
   - Scroll down and the column titles stay in view: Received and Available now while you are in the Cash Inflow rows, Budgeted, Spent and Left once you are in the Cash Outflow rows.
   - The button for showing several months at once now shows two pages stacked.
   - New **+** buttons: beside Cash Inflow to add a budget item, beside Cash Outflow to add a budget group, and beside each group to add a budget item to it. A new group with no items stays on the page so you can add to it.
-  - Right-click a budget group to rename it, or a budget item to rename it or change its icon.
+  - Right-click a budget group to rename it, or a budget item to rename it or change its icon (the budget item menu no longer has Edit Budget Item).
+  - The monthly summary at the top is now open whenever you are at the top of the page, and folds away by itself once you scroll down, leaving Available to budget under the month headings. Scroll back to the top and it opens again.
   - The amount in a budget cell now stays against the right-hand edge while you edit it, instead of moving towards the middle.
 
 ## 0.9.13

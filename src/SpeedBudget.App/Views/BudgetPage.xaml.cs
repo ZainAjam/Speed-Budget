@@ -150,14 +150,8 @@ public sealed partial class BudgetPage : Page, IReloadable
         if (ViewModel.ShowManyMonths) ManyButton.IsChecked = true;
     }
 
-    /// <summary>The arrow beside "Available to budget": shows or hides the monthly figures above it, and remembers the choice.</summary>
-    private async void SummaryToggle_Click(object sender, RoutedEventArgs e)
-    {
-        var expanded = !SummaryView.Expanded;
-        ViewModel.SetSummaryExpanded(expanded);
-        try { await AppServices.Store.SetLocalSettingAsync("budgetSummary", expanded ? "1" : "0"); }
-        catch { /* the choice still applies for this run */ }
-    }
+    /// <summary>The arrow beside "Available to budget": shows or hides the monthly figures above it, until the page is scrolled again.</summary>
+    private void SummaryToggle_Click(object sender, RoutedEventArgs e) => ViewModel.SetSummaryExpanded(!SummaryView.Expanded);
 
     // ---- Editing budgeted amounts from the keyboard ----
 
@@ -178,7 +172,30 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// Once a section's title (with its column titles) has scrolled out of sight, its column titles take its place under the
     /// month headings: the inflow ones while in the cash inflow rows, the outflow ones once the cash outflow title has gone too.
     /// </summary>
-    private void BudgetScroll_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => UpdateFrozenTitles();
+    private void BudgetScroll_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        AutoSummary();
+        UpdateFrozenTitles();
+    }
+
+    /// <summary>
+    /// The monthly summary is open at the top of the page and folds away once it has scrolled out of sight (leaving "Available to
+    /// budget" frozen under the month headings), and opens again on returning to the top. The page is moved up by the block's height as
+    /// it goes, so what is on screen does not jump.
+    /// </summary>
+    private void AutoSummary()
+    {
+        var offset = BudgetScroll.VerticalOffset;
+        if (SummaryView.Expanded)
+        {
+            var height = SummaryBlock.ActualHeight + 16;   // the block and the gap after it
+            if (height <= 16 || offset <= height + 8) return;
+            ViewModel.SetSummaryExpanded(false);
+            BudgetScroll.UpdateLayout();
+            BudgetScroll.ChangeView(null, offset - height, null, disableAnimation: true);
+        }
+        else if (offset < 1) ViewModel.SetSummaryExpanded(true);
+    }
 
     private void UpdateFrozenTitles()
     {
@@ -274,11 +291,8 @@ public sealed partial class BudgetPage : Page, IReloadable
             rename.Click += async (_, _) => await RenameItemAsync(itemId);
             var icon = new MenuFlyoutItem { Text = "Change icon…", Icon = new FontIcon { Glyph = "\uE76E" } };
             icon.Click += async (_, _) => await ChangeIconAsync(itemId);
-            var edit = new MenuFlyoutItem { Text = "Edit Budget Item", Icon = new FontIcon { Glyph = "\uE70F" } };
-            edit.Click += (_, _) => (App.MainWindow as MainWindow)?.NavigateTo("items", itemId);
             menu.Items.Add(rename);
             menu.Items.Add(icon);
-            menu.Items.Add(edit);
         }
         else if (line.GroupId is { } groupId)
         {

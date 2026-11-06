@@ -342,7 +342,7 @@
                         </Grid.ColumnDefinitions>
                         <!-- Names column -->
                         <StackPanel Grid.Column="0">
-                            <Border Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6" Visibility="{x:Bind ViewModel.SummaryOpen, Mode=OneWay}">
+                            <Border x:Name="SummaryBlock" Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" Padding="0,6" Visibility="{x:Bind ViewModel.SummaryOpen, Mode=OneWay}">
                                 <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />
                             </Border>
                             <Border Height="16" />
