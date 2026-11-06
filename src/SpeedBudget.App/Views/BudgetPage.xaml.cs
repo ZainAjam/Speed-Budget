@@ -315,6 +315,7 @@ public sealed partial class BudgetPage : Page, IReloadable
             delete.Click += async (_, _) => await DeleteGroupAsync(groupId, line.Name, line.GroupItemIds.Count);
             menu.Items.Add(rename);
             menu.Items.Add(delete);
+            menu.Items.Add(new MenuFlyoutSeparator());   // what is done to the group above the line, to its items below it
             menu.Items.Add(add);
         }
         else return;
