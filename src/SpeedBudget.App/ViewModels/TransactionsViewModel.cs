@@ -87,6 +87,18 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     private IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? _draftSplits;
     public IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? DraftSplits => _draftSplits;
 
+    /// <summary>True when the row's amount was worked out from its split lines (not typed), so the split dialog adds the lines up instead of asking for them to match.</summary>
+    public bool AmountFromSplit { get; private set; }
+
+    /// <summary>Sets the split lines of a new row and makes the row's amount their total (money out or in, as the lines are signed).</summary>
+    public void SetSplitFromLines(IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines)
+    {
+        Entity.Amount = lines.Sum(l => l.Amount);
+        AmountFromSplit = true;
+        SetDraftSplits(lines);
+        foreach (var n in new[] { nameof(Outflow), nameof(Inflow), nameof(OutflowText), nameof(InflowText) }) OnPropertyChanged(n);
+    }
+
     /// <summary>Sets the split lines of a new row. A single line is just an item.</summary>
     public void SetDraftSplits(IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines)
     {
@@ -308,6 +320,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
                 // Choosing one item for a split transaction turns it back into an ordinary one with that item.
                 _draftSplits = null;
                 _lineOverride = 1;
+                AmountFromSplit = false;
                 foreach (var n in new[] { nameof(LineCount), nameof(IsSplit), nameof(SplitLabel), nameof(CanEditAmount), nameof(ShowAmountEditor), nameof(ShowAmountText) })
                     OnPropertyChanged(n);
             }
@@ -346,6 +359,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         if (cents == 0 && ((source == nameof(Outflow) && Entity.Amount > 0) || (source == nameof(Inflow) && Entity.Amount < 0))) return;
         if (cents == Entity.Amount) return;
         Entity.Amount = cents;
+        AmountFromSplit = false;
         Changed(new[] { nameof(Outflow), nameof(Inflow), nameof(OutflowText), nameof(InflowText) }, splitChanged: true);
     }
 

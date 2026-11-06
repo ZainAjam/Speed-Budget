@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.14
 
+- You no longer need to type the amount before splitting a new transaction. Choose Split between several items on an empty new row and the split box opens straight away: pick whether it is money out or in, enter the lines, and the transaction's total is worked out from them. (If you have already typed an amount, the lines still have to add up to it, as before.)
 - The "Budget account" and "Tracking account" tags at the top of an account page now look the same (a plain outlined label, no longer a filled blue one that looked like a button); only their words differ, and the words are blue for a budget account and yellow for a tracking account.
 - Esc now works at any time in the transaction table, wherever the focus is and even with a drop-down open: it deletes a new transaction, and puts a transaction being edited back to the values it had before and closes it.
 - A transaction you are editing now stays in edit mode until you press Enter or the green check (which save it) or Esc (which drops the changes). Clicking another row or anywhere else on the page no longer saves it or takes it out of edit mode; while a row is open, starting to edit another one asks you to finish the first.

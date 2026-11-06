@@ -14,7 +14,9 @@ public sealed class SplitDialog : ContentDialog
     private readonly TransactionsViewModel _vm;
     private readonly Func<IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>, Task<string?>> _save;
     private readonly long _total;
-    private readonly int _sign;
+    private int _sign;
+    private readonly bool _openEnded;
+    private readonly RadioButtons _direction = new() { Header = "This transaction is", MaxColumns = 2 };
     private readonly bool _requiresItem;
     private readonly StackPanel _lines = new() { Spacing = 8 };
     private readonly TextBlock _remaining = new();
@@ -31,10 +33,12 @@ public sealed class SplitDialog : ContentDialog
     /// <param name="total">The transaction's amount as a positive number of cents; the lines must add up to it.</param>
     /// <param name="sign">-1 when the money goes out, 1 when it comes in.</param>
     /// <param name="save">Takes the lines (signed) and returns an error sentence, or null when they were accepted.</param>
+    /// <param name="openEnded">No total yet: the lines are typed first (with money out or in chosen here) and the total is their sum.</param>
     public SplitDialog(TransactionsViewModel vm, string heading, long total, int sign, bool requiresItem,
         IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> existing,
-        Func<IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>, Task<string?>> save)
+        Func<IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>, Task<string?>> save, bool openEnded = false)
     {
+        _openEnded = openEnded;
         _vm = vm;
         _save = save;
         _sign = sign;
@@ -51,21 +55,32 @@ public sealed class SplitDialog : ContentDialog
         var addLine = new Button { Content = "Add line" };
         addLine.Click += (_, _) => AddLine(null, double.NaN, null);
 
-        Content = new StackPanel
+        var body = new StackPanel { Spacing = 12, MinWidth = 640 };
+        body.Children.Add(new TextBlock { Text = heading, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] });
+        if (_openEnded)
         {
-            Spacing = 12,
-            MinWidth = 640,
-            Children =
-            {
-                new TextBlock { Text = heading, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] },
-                _lines,
-                addLine,
-                _remaining,
-                _error,
-            },
-        };
+            _direction.Items.Add("Money out");
+            _direction.Items.Add("Money in");
+            _direction.SelectedIndex = sign > 0 ? 1 : 0;
+            _direction.SelectionChanged += (_, _) => _sign = _direction.SelectedIndex == 1 ? 1 : -1;
+            body.Children.Add(_direction);
+        }
+        body.Children.Add(_lines);
+        body.Children.Add(addLine);
+        body.Children.Add(_remaining);
+        body.Children.Add(_error);
+        Content = body;
 
-        if (existing.Count > 1)
+        if (_openEnded)
+        {
+            if (existing.Count > 1) foreach (var line in existing) AddLine(line.ItemId, (double)AppServices.ToRands(Math.Abs(line.Amount)), line.Memo);
+            else
+            {
+                AddLine(existing.FirstOrDefault().ItemId, double.NaN, null);
+                AddLine(null, double.NaN, null);
+            }
+        }
+        else if (existing.Count > 1)
             foreach (var line in existing) AddLine(line.ItemId, (double)AppServices.ToRands(Math.Abs(line.Amount)), line.Memo);
         else
         {
@@ -116,6 +131,14 @@ public sealed class SplitDialog : ContentDialog
 
     private void UpdateRemaining()
     {
+        if (_openEnded)
+        {
+            var sum = _entries.Sum(e => Cents(e.Amount));
+            _remaining.Text = $"Total: {AppServices.ToRands(sum):N2}";
+            _remaining.Opacity = 1;
+            IsPrimaryButtonEnabled = sum > 0;
+            return;
+        }
         var left = _total - _entries.Sum(e => Cents(e.Amount));
         _remaining.Text = left == 0 ? "The lines add up to the total." : $"Left to assign: {AppServices.ToRands(left):N2}";
         _remaining.Opacity = left == 0 ? 0.7 : 1;
