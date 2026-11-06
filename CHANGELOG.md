@@ -4,7 +4,7 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
-## 0.9.13
+## 0.9.14
 
 - **Plan your spending, refinements.**
   - Budget cells no longer show a tooltip when you hover over them.
@@ -13,6 +13,9 @@ into the release.
   - The button for showing several months at once now shows two pages stacked.
   - New **+** buttons: beside Cash Inflow to add a budget item, beside Cash Outflow to add a budget group, and beside each group to add a budget item to it. A new group with no items stays on the page so you can add to it.
   - Right-click a budget group to rename it, or a budget item to rename it or change its icon.
+
+## 0.9.13
+
 - When a transaction table is sorted oldest first, it now opens scrolled to the bottom, so the last transaction you added is in view and you can add the next one straight away.
 
 ## 0.9.12
