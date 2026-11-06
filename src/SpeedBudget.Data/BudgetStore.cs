@@ -735,6 +735,25 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return group;
     }
 
+    public async Task RenameGroupAsync(Guid groupId, string name, CancellationToken ct = default)
+    {
+        name = name.Trim();
+        if (name == "") return;
+        var group = await db.Groups.SingleAsync(g => g.Id == groupId, ct);
+        if (group.Name == name) return;
+        group.Name = name;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Renames a budget item and/or changes its icon (null leaves that part as it is; an empty icon removes it).</summary>
+    public async Task EditItemAsync(Guid itemId, string? name, string? emoji, CancellationToken ct = default)
+    {
+        var item = await db.Items.SingleAsync(i => i.Id == itemId, ct);
+        if (name is not null && name.Trim() != "") item.Name = name.Trim();
+        if (emoji is not null) item.Emoji = emoji == "" ? null : emoji;
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>Adds an item to a group, or under another item of that group when parentId is given.</summary>
     public async Task<ItemEntity> AddItemAsync(Guid groupId, Guid? parentId, string name, ItemKind kind, CancellationToken ct = default)
     {

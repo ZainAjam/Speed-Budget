@@ -292,6 +292,18 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     partial void OnSummaryOpenChanged(bool value) => OnPropertyChanged(nameof(SummaryClosed));
 
+    /// <summary>Which column titles are frozen under the month headings: 0 none, 1 those of the cash inflow rows, 2 those of the cash outflow rows.</summary>
+    [ObservableProperty] public partial int FrozenTitles { get; set; }
+
+    public bool FrozenInflow => FrozenTitles == 1;
+    public bool FrozenOutflow => FrozenTitles == 2;
+
+    partial void OnFrozenTitlesChanged(int value)
+    {
+        OnPropertyChanged(nameof(FrozenInflow));
+        OnPropertyChanged(nameof(FrozenOutflow));
+    }
+
     [ObservableProperty] public partial bool CanGoBack { get; set; }
     [ObservableProperty] public partial bool CanGoForward { get; set; }
 
@@ -502,7 +514,7 @@ public sealed partial class BudgetViewModel : ObservableObject
         foreach (var line in _outflowLines.Where(l => l.IsItem))
             line.IsVisible = Relevant(line) && line.Group!.IsExpanded;
         foreach (var header in _outflowLines.Where(l => l.IsHeader))
-            header.IsVisible = _outflowLines.Any(l => l.IsItem && l.Group == header.Group && Relevant(l));
+            header.IsVisible = !_outflowLines.Any(l => l.IsItem && l.Group == header.Group) || _outflowLines.Any(l => l.IsItem && l.Group == header.Group && Relevant(l));
     }
 
     private async Task RecalculateAsync()
@@ -512,6 +524,40 @@ public sealed partial class BudgetViewModel : ObservableObject
         var wanted = _months.Skip(_start).Take(_capacity).Select(m => m.MonthId).ToList();
         if (wanted.SequenceEqual(Columns.Select(c => c.MonthId))) ApplyData();
         else RebuildColumns();
+    }
+
+    public async Task<ItemEntity?> GetItemAsync(Guid itemId) => (await _store.GetItemsAsync()).FirstOrDefault(i => i.Id == itemId);
+
+    /// <summary>Adds an expense group (shown on the page with no items yet).</summary>
+    public async Task AddGroupAsync(string name)
+    {
+        await _store.AddGroupAsync(name.Trim(), ItemKind.Expense);
+        await LoadAsync();
+    }
+
+    /// <summary>Adds an item to a group; for income without a group given, to the first income group (made if there is none).</summary>
+    public async Task AddItemAsync(Guid? groupId, ItemKind kind, string name, string? emoji)
+    {
+        if (groupId is null)
+        {
+            var existing = (await _store.GetGroupsAsync()).FirstOrDefault(g => g.Kind == kind);
+            groupId = (existing ?? await _store.AddGroupAsync(kind == ItemKind.Income ? "Income" : "Expenses", kind)).Id;
+        }
+        var item = await _store.AddItemAsync(groupId.Value, null, name.Trim(), kind);
+        if (!string.IsNullOrEmpty(emoji)) await _store.EditItemAsync(item.Id, null, emoji);
+        await LoadAsync();
+    }
+
+    public async Task RenameGroupAsync(Guid groupId, string name)
+    {
+        await _store.RenameGroupAsync(groupId, name);
+        await LoadAsync();
+    }
+
+    public async Task EditItemAsync(Guid itemId, string? name, string? emoji)
+    {
+        await _store.EditItemAsync(itemId, name, emoji);
+        await LoadAsync();
     }
 
     /// <summary>Saves a budgeted amount typed into a month.</summary>

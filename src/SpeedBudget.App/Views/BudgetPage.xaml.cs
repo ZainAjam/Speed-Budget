@@ -175,6 +175,26 @@ public sealed partial class BudgetPage : Page, IReloadable
     }
 
     /// <summary>
+    /// Once a section's title (with its column titles) has scrolled out of sight, its column titles take its place under the
+    /// month headings: the inflow ones while in the cash inflow rows, the outflow ones once the cash outflow title has gone too.
+    /// </summary>
+    private void BudgetScroll_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => UpdateFrozenTitles();
+
+    private void UpdateFrozenTitles()
+    {
+        if (InflowTitleRow.ActualHeight == 0 || OutflowTitleRow.ActualHeight == 0) return;
+        bool Gone(FrameworkElement row) => row.TransformToVisual(BudgetScroll).TransformPoint(new Windows.Foundation.Point(0, row.ActualHeight)).Y < 0;
+        ViewModel.FrozenTitles = Gone(OutflowTitleRow) ? 2 : Gone(InflowTitleRow) ? 1 : 0;
+    }
+
+    /// <summary>A cell left blank counts as 0.00: once the box has read what was typed, an empty cell is shown (and saved) as zero.</summary>
+    private void Budgeted_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not NumberBox box) return;
+        DispatcherQueue.TryEnqueue(() => { if (double.IsNaN(box.Value)) box.Value = 0; });
+    }
+
+    /// <summary>
     /// Enter saves the amount and leaves the cell; Esc puts the old amount back and leaves it; Up and Down move between cells. The press is
     /// seen before the box's own handling (which would otherwise step the number up or down on the arrow keys).
     /// Leaving a cell is what saves it, so every route out of the cell commits what was typed.
@@ -245,16 +265,81 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// <summary>Right-click (or the menu key) on a budget item's name: jump to its edit screen.</summary>
     private void Line_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (sender is not FrameworkElement { DataContext: BudgetLine { ItemId: { } itemId } } target) return;
+        if (sender is not FrameworkElement { DataContext: BudgetLine line } target) return;
 
         var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit Budget Item" };
-        edit.Click += (_, _) => (App.MainWindow as MainWindow)?.NavigateTo("items", itemId);
-        menu.Items.Add(edit);
+        if (line.ItemId is { } itemId)
+        {
+            var rename = new MenuFlyoutItem { Text = "Rename budget item…", Icon = new FontIcon { Glyph = "\uE8AC" } };
+            rename.Click += async (_, _) => await RenameItemAsync(itemId);
+            var icon = new MenuFlyoutItem { Text = "Change icon…", Icon = new FontIcon { Glyph = "\uE76E" } };
+            icon.Click += async (_, _) => await ChangeIconAsync(itemId);
+            var edit = new MenuFlyoutItem { Text = "Edit Budget Item", Icon = new FontIcon { Glyph = "\uE70F" } };
+            edit.Click += (_, _) => (App.MainWindow as MainWindow)?.NavigateTo("items", itemId);
+            menu.Items.Add(rename);
+            menu.Items.Add(icon);
+            menu.Items.Add(edit);
+        }
+        else if (line.GroupId is { } groupId)
+        {
+            var rename = new MenuFlyoutItem { Text = "Rename budget group…", Icon = new FontIcon { Glyph = "\uE8AC" } };
+            rename.Click += async (_, _) => await RenameGroupAsync(groupId, line.Name);
+            menu.Items.Add(rename);
+        }
+        else return;
 
-        if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
-        else menu.ShowAt(target);
+        ShowMenu(menu, target, args);
         args.Handled = true;
+    }
+
+    // ---- Adding and renaming budget groups and items ----
+
+    private async void AddIncomeItem_Click(object sender, RoutedEventArgs e) =>
+        await AddItemAsync(null, SpeedBudget.Core.ItemKind.Income, "Cash Inflow");
+
+    private async void AddItemToGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is BudgetLine { GroupId: { } groupId } header)
+            await AddItemAsync(groupId, SpeedBudget.Core.ItemKind.Expense, header.Name);
+    }
+
+    private async Task AddItemAsync(Guid? groupId, SpeedBudget.Core.ItemKind kind, string under)
+    {
+        var dialog = new NameDialog("New budget item", $"This adds an item under {under}.", "Budget item name", "", "Add",
+            iconHeader: "Icon shown in front of the name (optional)") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.AddItemAsync(groupId, kind, dialog.NameText, dialog.Emoji);
+    }
+
+    private async void AddExpenseGroup_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new NameDialog("New budget group", "A group collects budget items that belong together. Add items to it afterwards with its + button.",
+            "Budget group name", "", "Add") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.AddGroupAsync(dialog.NameText);
+    }
+
+    private async Task RenameGroupAsync(Guid groupId, string current)
+    {
+        var dialog = new NameDialog("Rename budget group", null, "Budget group name", current, "Rename") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.RenameGroupAsync(groupId, dialog.NameText);
+    }
+
+    private async Task RenameItemAsync(Guid itemId)
+    {
+        if (await ViewModel.GetItemAsync(itemId) is not { } item) return;
+        var dialog = new NameDialog("Rename budget item", null, "Budget item name", item.Name, "Rename") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.EditItemAsync(itemId, dialog.NameText, null);
+    }
+
+    private async Task ChangeIconAsync(Guid itemId)
+    {
+        if (await ViewModel.GetItemAsync(itemId) is not { } item) return;
+        var dialog = new NameDialog("Change icon", null, null, "", "Save", iconHeader: "Icon shown in front of " + item.Name, emoji: item.Emoji ?? "") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.EditItemAsync(itemId, null, dialog.Emoji);
     }
 
     // ---- Dragging a budget item to another category ----

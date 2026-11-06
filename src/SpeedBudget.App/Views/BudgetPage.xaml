@@ -23,6 +23,10 @@
                         <FontIcon Glyph="{x:Bind app:Glyphs.Chevron(Group.IsExpanded), Mode=OneWay}" FontSize="12" />
                     </Button>
                     <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <Button Click="AddItemToGroup_Click" Tag="{x:Bind}" Padding="6" Background="Transparent" BorderThickness="0"
+                            AutomationProperties.Name="Add a budget item to this group" ToolTipService.ToolTip="Add a budget item to this group">
+                        <FontIcon Glyph="&#xE710;" FontSize="12" />
+                    </Button>
                 </StackPanel>
                 <TextBlock Text="{x:Bind Name}" Margin="8,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            Visibility="{x:Bind IsItem}" />
@@ -60,8 +64,7 @@
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="1" Text="{x:Bind ReceivedText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <Border Grid.Column="2" Background="Transparent" ContextRequested="Income_ContextRequested"
-                        ToolTipService.ToolTip="Right-click to hold some of this for next month">
+                <Border Grid.Column="2" Background="Transparent" ContextRequested="Income_ContextRequested">
                     <TextBlock Text="{x:Bind AvailableText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 </Border>
             </Grid>
@@ -74,14 +77,14 @@
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
-                <NumberBox app:Money.Format="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" PlaceholderText="0.00"
-                           Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" ToolTipService.ToolTip="You can type a sum here, such as 1200+350 or 3000/2" Visibility="{x:Bind Line.IsItem}" />
+                <NumberBox app:Money.Format="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden"
+                           Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" LostFocus="Budgeted_LostFocus" Visibility="{x:Bind Line.IsItem}" />
                 <!-- A group's heading row shows no figures: only the items under it do -->
                 <TextBlock Grid.Column="1" Text="{x:Bind SpentText, Mode=OneWay}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                            Visibility="{x:Bind Line.IsItem}" />
                 <!-- Right-click moves budget between items (or covers an overspent one) -->
                 <Border Grid.Column="2" Background="Transparent" ContextRequested="Left_ContextRequested" Visibility="{x:Bind Line.IsItem}">
-                    <TextBlock Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind LeftTip, Mode=OneWay}"
+                    <TextBlock Text="{x:Bind LeftText, Mode=OneWay}" Foreground="{x:Bind LeftBrush, Mode=OneWay}"
                                HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                 </Border>
             </Grid>
@@ -91,6 +94,37 @@
         <DataTemplate x:Key="FrozenAvailableTemplate" x:DataType="vm:MonthColumn">
             <ContentControl Width="{x:Bind Width}" Content="{x:Bind AvailableCell}" ContentTemplate="{StaticResource SummaryCellTemplate}"
                             HorizontalContentAlignment="Stretch" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0" IsTabStop="False" />
+        </DataTemplate>
+
+        <!-- The column titles of the cash inflow and cash outflow rows, kept in view once the section's own title has scrolled away -->
+        <DataTemplate x:Key="FrozenInflowTitlesTemplate" x:DataType="vm:MonthColumn">
+            <Grid Width="{x:Bind Width}" Height="30" Padding="8,0,8,4" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="1" Text="Received" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                <TextBlock Grid.Column="2" Text="Available now" HorizontalTextAlignment="Right" VerticalAlignment="Bottom"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FrozenOutflowTitlesTemplate" x:DataType="vm:MonthColumn">
+            <Grid Width="{x:Bind Width}" Height="30" Padding="8,0,8,4" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="2,0,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.15*" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Budgeted" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                <TextBlock Grid.Column="1" Text="Spent" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,0"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                <TextBlock Grid.Column="2" Text="Left" HorizontalTextAlignment="Right" VerticalAlignment="Bottom"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+            </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="MonthTemplate" x:DataType="vm:MonthColumn">
@@ -224,7 +258,16 @@
                     </ToggleButton>
                     <ToggleButton x:Name="ManyButton" Checked="ManyMonths_Checked" Unchecked="ManyMonths_Unchecked" IsChecked="{x:Bind ViewModel.ShowManyMonths, Mode=OneWay}"
                                   AutomationProperties.Name="Show as many months as fit" ToolTipService.ToolTip="Show as many months as fit across the screen">
-                        <FontIcon Glyph="&#xE80A;" FontSize="16" />
+                        <!-- Two pages stacked: the one-month page, with a second page showing behind it -->
+                        <Grid Width="22" Height="22">
+                            <FontIcon Glyph="&#xE7C3;" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.55">
+                                <FontIcon.Clip><RectangleGeometry Rect="0,0,20,5" /></FontIcon.Clip>
+                            </FontIcon>
+                            <FontIcon Glyph="&#xE7C3;" FontSize="16" HorizontalAlignment="Left" VerticalAlignment="Top" Opacity="0.55">
+                                <FontIcon.Clip><RectangleGeometry Rect="0,0,5,20" /></FontIcon.Clip>
+                            </FontIcon>
+                            <FontIcon Glyph="&#xE7C3;" FontSize="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                        </Grid>
                     </ToggleButton>
                 </StackPanel>
             </Grid>
@@ -235,6 +278,7 @@
             <!-- Same columns as the body below, so each heading sits over its month. The right margin matches the scroll bar's. -->
             <Grid Grid.Row="2" Margin="0,0,16,0">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -262,9 +306,30 @@
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
+                <!-- Under the headings, the titles of the rows being scrolled through -->
+                <TextBlock Grid.Row="2" Text="Cash Inflow" Margin="12,0,0,4" VerticalAlignment="Bottom" Style="{StaticResource BodyStrongTextBlockStyle}"
+                           Foreground="{ThemeResource SystemFillColorSuccessBrush}" Visibility="{x:Bind ViewModel.FrozenInflow, Mode=OneWay}" />
+                <TextBlock Grid.Row="2" Text="Cash Outflow" Margin="12,0,0,4" VerticalAlignment="Bottom" Style="{StaticResource BodyStrongTextBlockStyle}"
+                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" Visibility="{x:Bind ViewModel.FrozenOutflow, Mode=OneWay}" />
+                <ItemsControl Grid.Row="2" Grid.Column="1" ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource FrozenInflowTitlesTemplate}"
+                              HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.FrozenInflow, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <ItemsControl Grid.Row="2" Grid.Column="1" ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource FrozenOutflowTitlesTemplate}"
+                              HorizontalAlignment="Right" Visibility="{x:Bind ViewModel.FrozenOutflow, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
             </Grid>
 
-            <ScrollViewer x:Name="BudgetScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" IsTabStop="True" UseSystemFocusVisuals="False"
+            <ScrollViewer x:Name="BudgetScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" IsTabStop="True" UseSystemFocusVisuals="False" ViewChanged="BudgetScroll_ViewChanged"
                           FocusVisualPrimaryThickness="0" FocusVisualSecondaryThickness="0">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
@@ -281,17 +346,29 @@
                                 <ItemsControl x:Name="SummaryLabelList" ItemTemplate="{StaticResource SummaryLabelTemplate}" />
                             </Border>
                             <Border Height="16" />
-                            <Grid Height="48" Padding="12,0,0,2">
-                                <TextBlock Text="Cash Inflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
-                                           Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                            <Grid x:Name="InflowTitleRow" Height="48" Padding="12,0,0,2">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                                    <TextBlock Text="Cash Inflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                    <Button Click="AddIncomeItem_Click" Padding="6" Background="Transparent" BorderThickness="0" VerticalAlignment="Bottom"
+                                            AutomationProperties.Name="Add a budget item to Cash Inflow" ToolTipService.ToolTip="Add a budget item to Cash Inflow">
+                                        <FontIcon Glyph="&#xE710;" FontSize="14" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                    </Button>
+                                </StackPanel>
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.IncomeLines}" ItemTemplate="{StaticResource IncomeNameTemplate}" />
                             </Border>
                             <Border Height="16" />
-                            <Grid Height="48" Padding="12,0,0,2">
-                                <TextBlock Text="Cash Outflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
-                                           Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                            <Grid x:Name="OutflowTitleRow" Height="48" Padding="12,0,0,2">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                                    <TextBlock Text="Cash Outflow" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                               Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                    <Button Click="AddExpenseGroup_Click" Padding="6" Background="Transparent" BorderThickness="0" VerticalAlignment="Bottom"
+                                            AutomationProperties.Name="Add a budget group to Cash Outflow" ToolTipService.ToolTip="Add a budget group to Cash Outflow">
+                                        <FontIcon Glyph="&#xE710;" FontSize="14" Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                                    </Button>
+                                </StackPanel>
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
                                 <ItemsControl x:Name="OutflowNames" ItemsSource="{x:Bind ViewModel.OutflowLines}" ItemTemplate="{StaticResource OutflowNameTemplate}" />

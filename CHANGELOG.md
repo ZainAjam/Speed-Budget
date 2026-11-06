@@ -6,6 +6,13 @@ into the release.
 
 ## 0.9.13
 
+- **Plan your spending, refinements.**
+  - Budget cells no longer show a tooltip when you hover over them.
+  - Clearing a budget cell leaves it blank while you edit it; leaving the cell (Enter, or the arrow keys) counts the blank as 0.00.
+  - Scroll down and the column titles stay in view: Received and Available now while you are in the Cash Inflow rows, Budgeted, Spent and Left once you are in the Cash Outflow rows.
+  - The button for showing several months at once now shows two pages stacked.
+  - New **+** buttons: beside Cash Inflow to add a budget item, beside Cash Outflow to add a budget group, and beside each group to add a budget item to it. A new group with no items stays on the page so you can add to it.
+  - Right-click a budget group to rename it, or a budget item to rename it or change its icon.
 - When a transaction table is sorted oldest first, it now opens scrolled to the bottom, so the last transaction you added is in view and you can add the next one straight away.
 
 ## 0.9.12

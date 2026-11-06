@@ -1339,4 +1339,25 @@ public sealed class DataTests : IDisposable
         Assert.False(_store.CanUndo);
         Assert.Null(await _store.UndoAsync());
     }
+
+    [Fact]
+    public async Task A_group_can_be_renamed_and_an_item_renamed_and_given_an_icon_on_its_own()
+    {
+        var group = await _store.AddGroupAsync("Everyday", ItemKind.Expense);
+        var item = await _store.AddItemAsync(group.Id, null, "Food", ItemKind.Expense);
+
+        await _store.RenameGroupAsync(group.Id, "Daily life");
+        await _store.EditItemAsync(item.Id, "Groceries", null);
+        await _store.EditItemAsync(item.Id, null, "🛒");
+
+        Assert.Equal("Daily life", (await _store.GetGroupsAsync()).Single().Name);
+        var saved = (await _store.GetItemsAsync()).Single();
+        Assert.Equal("Groceries", saved.Name);
+        Assert.Equal("🛒", saved.Emoji);
+
+        await _store.EditItemAsync(item.Id, "  ", "");   // a blank name changes nothing; an empty icon removes it
+        saved = (await _store.GetItemsAsync()).Single();
+        Assert.Equal("Groceries", saved.Name);
+        Assert.Null(saved.Emoji);
+    }
 }
