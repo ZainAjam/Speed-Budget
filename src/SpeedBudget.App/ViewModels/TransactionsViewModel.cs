@@ -609,10 +609,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
             AccountBadgeTip = viewed is { IsOnBudget: true }
                 ? "This account is part of your budget: its transactions count against your budget items."
                 : "This account is only tracked: it sits outside your budget, so its transactions don't affect it.";
-            // Both kinds of account get the same plain outlined label (it must not look like a button); only its words differ.
+            // Both kinds of account get the same plain outlined label (it must not look like a button); only its words and their colour differ.
             AccountBadgeBrush = Format.Theme("CardBackgroundFillColorDefaultBrush");
             AccountBadgeBorderBrush = Format.Theme("ControlStrongStrokeColorDefaultBrush");
-            AccountBadgeTextBrush = Format.Theme("TextFillColorPrimaryBrush");
+            AccountBadgeTextBrush = Format.Theme(viewed is { IsOnBudget: true } ? "AccentTextFillColorPrimaryBrush" : "SystemFillColorCautionBrush");   // the words are coloured to tell the two apart
 
             EntryAccounts.Clear();
             foreach (var a in _accounts.Where(a => !a.IsClosed || a.Id == AccountId))
