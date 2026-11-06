@@ -308,7 +308,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         else if (line.GroupId is { } groupId)
         {
             var add = new MenuFlyoutItem { Text = "Add budget item…", Icon = new FontIcon { Glyph = "\uE710" } };
-            add.Click += async (_, _) => await AddItemAsync(groupId, SpeedBudget.Core.ItemKind.Expense, line.Name);
+            add.Click += async (_, _) => await AddItemAsync(groupId, ViewModel.IsIncome(line) ? SpeedBudget.Core.ItemKind.Income : SpeedBudget.Core.ItemKind.Expense, line.Name);
             var rename = new MenuFlyoutItem { Text = "Rename budget group…", Icon = new FontIcon { Glyph = "\uE8AC" } };
             rename.Click += async (_, _) => await RenameGroupAsync(groupId, line.Name);
             var delete = new MenuFlyoutItem { Text = "Delete budget group…", Icon = new FontIcon { Glyph = "\uE74D" } };
@@ -325,17 +325,14 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     // ---- Adding and renaming budget groups and items ----
 
-    /// <summary>Right-click "Cash Inflow": add an income group, or an income item.</summary>
+    /// <summary>Right-click "Cash Inflow": add an income group.</summary>
     private void InflowTitle_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement target) return;
         var menu = new MenuFlyout();
         var group = new MenuFlyoutItem { Text = "Add budget group…", Icon = new FontIcon { Glyph = "\uE710" } };
         group.Click += async (_, _) => await AddGroupAsync(SpeedBudget.Core.ItemKind.Income);
-        var item = new MenuFlyoutItem { Text = "Add budget item…", Icon = new FontIcon { Glyph = "\uE710" } };
-        item.Click += async (_, _) => await AddItemAsync(null, SpeedBudget.Core.ItemKind.Income, "Cash Inflow");
         menu.Items.Add(group);
-        menu.Items.Add(item);
         ShowMenu(menu, target, args);
         args.Handled = true;
     }
@@ -362,14 +359,10 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     private async Task AddGroupAsync(SpeedBudget.Core.ItemKind kind)
     {
-        var income = kind == SpeedBudget.Core.ItemKind.Income;
-        var dialog = new NameDialog("New budget group",
-            income ? "A group collects budget items that belong together. Income groups are not shown as headings, so you are asked for the group's first item next."
-                   : "A group collects budget items that belong together. Right-click the group afterwards to add items to it.",
+        var dialog = new NameDialog("New budget group", "A group collects budget items that belong together. Right-click the group afterwards to add items to it.",
             "Budget group name", "", "Add") { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
-        var groupId = await ViewModel.AddGroupAsync(dialog.NameText, kind);
-        if (income) await AddItemAsync(groupId, kind, dialog.NameText);
+        await ViewModel.AddGroupAsync(dialog.NameText, kind);
     }
 
     private async Task DeleteItemAsync(Guid itemId, string name)
@@ -434,8 +427,9 @@ public sealed partial class BudgetPage : Page, IReloadable
     private void Line_DragOver(object sender, DragEventArgs e)
     {
         if (!e.DataView.Properties.TryGetValue("budgetLine", out var dragged)) return;
-        // A group can only be dropped among the other groups of the cash outflow.
-        if (dragged is BudgetLine { IsHeader: true } && (sender as FrameworkElement)?.DataContext is not BudgetLine { Group: not null }) return;
+        // A group can only be dropped among the other groups of its own table (cash inflow or cash outflow).
+        if (dragged is BudgetLine { IsHeader: true } mg
+            && ((sender as FrameworkElement)?.DataContext is not BudgetLine { Group: not null } overLine || ViewModel.IsIncome(mg) != ViewModel.IsIncome(overLine))) return;
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
         e.DragUIOverride.Caption = "Move here";
     }

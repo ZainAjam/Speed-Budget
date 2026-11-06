@@ -82,7 +82,7 @@ public sealed partial class IncomeCell : LineCell
     public IncomeCell(BudgetLine line, Guid monthId) : base(line)
     {
         MonthId = monthId;
-        ItemId = line.ItemId!.Value;
+        ItemId = line.ItemId ?? Guid.Empty;   // a group's heading row has no figures
     }
 
     public void Apply(IncomeItemMonth m)
@@ -235,7 +235,11 @@ public sealed partial class MonthColumn : ObservableObject
         Summary[6].Cents = m.Available;
 
         var income = m.IncomeItems.ToDictionary(i => i.ItemId);
-        foreach (var cell in Income) cell.Apply(income.GetValueOrDefault(cell.ItemId) ?? new IncomeItemMonth(cell.ItemId, 0, 0, 0));
+        foreach (var cell in Income)
+        {
+            if (cell.Line.IsHeader) continue;   // group headings carry no figures
+            cell.Apply(income.GetValueOrDefault(cell.ItemId) ?? new IncomeItemMonth(cell.ItemId, 0, 0, 0));
+        }
 
         var items = m.Items.ToDictionary(i => i.ItemId);
         foreach (var cell in Outflow)
@@ -365,20 +369,15 @@ public sealed partial class BudgetViewModel : ObservableObject
             foreach (var group in groups)
             {
                 var inGroup = items.Where(i => i.GroupId == group.Id).ToList();
-                if (group.Kind == ItemKind.Income)
-                {
-                    foreach (var (item, depth) in Flatten(inGroup))
-                        _incomeLines.Add(new BudgetLine(item.Id, item.DisplayName, depth, item.IsArchived, null, isHeader: false, item.GroupId, item.ParentItemId));
-                    continue;
-                }
-
+                // Income groups are listed with a heading and fold away just like the expense groups.
+                var lines = group.Kind == ItemKind.Income ? _incomeLines : _outflowLines;
                 var state = new GroupState(group.Name);
                 state.PropertyChanged += (_, _) => ApplyVisibility();
                 var header = new BudgetLine(null, group.Name, 0, false, state, isHeader: true, group.Id);
-                _outflowLines.Add(header);
+                lines.Add(header);
                 foreach (var (item, depth) in Flatten(inGroup))
                 {
-                    _outflowLines.Add(new BudgetLine(item.Id, item.DisplayName, depth, item.IsArchived, state, isHeader: false, item.GroupId, item.ParentItemId));
+                    lines.Add(new BudgetLine(item.Id, item.DisplayName, depth, item.IsArchived, state, isHeader: false, item.GroupId, item.ParentItemId));
                     header.GroupItemIds.Add(item.Id);
                 }
             }
@@ -512,12 +511,14 @@ public sealed partial class BudgetViewModel : ObservableObject
 
         bool Relevant(BudgetLine line) => !line.IsArchived || withNumbers.Contains(line.ItemId!.Value);
 
-        foreach (var line in _incomeLines) line.IsVisible = Relevant(line);
-
-        foreach (var line in _outflowLines.Where(l => l.IsItem))
-            line.IsVisible = Relevant(line) && line.Group!.IsExpanded;
-        foreach (var header in _outflowLines.Where(l => l.IsHeader))
-            header.IsVisible = !_outflowLines.Any(l => l.IsItem && l.Group == header.Group) || _outflowLines.Any(l => l.IsItem && l.Group == header.Group && Relevant(l));
+        foreach (var lines in new[] { _incomeLines, _outflowLines })
+        {
+            foreach (var line in lines.Where(l => l.IsItem))
+                line.IsVisible = Relevant(line) && line.Group!.IsExpanded;
+            // A heading shows while its group has something to show, and always when the group is empty (so items can be added to it).
+            foreach (var header in lines.Where(l => l.IsHeader))
+                header.IsVisible = !lines.Any(l => l.IsItem && l.Group == header.Group) || lines.Any(l => l.IsItem && l.Group == header.Group && Relevant(l));
+        }
     }
 
     private async Task RecalculateAsync()
@@ -675,7 +676,7 @@ public sealed partial class BudgetViewModel : ObservableObject
         else
         {
             parentId = target.ParentItemId;
-            var pool = target.Group is null ? _incomeLines : _outflowLines;   // income items have no folding group
+            var pool = _incomeLines.Contains(target) ? _incomeLines : _outflowLines;
             var siblings = pool.Where(l => l.IsItem && l.GroupId == groupId && l.ParentItemId == parentId).ToList();
             var index = siblings.IndexOf(target);
             before = after ? (index + 1 < siblings.Count ? siblings[index + 1].ItemId : null) : target.ItemId;
@@ -692,11 +693,15 @@ public sealed partial class BudgetViewModel : ObservableObject
         await LoadAsync();
     }
 
+    /// <summary>True for a line in the cash inflow table (as opposed to the cash outflow table).</summary>
+    public bool IsIncome(BudgetLine line) => _incomeLines.Contains(line);
+
     /// <summary>Moves a whole group to where another group is: further down the page it goes after it, further up it goes before it.</summary>
     public async Task MoveGroupAsync(BudgetLine moving, BudgetLine target)
     {
         if (moving.GroupId is not { } groupId || target.GroupId is not { } targetId || groupId == targetId) return;
-        var headers = _outflowLines.Where(l => l.IsHeader).ToList();
+        if (IsIncome(moving) != IsIncome(target)) return;   // income and expense groups keep to their own tables
+        var headers = (_incomeLines.Contains(moving) ? _incomeLines : _outflowLines).Where(l => l.IsHeader).ToList();
         var after = headers.FindIndex(h => h.GroupId == groupId) < headers.FindIndex(h => h.GroupId == targetId);
 
         await _gate.WaitAsync();
