@@ -477,7 +477,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var groups = await AppServices.Store.GetGroupsAsync();
         if (groups.Count == 0)
         {
-            ViewModel.Message = "Add a budget category first under Budget Items.";
+            ViewModel.Message = "Add a budget group first: use the + beside Cash Outflow on the budget screen.";
             return;
         }
         var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };

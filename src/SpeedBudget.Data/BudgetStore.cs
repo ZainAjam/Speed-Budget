@@ -797,6 +797,53 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return true;
     }
 
+    /// <summary>Changes all the details of an account.</summary>
+    public async Task UpdateAccountAsync(Guid accountId, string name, AccountType type, bool isOnBudget, long openingBalance, bool isClosed, CancellationToken ct = default)
+    {
+        var account = await db.Accounts.SingleAsync(a => a.Id == accountId, ct);
+        account.Name = name.Trim();
+        account.Type = type;
+        account.IsOnBudget = isOnBudget;
+        account.OpeningBalance = openingBalance;
+        account.IsClosed = isClosed;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Moves a group to just before (or after) another group of the same kind, renumbering the groups.</summary>
+    public async Task MoveGroupToAsync(Guid groupId, Guid targetGroupId, bool after, CancellationToken ct = default)
+    {
+        if (groupId == targetGroupId) return;
+        var all = await GetGroupsAsync(ct);
+        var moving = all.SingleOrDefault(g => g.Id == groupId);
+        var target = all.SingleOrDefault(g => g.Id == targetGroupId);
+        if (moving is null || target is null || moving.Kind != target.Kind) return;
+
+        all.Remove(moving);
+        all.Insert(all.IndexOf(target) + (after ? 1 : 0), moving);
+        for (var n = 0; n < all.Count; n++)
+            if (all[n].SortOrder != n) all[n].SortOrder = n;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Deletes a group together with its items. An item that has budget or transactions is archived instead (its history is kept),
+    /// and then the group stays too. Returns how many items were deleted and archived, and whether the group itself went.
+    /// </summary>
+    public async Task<(int Deleted, int Archived, bool GroupDeleted)> DeleteGroupWithItemsAsync(Guid groupId, CancellationToken ct = default)
+    {
+        var group = await db.Groups.SingleAsync(g => g.Id == groupId, ct);
+        var items = await db.Items.Where(i => i.GroupId == groupId).ToListAsync(ct);
+
+        int Depth(ItemEntity i) => i.ParentItemId is { } p && items.FirstOrDefault(x => x.Id == p) is { } parent ? 1 + Depth(parent) : 0;
+        int deleted = 0, archived = 0;
+        foreach (var item in items.OrderByDescending(Depth))   // sub-items first, so a parent with no history can go too
+        {
+            if (await DeleteOrArchiveItemAsync(item, ct)) deleted++; else archived++;
+        }
+        var groupDeleted = archived == 0 && await DeleteGroupAsync(group, ct);
+        return (deleted, archived, groupDeleted);
+    }
+
     /// <summary>Deletes a group. Refused (false) while it still has items.</summary>
     public async Task<bool> DeleteGroupAsync(GroupEntity group, CancellationToken ct = default)
     {

@@ -28,20 +28,18 @@ public sealed partial class MainWindow : Window
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
 
         var budget = new NavigationViewItem { Content = "Plan your spending", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
-        var accounts = new NavigationViewItem { Content = "Accounts", Tag = "accounts", Icon = new SymbolIcon(Symbol.Library) };
         var payees = new NavigationViewItem { Content = "Counterparties", Tag = "payees", Icon = new SymbolIcon(Symbol.People) };
-        var items = new NavigationViewItem { Content = "Budget Items", Tag = "items", Icon = new SymbolIcon(Symbol.Edit) };
 
         _transactions.Content = HeadingLabel("Transactions");
         Nav.MenuItems.Add(Heading("Budget"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
+        Nav.MenuItems.Add(_addAccountItem);
+        Nav.ItemInvoked += (sender, args) => { if (args.InvokedItemContainer?.Tag as string == "add-account") _ = AddAccountAsync(); };
 
         // Configurations sit at the bottom of the panel, above App Settings and a line that sets them apart.
         Nav.FooterMenuItems.Add(Heading("Configurations"));
-        Nav.FooterMenuItems.Add(accounts);
         Nav.FooterMenuItems.Add(payees);
-        Nav.FooterMenuItems.Add(items);
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
@@ -53,8 +51,8 @@ public sealed partial class MainWindow : Window
         _balanceTimer.Tick += (_, _) => _ = RefreshBalancesAsync();
         AppServices.Db.SavedChanges += (_, _) => DispatcherQueue.TryEnqueue(() => { _balanceTimer.Stop(); _balanceTimer.Start(); });
 
-        // Ctrl+1 to Ctrl+5 jump to Budget, Transactions, Accounts, Counterparties and Budget Items.
-        var shortcuts = new[] { budget, null, accounts, payees, items };   // the second one is the first account in the list
+        // Ctrl+1 to Ctrl+3 jump to Budget, Transactions and Counterparties.
+        var shortcuts = new[] { budget, null, payees };   // the second one is the first account in the list
         for (var i = 0; i < shortcuts.Length; i++)
         {
             var target = shortcuts[i];
@@ -252,6 +250,76 @@ public sealed partial class MainWindow : Window
 
     private readonly List<NavigationViewItem> _accountItems = [];
 
+    // The entry at the bottom of the Transactions list that adds a bank account, and the account to open once the list has been rebuilt.
+    private readonly NavigationViewItem _addAccountItem = new()
+    {
+        Content = "Add bank account", Tag = "add-account", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Add),
+    };
+    private Guid? _openAfterRebuild;
+
+    /// <summary>The Add bank account entry: asks for the details of a new account, adds it and opens it.</summary>
+    private async Task AddAccountAsync()
+    {
+        var dialog = new AccountDialog(null) { XamlRoot = Nav.XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            var created = await AppServices.Store.AddAccountAsync(dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents);
+            _openAfterRebuild = created.Id;
+            AppServices.RaiseAccountsChanged();
+        }
+        catch (Exception ex) { ShowToast($"Could not add the account: {ex.Message}"); }
+    }
+
+    /// <summary>Right-click on an account in the left panel: edit it or delete it.</summary>
+    private void AccountMenu(FrameworkElement row, AccountEntity account, ContextRequestedEventArgs args)
+    {
+        var menu = new MenuFlyout();
+        var edit = new MenuFlyoutItem { Text = "Edit account…", Icon = new FontIcon { Glyph = "\uE70F" } };
+        edit.Click += async (_, _) => await EditAccountAsync(account.Id);
+        var delete = new MenuFlyoutItem { Text = "Delete account…", Icon = new FontIcon { Glyph = "\uE74D" } };
+        delete.Click += async (_, _) => await DeleteAccountAsync(account.Id);
+        menu.Items.Add(edit);
+        menu.Items.Add(delete);
+        if (args.TryGetPosition(row, out var point)) menu.ShowAt(row, point);
+        else menu.ShowAt(row);
+        args.Handled = true;
+    }
+
+    private async Task EditAccountAsync(Guid accountId)
+    {
+        var account = (await AppServices.Store.GetAccountsAsync()).FirstOrDefault(a => a.Id == accountId);
+        if (account is null) return;
+        var dialog = new AccountDialog(account) { XamlRoot = Nav.XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            await AppServices.Store.UpdateAccountAsync(accountId, dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents, dialog.IsClosed);
+            AppServices.RaiseAccountsChanged();
+        }
+        catch (Exception ex) { ShowToast($"Could not save the account: {ex.Message}"); }
+    }
+
+    private async Task DeleteAccountAsync(Guid accountId)
+    {
+        var account = (await AppServices.Store.GetAccountsAsync()).FirstOrDefault(a => a.Id == accountId);
+        if (account is null) return;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = Nav.XamlRoot, Title = $"Delete {account.Name}?",
+            Content = "An account that already has transactions is closed instead of deleted, so its history is kept. A closed account stays in the list, and you can reopen it with Edit account.",
+            PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            var deleted = await AppServices.Store.DeleteOrCloseAccountAsync(account);
+            AppServices.RaiseAccountsChanged();
+            ShowToast(deleted ? $"Deleted {account.Name}." : $"{account.Name} has transactions, so it was closed instead of deleted.");
+        }
+        catch (Exception ex) { ShowToast($"Could not delete the account: {ex.Message}"); }
+    }
+
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _balanceTimer;
     private readonly Dictionary<Guid, TextBlock> _balanceBlocks = [];
 
@@ -286,7 +354,8 @@ public sealed partial class MainWindow : Window
         var row = new Grid { ColumnSpacing = 8, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent) };
         row.ColumnDefinitions.Add(new ColumnDefinition());
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var name = new TextBlock { Text = account.Name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        var name = new TextBlock { Text = account.IsClosed ? $"{account.Name} (closed)" : account.Name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        if (account.IsClosed) row.Opacity = 0.55;
         Grid.SetColumn(amount, 1);
         row.Children.Add(name);
         row.Children.Add(amount);
@@ -296,8 +365,9 @@ public sealed partial class MainWindow : Window
             Icon = new FontIcon { Glyph = account.IsOnBudget ? "" : "" } };
 
         // Accounts can be dragged into a new order, within their own kind (budget accounts above tracked ones).
-        row.CanDrag = true;
-        row.AllowDrop = true;
+        row.CanDrag = !account.IsClosed;
+        row.AllowDrop = !account.IsClosed;
+        row.ContextRequested += (_, e) => AccountMenu(row, account, e);
         row.DragStarting += (_, e) =>
         {
             _draggedAccount = account.Id;
@@ -355,7 +425,8 @@ public sealed partial class MainWindow : Window
             using var reader = LocalDatabase.OpenForReading();
             var readStore = new BudgetStore(reader);
             // Budget accounts come first, then tracked ones; within each, in the order the user has dragged them into.
-            accounts = (await readStore.GetAccountsAsync()).Where(a => !a.IsClosed).OrderByDescending(a => a.IsOnBudget).ThenBy(a => a.SortOrder).ThenBy(a => a.Name).ToList();
+            // Open accounts first (budget accounts, then tracked ones, in the order they were dragged into), closed ones after them.
+            accounts = (await readStore.GetAccountsAsync()).OrderBy(a => a.IsClosed).ThenByDescending(a => a.IsOnBudget).ThenBy(a => a.SortOrder).ThenBy(a => a.Name).ToList();
             foreach (var account in accounts) balances[account.Id] = (await readStore.GetBalancesAsync(account.Id)).BookBalance;
         }
         catch (Exception ex)
@@ -364,7 +435,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         _trackedAccounts.Clear();
-        foreach (var tracked in accounts.Where(a => !a.IsOnBudget)) _trackedAccounts.Add(tracked.Id);
+        foreach (var tracked in accounts.Where(a => !a.IsOnBudget && !a.IsClosed)) _trackedAccounts.Add(tracked.Id);
         UpdateWatcherStrip();
 
         // The accounts are rows of their own under Transactions (not nested in it), so their icons line up with the others.
@@ -379,6 +450,16 @@ public sealed partial class MainWindow : Window
             var item = AccountItem(account, balances.GetValueOrDefault(account.Id));
             _accountItems.Add(item);
             Nav.MenuItems.Insert(at++, item);
+        }
+        Nav.MenuItems.Remove(_addAccountItem);
+        Nav.MenuItems.Insert(Math.Min(at, Nav.MenuItems.Count), _addAccountItem);   // the add entry stays at the bottom of the list
+
+        // A new account is opened as soon as it is in the list.
+        if (_openAfterRebuild is { } opened && _accountItems.FirstOrDefault(i => (string?)i.Tag == $"tx:{opened}") is { } openedItem)
+        {
+            _openAfterRebuild = null;
+            Nav.SelectedItem = openedItem;
+            return;
         }
 
         // Keep the same page selected, or fall back to the first account if its account went away.
@@ -488,9 +569,7 @@ public sealed partial class MainWindow : Window
         {
             case "budget": ContentFrame.Navigate(typeof(BudgetPage), parameter); break;
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
-            case "accounts": ContentFrame.Navigate(typeof(AccountsPage)); break;
             case "payees": ContentFrame.Navigate(typeof(PayeesPage), parameter); break;
-            case "items": ContentFrame.Navigate(typeof(ItemsPage), parameter); break;
             case "shortcuts": ContentFrame.Navigate(typeof(KeyboardShortcutsPage)); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):

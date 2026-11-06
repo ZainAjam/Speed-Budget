@@ -178,7 +178,7 @@ public sealed class SetupWizardDialog : ContentDialog
 
     private void BuildBudget(StackPanel panel)
     {
-        panel.Children.Add(Text("Tick the budget items you want. A budget group collects related items, and every item is something you set money aside for each month. Income groups hold where money comes in. You can add your own, and rename, move or delete anything later under Budget Items."));
+        panel.Children.Add(Text("Tick the budget items you want. A budget group collects related items, and every item is something you set money aside for each month. Income groups hold where money comes in. You can add your own, and rename, move or delete anything later on the budget screen."));
 
         foreach (var group in _plan.Groups.ToList())
         {

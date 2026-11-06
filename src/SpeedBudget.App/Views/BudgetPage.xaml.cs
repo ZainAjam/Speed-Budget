@@ -299,14 +299,20 @@ public sealed partial class BudgetPage : Page, IReloadable
             rename.Click += async (_, _) => await RenameItemAsync(itemId);
             var icon = new MenuFlyoutItem { Text = "Change icon…", Icon = new FontIcon { Glyph = "\uE76E" } };
             icon.Click += async (_, _) => await ChangeIconAsync(itemId);
+            var delete = new MenuFlyoutItem { Text = "Delete budget item…", Icon = new FontIcon { Glyph = "\uE74D" } };
+            delete.Click += async (_, _) => await DeleteItemAsync(itemId, line.Name);
             menu.Items.Add(rename);
             menu.Items.Add(icon);
+            menu.Items.Add(delete);
         }
         else if (line.GroupId is { } groupId)
         {
             var rename = new MenuFlyoutItem { Text = "Rename budget group…", Icon = new FontIcon { Glyph = "\uE8AC" } };
             rename.Click += async (_, _) => await RenameGroupAsync(groupId, line.Name);
+            var delete = new MenuFlyoutItem { Text = "Delete budget group…", Icon = new FontIcon { Glyph = "\uE74D" } };
+            delete.Click += async (_, _) => await DeleteGroupAsync(groupId, line.Name, line.GroupItemIds.Count);
             menu.Items.Add(rename);
+            menu.Items.Add(delete);
         }
         else return;
 
@@ -341,6 +347,29 @@ public sealed partial class BudgetPage : Page, IReloadable
         await ViewModel.AddGroupAsync(dialog.NameText);
     }
 
+    private async Task DeleteItemAsync(Guid itemId, string name)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = $"Delete {name}?",
+            Content = "The budget item is deleted. If it already has budget or transactions it is archived instead: it is hidden, and its history is kept.",
+            PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteItemAsync(itemId);
+    }
+
+    private async Task DeleteGroupAsync(Guid groupId, string name, int itemCount)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = $"Delete {name}?",
+            Content = itemCount == 0 ? "The budget group is deleted."
+                : $"The budget group and its {itemCount} budget item{(itemCount == 1 ? "" : "s")} are deleted. An item that already has budget or transactions is archived instead (hidden, with its history kept), and then the group stays.",
+            PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteGroupAsync(groupId, name);
+    }
+
     private async Task RenameGroupAsync(Guid groupId, string current)
     {
         var dialog = new NameDialog("Rename budget group", null, "Budget group name", current, "Rename") { XamlRoot = XamlRoot };
@@ -368,18 +397,20 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     private void Line_DragStarting(UIElement sender, DragStartingEventArgs args)
     {
-        if ((sender as FrameworkElement)?.DataContext is not BudgetLine { IsItem: true } line)
+        if ((sender as FrameworkElement)?.DataContext is not BudgetLine line)
         {
             args.Cancel = true;
             return;
         }
-        args.Data.Properties["budgetLine"] = line;
+        args.Data.Properties["budgetLine"] = line;   // an item, or a whole group (by its heading)
         args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
     }
 
     private void Line_DragOver(object sender, DragEventArgs e)
     {
-        if (!e.DataView.Properties.ContainsKey("budgetLine")) return;
+        if (!e.DataView.Properties.TryGetValue("budgetLine", out var dragged)) return;
+        // A group can only be dropped among the other groups of the cash outflow.
+        if (dragged is BudgetLine { IsHeader: true } && (sender as FrameworkElement)?.DataContext is not BudgetLine { Group: not null }) return;
         e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
         e.DragUIOverride.Caption = "Move here";
     }
@@ -389,6 +420,11 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         if (sender is not FrameworkElement { DataContext: BudgetLine target } row) return;
         if (!e.DataView.Properties.TryGetValue("budgetLine", out var dragged) || dragged is not BudgetLine moving) return;
+        if (moving.IsHeader)
+        {
+            if (target.Group is not null) await ViewModel.MoveGroupAsync(moving, target);
+            return;
+        }
         await ViewModel.MoveLineAsync(moving, target, after: e.GetPosition(row).Y > row.ActualHeight / 2);
     }
 

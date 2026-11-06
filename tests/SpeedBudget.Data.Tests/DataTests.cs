@@ -1360,4 +1360,51 @@ public sealed class DataTests : IDisposable
         Assert.Equal("Groceries", saved.Name);
         Assert.Null(saved.Emoji);
     }
+
+    [Fact]
+    public async Task An_account_can_be_edited_in_every_detail()
+    {
+        var account = await _store.AddAccountAsync("Old", AccountType.Cheque, isOnBudget: true, openingBalance: 100_00);
+
+        await _store.UpdateAccountAsync(account.Id, "  New name ", AccountType.Savings, isOnBudget: false, openingBalance: 250_00, isClosed: true);
+
+        var saved = (await _store.GetAccountsAsync()).Single();
+        Assert.Equal("New name", saved.Name);
+        Assert.Equal(AccountType.Savings, saved.Type);
+        Assert.False(saved.IsOnBudget);
+        Assert.Equal(250_00, saved.OpeningBalance);
+        Assert.True(saved.IsClosed);
+    }
+
+    [Fact]
+    public async Task A_group_can_be_moved_before_or_after_another_group()
+    {
+        var a = await _store.AddGroupAsync("A", ItemKind.Expense);
+        var b = await _store.AddGroupAsync("B", ItemKind.Expense);
+        var c = await _store.AddGroupAsync("C", ItemKind.Expense);
+
+        await _store.MoveGroupToAsync(c.Id, a.Id, after: false);
+        Assert.Equal(new[] { "C", "A", "B" }, (await _store.GetGroupsAsync()).Select(g => g.Name));
+
+        await _store.MoveGroupToAsync(c.Id, b.Id, after: true);
+        Assert.Equal(new[] { "A", "B", "C" }, (await _store.GetGroupsAsync()).Select(g => g.Name));
+    }
+
+    [Fact]
+    public async Task Deleting_a_group_removes_its_unused_items_and_keeps_a_group_with_history()
+    {
+        var empty = await _store.AddGroupAsync("Empty", ItemKind.Expense);
+        await _store.AddItemAsync(empty.Id, null, "Unused", ItemKind.Expense);
+        var result = await _store.DeleteGroupWithItemsAsync(empty.Id);
+        Assert.Equal((1, 0, true), result);
+        Assert.Empty(await _store.GetGroupsAsync());
+
+        var used = await _store.AddGroupAsync("Used", ItemKind.Expense);
+        var item = await _store.AddItemAsync(used.Id, null, "Food", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, item.Id, 100_00);
+        result = await _store.DeleteGroupWithItemsAsync(used.Id);
+        Assert.Equal((0, 1, false), result);
+        Assert.Single(await _store.GetGroupsAsync());   // the group stays, with its archived item
+        Assert.True((await _store.GetItemsAsync()).Single().IsArchived);
+    }
 }

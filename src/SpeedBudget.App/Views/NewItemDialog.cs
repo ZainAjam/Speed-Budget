@@ -38,7 +38,7 @@ public sealed class NewItemDialog : ContentDialog
             Spacing = 12, MinWidth = 380,
             Children =
             {
-                new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Text = "Choose the category it belongs in. You can set an icon, or move it later, under Budget Items." },
+                new TextBlock { TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Text = "Choose the category it belongs in. You can change its icon, or move it, later on the budget screen (right-click it, or drag it)." },
                 _category,
                 _name,
             },

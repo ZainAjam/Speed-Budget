@@ -8,14 +8,15 @@
         <!-- Every row is a fixed height, so the name column and each month column line up row for row. -->
 
         <DataTemplate x:Key="IncomeNameTemplate" x:DataType="vm:BudgetLine">
-            <Grid Height="40" Padding="12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="Transparent" ContextRequested="Line_ContextRequested">
+            <Grid Height="40" Padding="12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="Transparent" ContextRequested="Line_ContextRequested"
+                  CanDrag="True" AllowDrop="True" DragStarting="Line_DragStarting" DragOver="Line_DragOver" Drop="Line_Drop">
                 <TextBlock Text="{x:Bind Name}" Margin="{x:Bind Indent}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="OutflowNameTemplate" x:DataType="vm:BudgetLine">
             <Grid Height="40" Padding="4,0,12,0" Visibility="{x:Bind IsVisible, Mode=OneWay}" Background="{x:Bind HighlightBrush, Mode=OneWay}"
-                  CanDrag="{x:Bind IsItem}" AllowDrop="True" DragStarting="Line_DragStarting" DragOver="Line_DragOver" Drop="Line_Drop"
+                  CanDrag="True" AllowDrop="True" DragStarting="Line_DragStarting" DragOver="Line_DragOver" Drop="Line_Drop"
                   ContextRequested="Line_ContextRequested">
                 <StackPanel Orientation="Horizontal" Spacing="4" Visibility="{x:Bind IsHeader}">
                     <Button Click="Chevron_Click" Tag="{x:Bind}" Padding="6" Background="Transparent" BorderThickness="0"
@@ -333,7 +334,7 @@
                           FocusVisualPrimaryThickness="0" FocusVisualSecondaryThickness="0">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
-                               Text="There are no budget items yet. Add some under Budget Items." />
+                               Text="There are no budget items yet. Use the + buttons beside Cash Inflow and Cash Outflow to add some." />
                     <!-- The names take whatever width is left; the months sit against the right-hand edge of the page. -->
                     <Grid Margin="0,0,16,0">
                         <Grid.ColumnDefinitions>

@@ -1053,7 +1053,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
         var open = EntryAccounts.Where(a => !a.Name.EndsWith("(closed)")).ToList();
         var account = (AccountId is { } fixedId ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId) : null) ?? open.FirstOrDefault();
-        if (account?.Id is not { } id) { Message = "Add an account first."; return null; }
+        if (account?.Id is not { } id) { Message = "Add an account first: use Add bank account in the left panel."; return null; }
         var other = transfer ? open.FirstOrDefault(a => a.Id != id) : null;
         if (transfer && other is null) { Message = "A transfer needs two accounts."; return null; }
 

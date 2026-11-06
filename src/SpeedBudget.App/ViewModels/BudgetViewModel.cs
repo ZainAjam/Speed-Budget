@@ -674,7 +674,8 @@ public sealed partial class BudgetViewModel : ObservableObject
         else
         {
             parentId = target.ParentItemId;
-            var siblings = _outflowLines.Where(l => l.IsItem && l.GroupId == groupId && l.ParentItemId == parentId).ToList();
+            var pool = target.Group is null ? _incomeLines : _outflowLines;   // income items have no folding group
+            var siblings = pool.Where(l => l.IsItem && l.GroupId == groupId && l.ParentItemId == parentId).ToList();
             var index = siblings.IndexOf(target);
             before = after ? (index + 1 < siblings.Count ? siblings[index + 1].ItemId : null) : target.ItemId;
         }
@@ -687,6 +688,49 @@ public sealed partial class BudgetViewModel : ObservableObject
         finally { _gate.Release(); }
 
         Message = error ?? "";
+        await LoadAsync();
+    }
+
+    /// <summary>Moves a whole group to where another group is: further down the page it goes after it, further up it goes before it.</summary>
+    public async Task MoveGroupAsync(BudgetLine moving, BudgetLine target)
+    {
+        if (moving.GroupId is not { } groupId || target.GroupId is not { } targetId || groupId == targetId) return;
+        var headers = _outflowLines.Where(l => l.IsHeader).ToList();
+        var after = headers.FindIndex(h => h.GroupId == groupId) < headers.FindIndex(h => h.GroupId == targetId);
+
+        await _gate.WaitAsync();
+        try { await _store.MoveGroupToAsync(groupId, targetId, after); Message = ""; }
+        catch (Exception ex) { Message = $"Could not move the group: {ex.Message}"; }
+        finally { _gate.Release(); }
+        await LoadAsync();
+    }
+
+    /// <summary>Deletes a budget item, or archives it (hides it, keeping its history) when it has budget or transactions.</summary>
+    public async Task DeleteItemAsync(Guid itemId)
+    {
+        if (await GetItemAsync(itemId) is not { } item) return;
+        await _gate.WaitAsync();
+        try
+        {
+            var deleted = await _store.DeleteOrArchiveItemAsync(item);
+            Message = deleted ? "" : $"{item.Name} has budget or transactions, so it was archived instead of deleted: it is hidden, and its history is kept.";
+        }
+        catch (Exception ex) { Message = $"Could not delete: {ex.Message}"; }
+        finally { _gate.Release(); }
+        await LoadAsync();
+    }
+
+    /// <summary>Deletes a group and its items (an item with budget or transactions is archived instead, and then the group stays).</summary>
+    public async Task DeleteGroupAsync(Guid groupId, string name)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var (_, archived, groupDeleted) = await _store.DeleteGroupWithItemsAsync(groupId);
+            Message = groupDeleted ? "" : $"{name} was kept: {archived} of its items have budget or transactions, so they were archived instead of deleted.";
+        }
+        catch (Exception ex) { Message = $"Could not delete: {ex.Message}"; }
+        finally { _gate.Release(); }
         await LoadAsync();
     }
 
