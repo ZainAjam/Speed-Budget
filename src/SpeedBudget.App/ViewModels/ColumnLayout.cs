@@ -24,7 +24,7 @@ public sealed partial class ColumnLayout : ObservableObject
     [ObservableProperty] public partial double Account { get; set; } = 140;
     [ObservableProperty] public partial double Outflow { get; set; } = 100;
     [ObservableProperty] public partial double Inflow { get; set; } = 100;
-    [ObservableProperty] public partial double Cleared { get; set; } = 72;
+    [ObservableProperty] public partial double Cleared { get; set; } = 96;
 
     /// <summary>The width of the edit panel on the right, including its left padding.</summary>
     [ObservableProperty] public partial double DetailWidth { get; set; } = 344;
@@ -74,8 +74,8 @@ public sealed partial class ColumnLayout : ObservableObject
         nameof(Memo) => 90,
         nameof(Item) => 90,
         nameof(Account) => 80,
-        nameof(Outflow) or nameof(Inflow) => 76,
-        nameof(Cleared) => 56,
+        nameof(Outflow) or nameof(Inflow) => 92,
+        nameof(Cleared) => 90,
         nameof(DetailWidth) => 300,
         _ => 40,
     };

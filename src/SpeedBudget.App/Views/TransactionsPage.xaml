@@ -248,19 +248,19 @@
                             <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="76" />
                         </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource HeadingBorder}"><TextBlock Text="Date" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Text="Bank date" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><TextBlock Text="Counterparty" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><TextBlock Text="Memo" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Date" Help="The date the transaction happened. It decides which budget month it counts in." /></Border>
+                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Bank date" Help="The date your bank processed it, if that is different from the date it happened. Optional." /></Border>
+                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Counterparty" Help="Who you paid, or who paid you: a shop, a person or an employer." /></Border>
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Memo" Help="A note to help you remember what the transaction was for." /></Border>
                         <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}">
-                            <TextBlock Text="Budget item" Style="{StaticResource HeadingText}" />
+                            <local:ColumnTitle Title="Budget item" Help="The budget item the spending comes out of, or the income goes into. A split lists several items. Transfers between two accounts that are both in your budget do not use one." />
                         </Border>
                         <Border Grid.Column="5" Style="{StaticResource HeadingBorder}" Visibility="{x:Bind ViewModel.ShowAccountColumn, Mode=OneWay}">
-                            <TextBlock Text="Account" Style="{StaticResource HeadingText}" />
+                            <local:ColumnTitle Title="Account" Help="The bank account the transaction belongs to." />
                         </Border>
-                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><TextBlock Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="7" Style="{StaticResource HeadingBorder}"><TextBlock Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource HeadingText}" /></Border>
-                        <Border Grid.Column="8" Style="{StaticResource HeadingBorder}"><TextBlock Text="Cleared" HorizontalTextAlignment="Center" Style="{StaticResource HeadingText}" /></Border>
+                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Outflow" Help="Money that left the account." HorizontalAlignment="Right" /></Border>
+                        <Border Grid.Column="7" Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Inflow" Help="Money that came into the account." HorizontalAlignment="Right" /></Border>
+                        <Border Grid.Column="8" Style="{StaticResource HeadingBorder}"><local:ColumnTitle Title="Cleared" Help="Tick it once the transaction shows on your bank statement. Cleared transactions make up the cleared bank balance; the others are uncleared and only count towards the available balance." HorizontalAlignment="Center" /></Border>
                         <Border Grid.Column="9" Style="{StaticResource HeadingBorder}" BorderThickness="0" />
                         <!-- Drag the right edge of a heading to resize that column. Everything to its right moves along; the last column takes up what is left. -->
                         <local:ResizeGrip Grid.Column="0" Tag="Date" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />

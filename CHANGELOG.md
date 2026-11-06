@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.14
 
+- Every column heading in the transaction table now has a small question mark beside it; hover over it for a short explanation of what the column means. The Cleared column is a little wider to make room.
 - Adding or changing a transaction no longer redraws the whole table (which made it flash and fade back in): the table stays on screen, only the rows that changed are added, removed or updated, and the table no longer fades or slides rows in and out.
 - Click a split transaction's "Split (n lines)" in the Budget item column and a pop-up shows the budget items it is made of, with their amounts and the total.
 - A transaction table sorted oldest first now opens already at the bottom, instead of opening at the top and scrolling down to it.
