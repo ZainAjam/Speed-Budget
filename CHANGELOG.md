@@ -13,6 +13,7 @@ into the release.
   - The button for showing several months at once now shows two pages stacked.
   - New **+** buttons: beside Cash Inflow to add a budget item, beside Cash Outflow to add a budget group, and beside each group to add a budget item to it. A new group with no items stays on the page so you can add to it.
   - Right-click a budget group to rename it, or a budget item to rename it or change its icon.
+  - The amount in a budget cell now stays against the right-hand edge while you edit it, instead of moving towards the middle.
 
 ## 0.9.13
 

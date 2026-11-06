@@ -39,6 +39,8 @@ public static class Money
         if (sender is NumberBox box && FindTextBox(box) is { } input)
         {
             input.TextAlignment = Microsoft.UI.Xaml.TextAlignment.Right;
+            input.GotFocus -= KeepRight;
+            input.GotFocus += KeepRight;
             input.Loaded -= HideClear;
             input.Loaded += HideClear;
             HideClear(input, e);
@@ -47,6 +49,16 @@ public static class Money
             input.PointerWheelChanged -= IgnoreWheel;
             input.PointerWheelChanged += IgnoreWheel;
         }
+    }
+
+    /// <summary>While the amount is being edited the box is laid out again, and must keep the amount against its right-hand edge.</summary>
+    private static void KeepRight(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox input) return;
+        input.TextAlignment = Microsoft.UI.Xaml.TextAlignment.Right;
+        // The clear button is brought back by the box's focus states, so it is taken out of play again now.
+        HideClear(input, e);
+        input.DispatcherQueue.TryEnqueue(() => HideClear(input, e));
     }
 
     /// <summary>The text box's own clear (X) button would sit over the amount while it is edited, so it is taken out of play.</summary>
@@ -59,6 +71,11 @@ public static class Money
             clear.Width = 0; clear.MinWidth = 0; clear.Opacity = 0; clear.IsHitTestVisible = false; clear.IsTabStop = false;
             clear.Margin = new Thickness(0); clear.Padding = new Thickness(0);
         }
+
+        // The box's focus states put the clear button's width back, which pushes the text away from the right-hand edge.
+        // The text area is let run under it (the button is invisible and cannot be pressed), so the amount stays at the edge.
+        if (FindNamed(input, "ContentElement") is { } content && content.Parent is Grid)
+            Grid.SetColumnSpan(content, 4);
     }
 
     private static FrameworkElement? FindNamed(DependencyObject parent, string name)
