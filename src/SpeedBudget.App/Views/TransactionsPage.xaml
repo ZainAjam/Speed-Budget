@@ -278,6 +278,13 @@
                               SelectedItem="{x:Bind ViewModel.SelectedEntry, Mode=TwoWay}"
                               CanDragItems="True" CanReorderItems="True" AllowDrop="True"
                               DragItemsStarting="List_DragItemsStarting" DragItemsCompleted="List_DragItemsCompleted">
+                        <!-- No fade or slide when rows come and go: the table stays as it is, and a new row simply appears. -->
+                        <ListView.ItemContainerTransitions>
+                            <TransitionCollection />
+                        </ListView.ItemContainerTransitions>
+                        <ListView.Transitions>
+                            <TransitionCollection />
+                        </ListView.Transitions>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="Padding" Value="0" />
