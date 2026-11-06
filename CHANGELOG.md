@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.15
 
+- **Fix for the app closing while you moved over the left panel.** The crash log showed the panel refusing to open from inside a pointer movement ("Unspecified error"), which closed the whole app. The panel is now opened and closed a moment after the movement, and a refusal is ignored instead of closing the app.
+- The app now keeps track of what went wrong: `activity.log` in the data folder holds the last things done, and `crash.log` records each failure with those last things. If the app stops without writing anything, the next start asks Windows what happened and records it.
 - The + buttons on the budget screen are gone. Right-click **Cash Outflow** (or **Cash Inflow**) to add a budget group, and right-click a budget group to add a budget item to it. Income groups are shown in the Cash Inflow table with a heading, just like the expense groups: you can fold them, right-click them (add an item, rename, delete) and drag them into a new order.
 - **Budget items and accounts are now managed where you use them, so the Accounts and Budget Items pages under Configurations are gone.**
   - On the budget screen, right-click a budget item or a budget group to delete it (an item that already has budget or transactions is archived instead, with its history kept; deleting a group deletes its items too). Budget groups can now be dragged into a new order, as items already could.

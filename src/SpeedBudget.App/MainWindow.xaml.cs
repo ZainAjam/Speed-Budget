@@ -90,7 +90,7 @@ public sealed partial class MainWindow : Window
         Nav.PointerExited += (_, _) =>
         {
             _pointerInNav = false;
-            if (AppServices.PanelMode == "hover" && !_paneHeld) Nav.IsPaneOpen = false;
+            if (AppServices.PanelMode == "hover" && !_paneHeld) SetPane(false);
         };
 
         RebuildAccountPages();
@@ -130,6 +130,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Undoes (or redoes) the last change to the data, then has the page on show read it again.</summary>
     private async Task UndoAsync(bool redo)
     {
+        Diagnostics.Note(redo ? "redo" : "undo");
         if (!await _undoGate.WaitAsync(0)) return;
         try
         {
@@ -223,8 +224,27 @@ public sealed partial class MainWindow : Window
     {
         if (AppServices.PanelMode != "hover") return;
         var x = e.GetCurrentPoint(Nav).Position.X;
-        if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) Nav.IsPaneOpen = true;
-        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength && !_paneHeld) Nav.IsPaneOpen = false;
+        if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
+        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength && !_paneHeld) SetPane(false);
+    }
+
+    private bool _paneChanging;
+
+    /// <summary>
+    /// Opens or closes the left panel from a pointer event. The change is made a moment later rather than inside the event: the
+    /// panel refuses (with an "Unspecified error") when it is asked while it is still moving, which used to close the whole app
+    /// when the pointer was moved quickly over the panel. A refusal is noted and ignored, and the next pointer move tries again.
+    /// </summary>
+    private void SetPane(bool open)
+    {
+        if (_paneChanging || Nav.IsPaneOpen == open) return;
+        _paneChanging = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            try { if (Nav.IsPaneOpen != open) Nav.IsPaneOpen = open; }
+            catch (Exception ex) { Diagnostics.Note($"The left panel could not be {(open ? "opened" : "closed")}: {ex.Message}"); }
+            finally { _paneChanging = false; }
+        });
     }
 
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
@@ -265,6 +285,7 @@ public sealed partial class MainWindow : Window
     /// <summary>The Add bank account entry: asks for the details of a new account, adds it and opens it.</summary>
     private async Task AddAccountAsync()
     {
+        Diagnostics.Note("add bank account");
         var dialog = new AccountDialog(null) { XamlRoot = Nav.XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         try
@@ -289,6 +310,7 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
         var atPointer = args.TryGetPosition(row, out var point);
         _paneHeld = true;
+        Diagnostics.Note($"account menu opened on {account.Name}");
 
         var hasTransactions = true;
         try { hasTransactions = await AppServices.Store.AccountHasTransactionsAsync(account.Id); }
@@ -298,7 +320,7 @@ public sealed partial class MainWindow : Window
         menu.Closed += (_, _) =>
         {
             _paneHeld = false;
-            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) Nav.IsPaneOpen = false; });
+            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
         };
 
         var edit = new MenuFlyoutItem { Text = "Edit account…", Icon = new FontIcon { Glyph = "\uE70F" } };
@@ -618,6 +640,7 @@ public sealed partial class MainWindow : Window
 
     private void Show(string? tag, object? parameter)
     {
+        Diagnostics.Note($"open page {tag}");
         _onTransactions = tag is not null && tag.StartsWith("tx");
         _accountPage = tag is not null && tag.StartsWith("tx:") && Guid.TryParse(tag.AsSpan(3), out var page) ? page : null;
         UpdateWatcherStrip();

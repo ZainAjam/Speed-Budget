@@ -12,25 +12,17 @@ public partial class App : Application
         InitializeComponent();
 
         // If the app ever closes unexpectedly, what went wrong is written to crash.log in the data folder.
-        UnhandledException += (_, e) => LogCrash("UI", e.Exception);
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogCrash("App", e.ExceptionObject as Exception);
-        TaskScheduler.UnobservedTaskException += (_, e) => LogCrash("Task", e.Exception);
+        UnhandledException += (_, e) => Diagnostics.LogCrash("UI", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => Diagnostics.LogCrash("App", e.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, e) => Diagnostics.LogCrash("Task", e.Exception);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Diagnostics.EndSession();
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         AppServices.Initialize();
+        Diagnostics.StartSession();
         MainWindow = new MainWindow();
         MainWindow.Activate();
-    }
-
-    private static void LogCrash(string source, Exception? error)
-    {
-        try
-        {
-            File.AppendAllText(Path.Combine(AppServices.DataDirectory, "crash.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} [{source}] {error}{Environment.NewLine}{Environment.NewLine}");
-        }
-        catch { /* writing the log must never make things worse */ }
     }
 }
