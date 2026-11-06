@@ -73,6 +73,8 @@ public sealed partial class PayeePicker : UserControl
     public PayeePicker()
     {
         InitializeComponent();
+        if (PickerFlyout.Content is FrameworkElement popup)   // Esc in the pop-up closes it, and also lets the page cancel the row being edited
+            popup.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) => { if (e.Key == Windows.System.VirtualKey.Escape) EditEscape.Raise(this); }), true);
         ShowSelection();
     }
 

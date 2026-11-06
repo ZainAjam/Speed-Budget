@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.14
 
+- Esc now works at any time in the transaction table, wherever the focus is and even with a drop-down open: it deletes a new transaction, and puts a transaction being edited back to the values it had before and closes it.
 - A transaction you are editing now stays in edit mode until you press Enter or the green check (which save it) or Esc (which drops the changes). Clicking another row or anywhere else on the page no longer saves it or takes it out of edit mode; while a row is open, starting to edit another one asks you to finish the first.
 - Every column heading in the transaction table now has a small question mark beside it; hover over it for a short explanation of what the column means. The Cleared column is a little wider to make room.
 - Adding or changing a transaction no longer redraws the whole table (which made it flash and fade back in): the table stays on screen, only the rows that changed are added, removed or updated, and the table no longer fades or slides rows in and out.

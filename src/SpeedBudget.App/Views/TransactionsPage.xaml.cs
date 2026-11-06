@@ -35,7 +35,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
             try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
             finally { EntryList.Opacity = 1; }
         };
-        Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
+        Unloaded += (_, _) => { Layout.PropertyChanged -= Layout_Changed; EditEscape.Pressed -= PickerEscape; };
+        Loaded += (_, _) => { EditEscape.Pressed -= PickerEscape; EditEscape.Pressed += PickerEscape; };
         ViewModel.Expected.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ExpectedViewModel.IsOpen)) _ = UpdateExpectedPanelAsync();
@@ -123,6 +124,13 @@ public sealed partial class TransactionsPage : Page, IReloadable
         await ViewModel.Expected.RecordAsync(row, DateOnly.FromDateTime(picked.DateTime));
     }
 
+    /// <summary>Esc inside a counterparty or budget item pop-up of the table: the row being edited is cancelled as well (the pop-up closes itself).</summary>
+    private void PickerEscape(object picker)
+    {
+        if (picker is not DependencyObject element || !IsWithin(element, TableRegion) || ViewModel.Selected is null) return;
+        DispatcherQueue.TryEnqueue(ClearEditing);
+    }
+
     private bool DetailOpen => ViewModel.HasMarkerSelected;   // only month lines use the side panel; transactions are edited in their rows
 
     /// <summary>Slides the edit panel in from the right edge, or back out of sight when nothing is selected.</summary>
@@ -164,14 +172,18 @@ public sealed partial class TransactionsPage : Page, IReloadable
     private void Page_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key is not (VirtualKey.Enter or VirtualKey.Escape) || ViewModel.Selected is null) return;
-        if (FocusManager.GetFocusedElement(XamlRoot) is not DependencyObject focused || !IsWithin(focused, TableRegion)) return;
 
+        // Esc works wherever the focus is on the page (even with a drop-down open): a new row is deleted, and a row being edited goes
+        // back to the values it had before and leaves edit mode. The Expected transactions flyout keeps its own Esc.
         if (e.Key == VirtualKey.Escape)
         {
+            if (FocusManager.GetFocusedElement(XamlRoot) is DependencyObject where && IsWithin(where, ExpectedHost)) return;
             e.Handled = true;
             ClearEditing();
             return;
         }
+
+        if (FocusManager.GetFocusedElement(XamlRoot) is not DependencyObject focused || !IsWithin(focused, TableRegion)) return;
 
         var inField = focused is TextBox or CalendarDatePicker or CheckBox or ComboBox { IsDropDownOpen: false };
         if (!inField) return;
