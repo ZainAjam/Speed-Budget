@@ -45,6 +45,13 @@ public static class AppServices
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not set the start of the budget: {ex.Message}"); }
         try { var saved = Store.GetLocalSettingAsync("panelMode").GetAwaiter().GetResult(); if (saved is "show" or "hover" or "hide") PanelMode = saved; }
         catch { /* the panel just uses the normal mode */ }
+        // A summary the user folded on purpose stays folded; otherwise it opens at the top of the page and folds as it is scrolled.
+        try
+        {
+            if (Store.GetLocalSettingAsync("budgetSummary").GetAwaiter().GetResult() == "0")
+                SpeedBudget.App.ViewModels.SummaryView.UserCollapsed = SpeedBudget.App.ViewModels.SummaryView.Expanded = false;
+        }
+        catch { /* the summary just starts open */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
         Store.StartRecordingUndo();   // from here on, what the user does can be undone with Ctrl+Z
 

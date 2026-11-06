@@ -150,8 +150,15 @@ public sealed partial class BudgetPage : Page, IReloadable
         if (ViewModel.ShowManyMonths) ManyButton.IsChecked = true;
     }
 
-    /// <summary>The arrow beside "Available to budget": shows or hides the monthly figures above it, until the page is scrolled again.</summary>
-    private void SummaryToggle_Click(object sender, RoutedEventArgs e) => ViewModel.SetSummaryExpanded(!SummaryView.Expanded);
+    /// <summary>The arrow beside "Available to budget": shows or hides the monthly figures above it. Folding them is remembered and stops scrolling from opening them; opening them lets scrolling fold and open them again.</summary>
+    private async void SummaryToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var expanded = !SummaryView.Expanded;
+        ViewModel.SetSummaryExpanded(expanded);
+        SummaryView.UserCollapsed = !expanded;   // folding it is a choice that scrolling never undoes; opening it hands it back to scrolling
+        try { await AppServices.Store.SetLocalSettingAsync("budgetSummary", expanded ? "1" : "0"); }
+        catch { /* the choice still applies for this run */ }
+    }
 
     // ---- Editing budgeted amounts from the keyboard ----
 
@@ -185,6 +192,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// </summary>
     private void AutoSummary()
     {
+        if (SummaryView.UserCollapsed) return;
         var offset = BudgetScroll.VerticalOffset;
         if (SummaryView.Expanded)
         {
