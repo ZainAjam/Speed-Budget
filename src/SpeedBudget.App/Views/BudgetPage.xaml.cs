@@ -313,9 +313,9 @@ public sealed partial class BudgetPage : Page, IReloadable
             rename.Click += async (_, _) => await RenameGroupAsync(groupId, line.Name);
             var delete = new MenuFlyoutItem { Text = "Delete budget group…", Icon = new FontIcon { Glyph = "\uE74D" } };
             delete.Click += async (_, _) => await DeleteGroupAsync(groupId, line.Name, line.GroupItemIds.Count);
-            menu.Items.Add(add);
             menu.Items.Add(rename);
             menu.Items.Add(delete);
+            menu.Items.Add(add);
         }
         else return;
 
