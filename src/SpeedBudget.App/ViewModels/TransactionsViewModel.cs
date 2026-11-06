@@ -595,7 +595,16 @@ public sealed partial class TransactionsViewModel : ObservableObject
     partial void OnSortIndexChanged(int value)
     {
         s_sortIndex = value;
-        if (_loaded) _ = ReloadAsync();
+        if (_loaded) _ = SortChangedAsync();
+    }
+
+    /// <summary>Raised once the rows are in their new order after the sort order was changed, so the page can show the right end of the table.</summary>
+    public event Action? SortReloaded;
+
+    private async Task SortChangedAsync()
+    {
+        try { await ReloadAsync(); }
+        finally { SortReloaded?.Invoke(); }
     }
 
     partial void OnHideClearedChanged(bool value)

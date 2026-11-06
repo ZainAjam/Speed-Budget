@@ -41,8 +41,16 @@ public sealed partial class TransactionsPage : Page, IReloadable
         {
             if (e.PropertyName == nameof(ExpectedViewModel.IsOpen)) _ = UpdateExpectedPanelAsync();
         };
+        // Changing the sort order shows the end of the table that is now "latest" (the top for newest first, the bottom for oldest first),
+        // already in place: the rows stay out of sight while they re-order, so no scrolling shows.
+        ViewModel.SortReloaded += () => DispatcherQueue.TryEnqueue(async () =>
+        {
+            try { await ShowSortedEndAsync(); }
+            finally { EntryList.Opacity = 1; }
+        });
         ViewModel.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName is nameof(TransactionsViewModel.SortIndex)) EntryList.Opacity = 0;
             if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
             if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) { ShowStartDate(); ShowMarkerDate(); }
         };
@@ -587,6 +595,26 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// Oldest first puts what was added last at the bottom: bring it into view, so the user can see it (and add the next one)
     /// without scrolling down. Rows that are not measured yet make one jump fall short, so it goes again until the last row is in view.
     /// </summary>
+    private async Task ShowSortedEndAsync()
+    {
+        if (ViewModel.SortIndex == 1) { await ScrollToLatestAsync(); return; }
+        if (ViewModel.Rows.Count == 0) return;
+        EntryList.ScrollIntoView(ViewModel.Rows[0]);
+        await Task.Delay(30);
+        if (FindScrollViewer(EntryList) is { } viewer) viewer.ChangeView(null, 0, null, disableAnimation: true);
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject parent)
+    {
+        for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is ScrollViewer viewer) return viewer;
+            if (FindScrollViewer(child) is { } found) return found;
+        }
+        return null;
+    }
+
     private async Task ScrollToLatestAsync()
     {
         if (ViewModel.SortIndex != 1) return;

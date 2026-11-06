@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.15
 
+- Switching a transaction table between Newest first and Oldest first now shows the end that is latest straight away: the top of the table for newest first, the bottom for oldest first, with no visible scrolling.
 - The two buttons at the top right of Plan your spending (one month or several months) are now the same size.
 
 ## 0.9.14
