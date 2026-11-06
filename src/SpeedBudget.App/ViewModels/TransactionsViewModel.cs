@@ -748,27 +748,59 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var ordered = entries.OrderBy(e => e.Key).ThenBy(e => e.Rank).ThenBy(e => e.Id).Select(e => e.Row).ToList();
         if (SortIndex == 0) ordered.Reverse();
 
+        // Rows that are unchanged stay as they are: only what really differs is removed, added or moved, so the table does not flash.
+        var current = new Dictionary<string, object>();
+        foreach (var row in Rows)
+            if (row is not TransactionRow { IsNew: true } and not TransactionRow { IsEditing: true } && KeyOf(row) is { } key) current.TryAdd(key, row);
+        var final = ordered.Select(row => KeyOf(row) is { } key && current.TryGetValue(key, out var old) && SignatureOf(old) == SignatureOf(row) ? old : row).ToList();
+
         var draft = _draft;
-        _rebuilding = true;   // clearing the list must not save or drop a new row that is being filled in
-        Rows.Clear();
+        _rebuilding = true;   // changing the list must not save or drop a new row that is being filled in
         object? toSelect = null;
-        foreach (var row in ordered)
+        foreach (var row in final)
         {
-            Rows.Add(row);
             var id = row switch { TransactionRow t => t.Entity.Id, MarkerRow { Entity: { } m } => m.Id, _ => Guid.Empty };
             if (select is { } wanted && id == wanted) toSelect = row;
         }
         if (draft is not null && !draft.IsDirty) draft = null;
         if (draft is not null && toSelect is null)
         {
-            if (SortIndex == 0) Rows.Insert(0, draft); else Rows.Add(draft);
+            if (SortIndex == 0) final.Insert(0, draft); else final.Add(draft);
             toSelect = draft;
         }
         else if (draft is not null) { draft.MarkDiscarded(); _draft = null; }
+
+        var wantedRows = new HashSet<object>(final, ReferenceEqualityComparer.Instance);
+        for (var i = Rows.Count - 1; i >= 0; i--)
+            if (!wantedRows.Contains(Rows[i])) Rows.RemoveAt(i);
+        for (var i = 0; i < final.Count; i++)
+        {
+            if (i < Rows.Count && ReferenceEquals(Rows[i], final[i])) continue;
+            var at = Rows.IndexOf(final[i]);
+            if (at > i) Rows.Move(at, i);
+            else Rows.Insert(i, final[i]);
+        }
+
         SelectedEntry = toSelect;
         if (toSelect is TransactionRow { IsNew: true } unsaved) BeginEdit(unsaved);   // a new row being filled in stays open
         _rebuilding = false;
     }
+
+    private static string? KeyOf(object row) => row switch
+    {
+        TransactionRow t => "t" + t.Entity.Id,
+        MarkerRow m => "m" + (m.Entity?.Id.ToString() ?? "first"),
+        _ => null,
+    };
+
+    /// <summary>Everything a row shows, so a row that has not changed can be kept rather than rebuilt.</summary>
+    private static string SignatureOf(object row) => row switch
+    {
+        TransactionRow t => string.Join("|", t.Entity.Date, t.Entity.DayOrder, t.Entity.Payee, t.Entity.Memo, t.Entity.Amount, t.Entity.IsCleared, t.Entity.BankDate,
+            t.Entity.AccountId, t.Entity.TransferPairId, t.Item.Id, t.LineCount, t.OtherAccountId, t.AccountName),
+        MarkerRow m => string.Join("|", m.Label, m.DateText, m.LineBelow, m.StartDate, m.StartMonth),
+        _ => "",
+    };
 
     public async Task RowChangedAsync(TransactionRow row, bool dateChanged, bool splitChanged, bool structural)
     {
