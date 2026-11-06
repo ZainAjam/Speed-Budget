@@ -609,10 +609,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
             AccountBadgeTip = viewed is { IsOnBudget: true }
                 ? "This account is part of your budget: its transactions count against your budget items."
                 : "This account is only tracked: it sits outside your budget, so its transactions don't affect it.";
-            // A budget account is a solid accent label; a tracking one is a plain outlined label in the normal text colour, which reads clearly on any background.
-            AccountBadgeBrush = Format.Theme(viewed is { IsOnBudget: true } ? "AccentFillColorDefaultBrush" : "CardBackgroundFillColorDefaultBrush");
-            AccountBadgeBorderBrush = Format.Theme(viewed is { IsOnBudget: true } ? "AccentFillColorDefaultBrush" : "ControlStrongStrokeColorDefaultBrush");
-            AccountBadgeTextBrush = Format.Theme(viewed is { IsOnBudget: true } ? "TextOnAccentFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
+            // Both kinds of account get the same plain outlined label (it must not look like a button); only its words differ.
+            AccountBadgeBrush = Format.Theme("CardBackgroundFillColorDefaultBrush");
+            AccountBadgeBorderBrush = Format.Theme("ControlStrongStrokeColorDefaultBrush");
+            AccountBadgeTextBrush = Format.Theme("TextFillColorPrimaryBrush");
 
             EntryAccounts.Clear();
             foreach (var a in _accounts.Where(a => !a.IsClosed || a.Id == AccountId))
