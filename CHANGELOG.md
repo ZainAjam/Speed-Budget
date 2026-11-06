@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.14
 
+- A transaction table sorted oldest first now opens already at the bottom, instead of opening at the top and scrolling down to it.
 - **Plan your spending, refinements.**
   - Budget cells no longer show a tooltip when you hover over them.
   - Clearing a budget cell leaves it blank while you edit it; leaving the cell (Enter, or the arrow keys) counts the blank as 0.00.

@@ -17,6 +17,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
     public TransactionsPage()
     {
         InitializeComponent();
+        // Oldest first opens at the bottom of the table; the rows stay out of sight until they are there, so no scrolling shows.
+        if (ViewModel.SortIndex == 1) EntryList.Opacity = 0;
         // Handled presses count too: the boxes and buttons in the table handle theirs.
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
@@ -30,19 +32,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
             Layout.PropertyChanged += Layout_Changed;
             UpdateTableWidth();
             UpdateDetailPanel();
-            await ViewModel.LoadAsync();
-
-            // Oldest first puts what was added last at the bottom: open there, so it is in view without scrolling down to it.
-            if (ViewModel.SortIndex == 1 && ViewModel.Rows.Count > 0)
-            {
-                await Task.Delay(150);   // the list has laid its rows out by now
-                // Rows not yet measured make one jump fall short, so go again once the first has laid them out.
-                for (var pass = 0; pass < 3 && ViewModel.Rows.Count > 0; pass++)
-                {
-                    EntryList.ScrollIntoView(ViewModel.Rows[^1]);
-                    await Task.Delay(120);
-                }
-            }
+            try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
+            finally { EntryList.Opacity = 1; }
         };
         Unloaded += (_, _) => Layout.PropertyChanged -= Layout_Changed;
         ViewModel.Expected.PropertyChanged += (_, e) =>
@@ -569,6 +560,24 @@ public sealed partial class TransactionsPage : Page, IReloadable
     }
 
     private void Transfer_Click(object sender, RoutedEventArgs e) => NewRow(transfer: true);
+
+    /// <summary>
+    /// Oldest first puts what was added last at the bottom: bring it into view, so the user can see it (and add the next one)
+    /// without scrolling down. Rows that are not measured yet make one jump fall short, so it goes again until the last row is in view.
+    /// </summary>
+    private async Task ScrollToLatestAsync()
+    {
+        if (ViewModel.SortIndex != 1) return;
+        for (var pass = 0; pass < 12 && ViewModel.Rows.Count > 0; pass++)
+        {
+            var last = ViewModel.Rows[^1];
+            EntryList.ScrollIntoView(last);
+            await Task.Delay(30);
+            if (EntryList.ContainerFromItem(last) is FrameworkElement row
+                && row.TransformToVisual(EntryList).TransformPoint(new Windows.Foundation.Point(0, row.ActualHeight)).Y <= EntryList.ActualHeight + 1)
+                return;
+        }
+    }
 
     private void NewTransaction_Click(object sender, RoutedEventArgs e) => NewRow(transfer: false);
 
