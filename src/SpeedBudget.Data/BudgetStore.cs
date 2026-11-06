@@ -766,6 +766,9 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>Deletes an account, or closes it instead when it already has transactions. Returns true if deleted.</summary>
+    public Task<bool> AccountHasTransactionsAsync(Guid accountId, CancellationToken ct = default) =>
+        db.Transactions.AnyAsync(t => t.AccountId == accountId, ct);
+
     public async Task<bool> DeleteOrCloseAccountAsync(AccountEntity account, CancellationToken ct = default)
     {
         if (await db.Transactions.AnyAsync(t => t.AccountId == account.Id, ct))

@@ -10,7 +10,7 @@ into the release.
 - **Budget items and accounts are now managed where you use them, so the Accounts and Budget Items pages under Configurations are gone.**
   - On the budget screen, right-click a budget item or a budget group to delete it (an item that already has budget or transactions is archived instead, with its history kept; deleting a group deletes its items too). Budget groups can now be dragged into a new order, as items already could.
   - In the left panel, **Add bank account** (at the bottom of the Transactions list) asks for a new account's name, type, whether it counts toward the budget, and its opening balance.
-  - Right-click an account in the left panel for **Edit account** (every detail, including opening and closing it) or **Delete account** (with a confirmation; an account with transactions is closed instead and stays in the list, dimmed, so you can reopen it).
+  - Right-click an account in the left panel for **Edit account** (every detail) and then **Delete account** (an account with no transactions, with a confirmation), **Close account** (an account that has transactions: it stays in the list, dimmed, with its history) or **Reopen account** (a closed one). The left panel now stays open while this menu is showing.
   - Ctrl+3 now opens Counterparties; the old Ctrl+4 and Ctrl+5 shortcuts are gone.
 - Switching a transaction table between Newest first and Oldest first now shows the end that is latest straight away: the top of the table for newest first, the bottom for oldest first, with no visible scrolling.
 - The two buttons at the top right of Plan your spending (one month or several months) are now the same size.

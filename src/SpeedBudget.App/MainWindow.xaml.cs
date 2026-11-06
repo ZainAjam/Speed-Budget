@@ -86,7 +86,12 @@ public sealed partial class MainWindow : Window
         ApplyPanelMode();
         AppServices.InterfaceChanged += () => DispatcherQueue.TryEnqueue(ApplyPanelMode);
         Nav.AddHandler(UIElement.PointerMovedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(Nav_PointerMoved), true);
-        Nav.PointerExited += (_, _) => { if (AppServices.PanelMode == "hover") Nav.IsPaneOpen = false; };
+        Nav.PointerEntered += (_, _) => _pointerInNav = true;
+        Nav.PointerExited += (_, _) =>
+        {
+            _pointerInNav = false;
+            if (AppServices.PanelMode == "hover" && !_paneHeld) Nav.IsPaneOpen = false;
+        };
 
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
@@ -219,7 +224,7 @@ public sealed partial class MainWindow : Window
         if (AppServices.PanelMode != "hover") return;
         var x = e.GetCurrentPoint(Nav).Position.X;
         if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) Nav.IsPaneOpen = true;
-        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength) Nav.IsPaneOpen = false;
+        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength && !_paneHeld) Nav.IsPaneOpen = false;
     }
 
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
@@ -271,19 +276,67 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { ShowToast($"Could not add the account: {ex.Message}"); }
     }
 
-    /// <summary>Right-click on an account in the left panel: edit it or delete it.</summary>
-    private void AccountMenu(FrameworkElement row, AccountEntity account, ContextRequestedEventArgs args)
+    // While an account's menu is open the left panel stays open, even though the pointer has left it for the menu.
+    private bool _paneHeld;
+    private bool _pointerInNav;
+
+    /// <summary>
+    /// Right-click on an account in the left panel: edit it, and then delete it (or close it, when it has transactions, or reopen it,
+    /// when it is already closed).
+    /// </summary>
+    private async void AccountMenu(FrameworkElement row, AccountEntity account, ContextRequestedEventArgs args)
     {
+        args.Handled = true;
+        var atPointer = args.TryGetPosition(row, out var point);
+        _paneHeld = true;
+
+        var hasTransactions = true;
+        try { hasTransactions = await AppServices.Store.AccountHasTransactionsAsync(account.Id); }
+        catch { /* treated as having transactions: closing is the safe choice */ }
+
         var menu = new MenuFlyout();
+        menu.Closed += (_, _) =>
+        {
+            _paneHeld = false;
+            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) Nav.IsPaneOpen = false; });
+        };
+
         var edit = new MenuFlyoutItem { Text = "Edit account…", Icon = new FontIcon { Glyph = "\uE70F" } };
         edit.Click += async (_, _) => await EditAccountAsync(account.Id);
-        var delete = new MenuFlyoutItem { Text = "Delete account…", Icon = new FontIcon { Glyph = "\uE74D" } };
-        delete.Click += async (_, _) => await DeleteAccountAsync(account.Id);
         menu.Items.Add(edit);
-        menu.Items.Add(delete);
-        if (args.TryGetPosition(row, out var point)) menu.ShowAt(row, point);
+
+        if (account.IsClosed)
+        {
+            var reopen = new MenuFlyoutItem { Text = "Reopen account", Icon = new FontIcon { Glyph = "\uE777" } };
+            reopen.Click += async (_, _) => await ReopenAccountAsync(account.Id);
+            menu.Items.Add(reopen);
+        }
+        if (!account.IsClosed || !hasTransactions)
+        {
+            var remove = new MenuFlyoutItem
+            {
+                Text = hasTransactions ? "Close account…" : "Delete account…",
+                Icon = new FontIcon { Glyph = hasTransactions ? "\uE72E" : "\uE74D" },
+            };
+            remove.Click += async (_, _) => await DeleteAccountAsync(account.Id, hasTransactions);
+            menu.Items.Add(remove);
+        }
+
+        if (atPointer) menu.ShowAt(row, point);
         else menu.ShowAt(row);
-        args.Handled = true;
+    }
+
+    private async Task ReopenAccountAsync(Guid accountId)
+    {
+        var account = (await AppServices.Store.GetAccountsAsync()).FirstOrDefault(a => a.Id == accountId);
+        if (account is null) return;
+        try
+        {
+            await AppServices.Store.UpdateAccountAsync(accountId, account.Name, account.Type, account.IsOnBudget, account.OpeningBalance, isClosed: false);
+            AppServices.RaiseAccountsChanged();
+            ShowToast($"Reopened {account.Name}.");
+        }
+        catch (Exception ex) { ShowToast($"Could not reopen the account: {ex.Message}"); }
     }
 
     private async Task EditAccountAsync(Guid accountId)
@@ -300,22 +353,25 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { ShowToast($"Could not save the account: {ex.Message}"); }
     }
 
-    private async Task DeleteAccountAsync(Guid accountId)
+    private async Task DeleteAccountAsync(Guid accountId, bool hasTransactions)
     {
         var account = (await AppServices.Store.GetAccountsAsync()).FirstOrDefault(a => a.Id == accountId);
         if (account is null) return;
         var dialog = new ContentDialog
         {
-            XamlRoot = Nav.XamlRoot, Title = $"Delete {account.Name}?",
-            Content = "An account that already has transactions is closed instead of deleted, so its history is kept. A closed account stays in the list, and you can reopen it with Edit account.",
-            PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
+            XamlRoot = Nav.XamlRoot,
+            Title = hasTransactions ? $"Close {account.Name}?" : $"Delete {account.Name}?",
+            Content = hasTransactions
+                ? "This account has transactions, so it is closed rather than deleted and its history is kept. A closed account stays in the list, dimmed, and you can reopen it from its right-click menu."
+                : "This account has no transactions. It is deleted.",
+            PrimaryButtonText = hasTransactions ? "Close account" : "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         try
         {
             var deleted = await AppServices.Store.DeleteOrCloseAccountAsync(account);
             AppServices.RaiseAccountsChanged();
-            ShowToast(deleted ? $"Deleted {account.Name}." : $"{account.Name} has transactions, so it was closed instead of deleted.");
+            ShowToast(deleted ? $"Deleted {account.Name}." : $"Closed {account.Name}.");
         }
         catch (Exception ex) { ShowToast($"Could not delete the account: {ex.Message}"); }
     }
