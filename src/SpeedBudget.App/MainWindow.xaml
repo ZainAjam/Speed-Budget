@@ -7,16 +7,11 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
     <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
-    <!-- Only the page area is zoomed (see ApplyZoom); the left panel is never scaled. -->
-    <Grid x:Name="ZoomOuter" SizeChanged="ZoomOuter_SizeChanged">
+    <!-- Zoom only affects the budget and transaction tables (see ZoomBox); nothing else is scaled. -->
+    <Grid x:Name="ZoomOuter">
     <Grid x:Name="ZoomHost">
     <NavigationView x:Name="Nav" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
                     IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
-        <Grid x:Name="ContentZoomOuter" SizeChanged="ZoomOuter_SizeChanged">
-        <Grid x:Name="ContentZoomHost" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0">
-            <Grid.RenderTransform>
-                <ScaleTransform x:Name="ContentScale" />
-            </Grid.RenderTransform>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -75,8 +70,6 @@
                     Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                 <TextBlock x:Name="UndoToastText" />
             </Border>
-        </Grid>
-        </Grid>
         </Grid>
     </NavigationView>
     </Grid>

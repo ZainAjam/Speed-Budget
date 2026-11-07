@@ -229,7 +229,8 @@
         </Grid>
 
         <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, this area scrolls sideways. -->
-        <ScrollViewer Grid.Row="3" x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
+        <local:ZoomBox Grid.Row="3">
+        <ScrollViewer x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
         <Grid x:Name="TableRegion">
             <Border CornerRadius="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1">
@@ -305,6 +306,7 @@
 
         </Grid>
         </ScrollViewer>
+        </local:ZoomBox>
 
             <!-- Expected transactions: a flyout that rises from the bar along the bottom. Things that are coming but have not happened yet are kept
                  here, and each moves into the table, with the date it happened, when it does. -->

@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.19
 
+- **Zoom now only affects the tables.** Zooming in or out changes the size of the budget table and the transactions table only. Everything else stays at normal size: page titles, buttons, balances, the pinned-items strip, the left panel and the Month line and Expected transactions panels. On the Budget screen, zooming out also makes room for more months side by side.
 - **Fixed: the Month line and Expected transactions panels were see-through at some zoom levels below 100%** (for example 95%, 85% and 75%), letting the table show through them. They are now solid at every zoom.
 
 ## 0.9.18

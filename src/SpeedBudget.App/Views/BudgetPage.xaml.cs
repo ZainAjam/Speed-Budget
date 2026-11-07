@@ -13,7 +13,8 @@ public sealed partial class BudgetPage : Page, IReloadable
     // Widths in the XAML: the least the name column is given, and each month's column.
     private const double NameColumnWidth = 240;
     private const double MonthColumnWidth = 330;
-    private const double PageMargins = 64 + 20; // left and right margin, and the vertical scroll bar
+    private const double PageMargins = 64;   // the page's left and right margin, which are not zoomed
+    private const double ScrollBarWidth = 20;   // inside the zoomed table
 
     public BudgetViewModel ViewModel { get; } = new();
 
@@ -27,7 +28,8 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         InitializeComponent();
         SummaryLabelList.ItemsSource = BudgetViewModel.SummaryLabels;
-        Loaded += async (_, _) => await RefreshAsync();
+        Loaded += async (_, _) => { AppServices.ZoomChanged += ZoomChanged; await RefreshAsync(); };
+        Unloaded += (_, _) => AppServices.ZoomChanged -= ZoomChanged;
 
         // Pressing anywhere that is not another control ends the edit in the budget cell being typed in. Handled
         // events are included, since the scroll viewer and the text would otherwise swallow the press.
@@ -73,9 +75,14 @@ public sealed partial class BudgetPage : Page, IReloadable
         }
     }
 
-    /// <summary>Shows as many months side by side as the width allows, and at least one.</summary>
+    /// <summary>
+    /// Shows as many months side by side as the width allows, and at least one. The table is zoomed, so zooming out
+    /// makes more room for months and zooming in makes less.
+    /// </summary>
     private void FitMonths(double width) =>
-        ViewModel.SetCapacity((int)Math.Floor((width - PageMargins - NameColumnWidth) / MonthColumnWidth));
+        ViewModel.SetCapacity((int)Math.Floor(((width - PageMargins) / AppServices.Zoom - ScrollBarWidth - NameColumnWidth) / MonthColumnWidth));
+
+    private void ZoomChanged() => DispatcherQueue.TryEnqueue(() => FitMonths(ActualWidth));
 
     private void Page_SizeChanged(object sender, SizeChangedEventArgs e) => FitMonths(e.NewSize.Width);
 

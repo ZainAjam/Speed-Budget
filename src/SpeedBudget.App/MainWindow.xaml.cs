@@ -98,11 +98,8 @@ public sealed partial class MainWindow : Window
         ZoomOuter.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(ZoomOuter_Wheel), handledEventsToo: true);
         AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() =>
         {
-            ApplyZoom();
             foreach (var level in _zoomLevels) level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
         });
-        Nav.Loaded += (_, _) => ApplyZoom();
-        ApplyZoom();
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
@@ -145,23 +142,6 @@ public sealed partial class MainWindow : Window
         if (delta == 0) return;
         e.Handled = true;
         _ = AppServices.StepZoomAsync(delta > 0 ? 1 : -1);
-    }
-
-    private void ZoomOuter_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyZoom();
-
-    /// <summary>
-    /// Zooms the page area only (the budget and the transactions): it is scaled, and given the size that makes it exactly fill the room.
-    /// The left panel is never scaled, so it looks and behaves the same at every zoom.
-    /// </summary>
-    private void ApplyZoom()
-    {
-        var zoom = AppServices.Zoom;
-        ContentScale.ScaleX = ContentScale.ScaleY = zoom;
-        if (ContentZoomOuter.ActualWidth > 0 && ContentZoomOuter.ActualHeight > 0)
-        {
-            ContentZoomHost.Width = ContentZoomOuter.ActualWidth / zoom;
-            ContentZoomHost.Height = ContentZoomOuter.ActualHeight / zoom;
-        }
     }
 
     private readonly SemaphoreSlim _undoGate = new(1, 1);

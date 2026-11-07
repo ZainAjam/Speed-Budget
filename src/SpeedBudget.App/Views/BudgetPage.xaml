@@ -220,7 +220,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -288,8 +287,16 @@
             <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                      Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
+            <!-- The budget table: the month headings and the items below them. Only this is zoomed (see ZoomBox); the title, month buttons and everything else stay at normal size. -->
+            <local:ZoomBox Grid.Row="2">
+            <Grid RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
             <!-- Same columns as the body below, so each heading sits over its month. The right margin matches the scroll bar's. -->
-            <Grid Grid.Row="2" Margin="0,0,16,0">
+            <Grid Margin="0,0,16,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -342,7 +349,7 @@
                 </ItemsControl>
             </Grid>
 
-            <ScrollViewer x:Name="BudgetScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" IsTabStop="True" UseSystemFocusVisuals="False" ViewChanged="BudgetScroll_ViewChanged"
+            <ScrollViewer x:Name="BudgetScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" IsTabStop="True" UseSystemFocusVisuals="False" ViewChanged="BudgetScroll_ViewChanged"
                           FocusVisualPrimaryThickness="0" FocusVisualSecondaryThickness="0">
                 <StackPanel>
                     <TextBlock x:Name="EmptyHint" Visibility="Collapsed" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,12"
@@ -388,6 +395,8 @@
                     </Grid>
                 </StackPanel>
             </ScrollViewer>
+            </Grid>
+            </local:ZoomBox>
         </Grid>
     </Grid>
 </Page>
