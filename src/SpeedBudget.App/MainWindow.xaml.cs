@@ -110,7 +110,7 @@ public sealed partial class MainWindow : Window
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
-            if (_zoomHold) { args.Cancel = true; return; }
+            if (_zoomHold || _paneHeld) { args.Cancel = true; return; }
             ShowHeadings(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
@@ -710,6 +710,9 @@ public sealed partial class MainWindow : Window
         host.Children.Add(typed);
 
         var typing = false;
+        // A press on the percentage must not reach the panel item underneath: the panel treats that as choosing the item and closes.
+        host.PointerPressed += (_, e) => { if (!inFlyout) HoldPaneForZoom(); e.Handled = true; };
+        host.PointerReleased += (_, e) => e.Handled = true;
         host.Tapped += (_, e) =>
         {
             e.Handled = true;
