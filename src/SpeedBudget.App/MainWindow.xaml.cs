@@ -73,6 +73,22 @@ public sealed partial class MainWindow : Window
             Nav.KeyboardAccelerators.Add(accelerator);
         }
 
+        // Zoom: Ctrl and + or - (or the mouse wheel) zooms in and out, Ctrl+0 goes back to 100%.
+        foreach (var (key, mods, direction) in new[]
+                 {
+                     (VirtualKey.Add, VirtualKeyModifiers.Control, 1), ((VirtualKey)187, VirtualKeyModifiers.Control, 1), ((VirtualKey)187, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, 1),
+                     (VirtualKey.Subtract, VirtualKeyModifiers.Control, -1), ((VirtualKey)189, VirtualKeyModifiers.Control, -1),
+                     (VirtualKey.Number0, VirtualKeyModifiers.Control, 0), (VirtualKey.NumberPad0, VirtualKeyModifiers.Control, 0),
+                 })
+        {
+            var accelerator = new KeyboardAccelerator { Key = key, Modifiers = mods };
+            accelerator.Invoked += async (_, args) => { args.Handled = true; await AppServices.StepZoomAsync(direction); };
+            Nav.KeyboardAccelerators.Add(accelerator);
+        }
+        ZoomOuter.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(ZoomOuter_Wheel), handledEventsToo: true);
+        AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() => { ApplyZoom(); ShowToast($"Zoom {Math.Round(AppServices.Zoom * 100)}%"); });
+        ApplyZoom();
+
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
@@ -100,6 +116,27 @@ public sealed partial class MainWindow : Window
         timer.Interval = TimeSpan.FromHours(6);
         timer.Tick += (_, _) => _ = CheckForUpdateAsync();
         timer.Start();
+    }
+
+    private void ZoomOuter_Wheel(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (!Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down)) return;
+        var delta = e.GetCurrentPoint(ZoomOuter).Properties.MouseWheelDelta;
+        if (delta == 0) return;
+        e.Handled = true;
+        _ = AppServices.StepZoomAsync(delta > 0 ? 1 : -1);
+    }
+
+    private void ZoomOuter_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyZoom();
+
+    /// <summary>Scales everything, and gives the scaled host the size that makes it exactly fill the window.</summary>
+    private void ApplyZoom()
+    {
+        var zoom = AppServices.Zoom;
+        ZoomScale.ScaleX = ZoomScale.ScaleY = zoom;
+        if (ZoomOuter.ActualWidth <= 0 || ZoomOuter.ActualHeight <= 0) return;
+        ZoomHost.Width = ZoomOuter.ActualWidth / zoom;
+        ZoomHost.Height = ZoomOuter.ActualHeight / zoom;
     }
 
     private readonly SemaphoreSlim _undoGate = new(1, 1);

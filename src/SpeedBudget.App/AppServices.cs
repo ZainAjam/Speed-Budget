@@ -21,6 +21,30 @@ public static class AppServices
 
     public static event Action? InterfaceChanged;
 
+    /// <summary>The steps of the zoom, from 50% to 200%. The app is made smaller to fit more on screen (for example beside a banking website), or larger to read.</summary>
+    public static readonly double[] ZoomSteps = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
+
+    public static double Zoom { get; private set; } = 1.0;
+
+    public static event Action? ZoomChanged;
+
+    /// <summary>Zooms one step in (+1) or out (-1), or back to 100% (0).</summary>
+    public static async Task StepZoomAsync(int direction)
+    {
+        var index = Array.FindIndex(ZoomSteps, s => Math.Abs(s - Zoom) < 0.001);
+        if (index < 0) index = Array.IndexOf(ZoomSteps, 1.0);
+        var next = direction == 0 ? Array.IndexOf(ZoomSteps, 1.0) : Math.Clamp(index + direction, 0, ZoomSteps.Length - 1);
+        await SetZoomAsync(ZoomSteps[next]);
+    }
+
+    public static async Task SetZoomAsync(double zoom)
+    {
+        Zoom = zoom;
+        ZoomChanged?.Invoke();
+        try { await Store.SetLocalSettingAsync("zoom", ((int)Math.Round(zoom * 100)).ToString()); }
+        catch { /* the zoom still applies for this run */ }
+    }
+
     public static async Task SetPanelModeAsync(string mode)
     {
         PanelMode = mode;
@@ -41,6 +65,11 @@ public static class AppServices
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not set the start of the budget: {ex.Message}"); }
         try { var saved = Store.GetLocalSettingAsync("panelMode").GetAwaiter().GetResult(); if (saved is "show" or "hover" or "hide") PanelMode = saved; }
         catch { /* the panel just uses the normal mode */ }
+        try
+        {
+            if (int.TryParse(Store.GetLocalSettingAsync("zoom").GetAwaiter().GetResult(), out var percent) && percent is >= 50 and <= 200) Zoom = percent / 100.0;
+        }
+        catch { /* the app just opens at 100% */ }
         // A summary the user folded on purpose stays folded; otherwise it opens at the top of the page and folds as it is scrolled.
         try
         {

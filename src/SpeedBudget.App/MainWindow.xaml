@@ -7,6 +7,12 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
     <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
+    <!-- Everything sits in a host that is scaled by the zoom level; its size is the window's size divided by the zoom, so the layout fills the window at any zoom. -->
+    <Grid x:Name="ZoomOuter" SizeChanged="ZoomOuter_SizeChanged">
+    <Grid x:Name="ZoomHost" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0">
+        <Grid.RenderTransform>
+            <ScaleTransform x:Name="ZoomScale" />
+        </Grid.RenderTransform>
     <NavigationView x:Name="Nav" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
                     IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
         <Grid>
@@ -69,4 +75,6 @@
             </Border>
         </Grid>
     </NavigationView>
+    </Grid>
+    </Grid>
 </Window>

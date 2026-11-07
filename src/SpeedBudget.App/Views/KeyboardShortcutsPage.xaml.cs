@@ -12,6 +12,8 @@ public sealed partial class KeyboardShortcutsPage : Page
         ("Anywhere", [
             ("Ctrl + 1", "Open Plan your spending"),
             ("Ctrl + 2", "Open the first account under Transactions"),
+            ("Ctrl + + or Ctrl + -", "Zoom the whole app in or out (the mouse wheel with Ctrl held does the same)"),
+            ("Ctrl + 0", "Back to 100% zoom"),
             ("Ctrl + Z", "Undo the last change to anything you can edit, on any screen"),
             ("Ctrl + Y or Ctrl + Shift + Z", "Redo what was just undone"),
         ]),

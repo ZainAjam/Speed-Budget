@@ -17,9 +17,20 @@ public sealed partial class SettingsPage : Page
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
         PanelModeBox.SelectedIndex = PanelModes.IndexOf(AppServices.PanelMode);
         ShowBackupInfo();
+        ShowZoom();
+        AppServices.ZoomChanged += ShowZoom;
+        Unloaded += (_, _) => AppServices.ZoomChanged -= ShowZoom;
         ShowDeveloper();
         Loaded += async (_, _) => await ShowUpdateStateAsync();
     }
+
+    private void ShowZoom() => ZoomText.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
+
+    private async void ZoomIn_Click(object sender, RoutedEventArgs e) => await AppServices.StepZoomAsync(1);
+
+    private async void ZoomOut_Click(object sender, RoutedEventArgs e) => await AppServices.StepZoomAsync(-1);
+
+    private async void ZoomReset_Click(object sender, RoutedEventArgs e) => await AppServices.StepZoomAsync(0);
 
     private static readonly List<string> PanelModes = ["show", "hover", "hide"];
 
