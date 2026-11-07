@@ -678,7 +678,6 @@ public sealed partial class MainWindow : Window
     {
         ZoomControls.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         ZoomGlyph.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
-        ZoomBar.Opacity = open ? 1 : 0.75;
     }
 
     private void ShowZoomLevel() => ZoomLevel.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
