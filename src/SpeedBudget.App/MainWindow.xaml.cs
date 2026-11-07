@@ -38,7 +38,7 @@ public sealed partial class MainWindow : Window
 
         // At the bottom of the panel, below a line that sets them apart.
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
-        _zoomItem = new NavigationViewItem { Content = ZoomLabel(), Tag = "zoom", Icon = new FontIcon { Glyph = "\uE71E" } };
+        _zoomItem = new NavigationViewItem { Content = "Zoom", Tag = "zoom", Icon = ZoomIcon() };
         Nav.FooterMenuItems.Add(_zoomItem);
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
@@ -91,7 +91,7 @@ public sealed partial class MainWindow : Window
         AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() =>
         {
             ApplyZoom();
-            _zoomItem.Content = ZoomLabel();
+            _zoomItem.Icon = ZoomIcon();
             if (_zoomFlyoutText is not null) _zoomFlyoutText.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
             else ShowToast($"Zoom {Math.Round(AppServices.Zoom * 100)}%");   // the flyout shows the level itself when it is open
         });
@@ -670,28 +670,62 @@ public sealed partial class MainWindow : Window
     private NavigationViewItem? _lastPageItem;
     private TextBlock? _zoomFlyoutText;
 
-    private static string ZoomLabel() => $"Zoom  {Math.Round(AppServices.Zoom * 100)}%";
+    /// <summary>The panel's zoom icon is the current level itself (70%), so it reads as zoom and not as a search.</summary>
+    private static FontIcon ZoomIcon() => new()
+    {
+        Glyph = $"{Math.Round(AppServices.Zoom * 100)}%", FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Variable"),
+        FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+    };
 
     /// <summary>The zoom controls: smaller, the level, larger, and back to 100%.</summary>
     private void ShowZoomFlyout()
     {
-        var level = new TextBlock { Text = $"{Math.Round(AppServices.Zoom * 100)}%", MinWidth = 52, HorizontalTextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var level = new TextBlock { Text = $"{Math.Round(AppServices.Zoom * 100)}%", HorizontalTextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         _zoomFlyoutText = level;
+        // Click the percentage to type one: Enter applies it (from 50 to 200), Esc leaves it as it was.
+        var typed = new TextBox { Visibility = Visibility.Collapsed, TextAlignment = TextAlignment.Center, MaxLength = 3, VerticalAlignment = VerticalAlignment.Center };
+        var levelHost = new Grid { MinWidth = 64, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent) };
+        ToolTipService.SetToolTip(levelHost, "Click to type a percentage");
+        levelHost.Children.Add(level);
+        levelHost.Children.Add(typed);
+        var applying = false;
+        levelHost.Tapped += (_, _) =>
+        {
+            if (typed.Visibility == Visibility.Visible) return;
+            typed.Text = $"{Math.Round(AppServices.Zoom * 100)}";
+            level.Visibility = Visibility.Collapsed;
+            typed.Visibility = Visibility.Visible;
+            typed.Focus(FocusState.Programmatic);
+            typed.SelectAll();
+        };
+        async Task Finish(bool apply)
+        {
+            if (applying || typed.Visibility != Visibility.Visible) return;
+            applying = true;
+            var text = typed.Text.Trim().TrimEnd('%').Trim();
+            typed.Visibility = Visibility.Collapsed;
+            level.Visibility = Visibility.Visible;
+            if (apply && int.TryParse(text, out var percent)) await AppServices.SetZoomAsync(Math.Clamp(percent, 50, 200) / 100.0);
+            level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
+            applying = false;
+        }
+        typed.KeyDown += async (_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; await Finish(true); }
+            else if (e.Key == Windows.System.VirtualKey.Escape) { e.Handled = true; await Finish(false); }
+        };
+        typed.LostFocus += async (_, _) => await Finish(true);
         var out_ = new Button { Content = new FontIcon { Glyph = "\uE71F", FontSize = 14 } };
         ToolTipService.SetToolTip(out_, "Zoom out (Ctrl and -)");
         out_.Click += async (_, _) => await AppServices.StepZoomAsync(-1);
         var in_ = new Button { Content = new FontIcon { Glyph = "\uE8A3", FontSize = 14 } };
         ToolTipService.SetToolTip(in_, "Zoom in (Ctrl and +)");
         in_.Click += async (_, _) => await AppServices.StepZoomAsync(1);
-        var reset = new Button { Content = "100%" };
-        ToolTipService.SetToolTip(reset, "Back to 100% (Ctrl and 0)");
-        reset.Click += async (_, _) => await AppServices.StepZoomAsync(0);
 
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         row.Children.Add(out_);
-        row.Children.Add(level);
+        row.Children.Add(levelHost);
         row.Children.Add(in_);
-        row.Children.Add(reset);
         var flyout = new Flyout { Content = row, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.RightEdgeAlignedBottom };
         _paneHeld = true;   // the left panel stays open while the controls are
         flyout.Closed += (_, _) =>

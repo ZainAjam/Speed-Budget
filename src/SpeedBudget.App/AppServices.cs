@@ -31,10 +31,12 @@ public static class AppServices
     /// <summary>Zooms one step in (+1) or out (-1), or back to 100% (0).</summary>
     public static async Task StepZoomAsync(int direction)
     {
-        var index = Array.FindIndex(ZoomSteps, s => Math.Abs(s - Zoom) < 0.001);
-        if (index < 0) index = Array.IndexOf(ZoomSteps, 1.0);
-        var next = direction == 0 ? Array.IndexOf(ZoomSteps, 1.0) : Math.Clamp(index + direction, 0, ZoomSteps.Length - 1);
-        await SetZoomAsync(ZoomSteps[next]);
+        if (direction == 0) { await SetZoomAsync(1.0); return; }
+        // The next step above (or below) the current level, which may be a typed percentage between two steps.
+        var next = direction > 0
+            ? ZoomSteps.FirstOrDefault(s => s > Zoom + 0.001, ZoomSteps[^1])
+            : ZoomSteps.LastOrDefault(s => s < Zoom - 0.001, ZoomSteps[0]);
+        await SetZoomAsync(next);
     }
 
     public static async Task SetZoomAsync(double zoom)
