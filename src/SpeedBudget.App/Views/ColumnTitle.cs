@@ -4,27 +4,20 @@ using Microsoft.UI.Xaml.Media;
 
 namespace SpeedBudget.App.Views;
 
-/// <summary>A column heading with a small question mark beside it; hovering the question mark explains what the column is.</summary>
+/// <summary>A column heading; hovering the title explains what the column is. A small funnel beside it opens the column's filter.</summary>
 public sealed class ColumnTitle : UserControl
 {
     public static readonly DependencyProperty TitleProperty =
         DependencyProperty.Register(nameof(Title), typeof(string), typeof(ColumnTitle), new PropertyMetadata("", (d, e) => ((ColumnTitle)d)._title.Text = (string)e.NewValue));
 
     public static readonly DependencyProperty HelpProperty =
-        DependencyProperty.Register(nameof(Help), typeof(string), typeof(ColumnTitle), new PropertyMetadata("", (d, e) => ToolTipService.SetToolTip(((ColumnTitle)d)._help, (string)e.NewValue)));
+        DependencyProperty.Register(nameof(Help), typeof(string), typeof(ColumnTitle), new PropertyMetadata("", (d, e) => ToolTipService.SetToolTip(((ColumnTitle)d)._title, (string)e.NewValue)));
 
     private readonly TextBlock _title = new()
     {
         Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), VerticalAlignment = VerticalAlignment.Center,
         TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
         Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-    };
-
-    // The border gives the small icon a bigger target to hover over.
-    private readonly Border _help = new()
-    {
-        Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent), Padding = new Thickness(3, 2, 3, 2), VerticalAlignment = VerticalAlignment.Center,
-        Child = new FontIcon { Glyph = "\uE9CE", FontSize = 12, Foreground = new SolidColorBrush(Microsoft.UI.Colors.White), Opacity = 0.8 },
     };
 
     // A small funnel after the title, as in Excel: pressing it opens the column's filter. It is gold while the column is filtered.
@@ -71,15 +64,12 @@ public sealed class ColumnTitle : UserControl
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_filter, "Filter this column");
         _filter.Tapped += (_, e) => { e.Handled = true; FilterClicked?.Invoke(this); };
         _filter.PointerPressed += (_, e) => e.Handled = true;   // pressing the funnel must not start anything the heading does (such as a drag)
-        // The title gives way (and is trimmed) in a narrow column, so the question mark and the funnel are never cut off.
+        // The title gives way (and is trimmed) in a narrow column, so the funnel is never cut off.
         var row = new Grid { ColumnSpacing = 2 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(_help, 1);
-        Grid.SetColumn(_filter, 2);
+        Grid.SetColumn(_filter, 1);
         row.Children.Add(_title);
-        row.Children.Add(_help);
         row.Children.Add(_filter);
         Content = row;
     }

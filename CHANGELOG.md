@@ -6,7 +6,7 @@ into the release.
 
 ## 0.9.18
 
-- **Filter the recorded transactions like in Excel.** Every column heading in the transactions table now has a small funnel. Press it to see the values in that column, tick the ones you want to keep (or search for them), and press OK. A filtered column's funnel turns gold, and a **Clear filters** button appears beside **Hide cleared**. Filters on several columns work together, and they reset when you leave the page. While a filter is on, the month lines are hidden.
+- **Filter the recorded transactions like in Excel.** Every column heading in the transactions table now has a small funnel. Press it to see the values in that column, tick the ones you want to keep (or search for them), and press OK. A filtered column's funnel turns gold, and a **Clear filters** button appears beside **Hide cleared**. Filters on several columns work together, and they reset when you leave the page. While a filter is on, the month lines are hidden. The small question mark beside each column title is gone: hover the title itself to read what the column is.
 
 ## 0.9.17
 
