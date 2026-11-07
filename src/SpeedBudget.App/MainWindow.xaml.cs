@@ -811,7 +811,7 @@ public sealed partial class MainWindow : Window
         switch (tag)
         {
             case "budget": ContentFrame.Navigate(typeof(BudgetPage), parameter); break;
-            case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
+            case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage), parameter); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):
                 ContentFrame.Navigate(typeof(TransactionsPage), id);

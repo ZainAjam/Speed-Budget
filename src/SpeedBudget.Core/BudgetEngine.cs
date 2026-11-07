@@ -20,6 +20,20 @@ public static class BudgetEngine
         return month;
     }
 
+    /// <summary>
+    /// The transactions that make up a figure on the budget: those of budget accounts that fall in the month and have a split line
+    /// on the item (the same ones <see cref="Calculate"/> adds up for Received and Spent).
+    /// </summary>
+    public static IReadOnlySet<Guid> TransactionsBehind(BudgetSnapshot s, Guid monthId, Guid itemId)
+    {
+        var markers = SortMarkers(s.Markers);
+        var onBudget = s.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
+        return s.Transactions
+            .Where(t => onBudget.Contains(t.AccountId) && MonthOf(markers, t.Date, t.DayOrder) == monthId && t.Splits.Any(l => l.BudgetItemId == itemId))
+            .Select(t => t.Id)
+            .ToHashSet();
+    }
+
     public static IReadOnlyList<MonthMarker> SortMarkers(IEnumerable<MonthMarker> markers) =>
         markers.OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
 

@@ -221,6 +221,8 @@
                     <ComboBoxItem Content="Newest first" />
                     <ComboBoxItem Content="Oldest first" />
                 </ComboBox>
+                <TextBlock Text="{x:Bind ViewModel.DrillText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.8" MaxWidth="260" TextTrimming="CharacterEllipsis"
+                           ToolTipService.ToolTip="The transactions behind the figure you pressed on the budget" />
                 <Button Content="Clear filters" Click="ClearFilters_Click" Visibility="{x:Bind ViewModel.HasFilters, Mode=OneWay}" />
                 <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
             </StackPanel>

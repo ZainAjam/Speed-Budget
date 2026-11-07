@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.18
 
+- **See what makes up a figure.** Press a value in the **Received** or **Spent** column on the Budget screen and All Bank Accounts opens showing only the transactions that make up that figure (that budget item, in that month). The item and month are shown beside **Clear filters**. Filters, including this one, only last until you leave that screen: coming back to the transactions always starts with nothing filtered.
 - **All Bank Accounts.** The first entry under Transactions in the left panel now shows the transactions of every account together, with an Account column telling them apart.
 - **Filter the recorded transactions like in Excel.** Every column heading in the transactions table now has a small funnel. Press it to see the values in that column, tick the ones you want to keep (or search for them), and press OK. A filtered column's funnel turns gold, and a **Clear filters** button appears beside **Hide cleared**. Filters on several columns work together, and they reset when you leave the page. While a filter is on, the month lines are hidden. The small question mark beside each column title is gone: hover the title itself to read what the column is.
 

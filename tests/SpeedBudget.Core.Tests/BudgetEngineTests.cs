@@ -28,6 +28,25 @@ public class BudgetEngineTests
     private static Transaction Tx(Guid account, DateOnly date, int order, long amount, Guid? item) =>
         new(Guid.NewGuid(), account, date, order, amount, new[] { new SplitLine(item, amount) });
 
+    [Fact]
+    public void Transactions_behind_a_figure_are_those_of_that_item_in_that_month_on_budget_accounts()
+    {
+        var marker = new MonthMarker(Guid.NewGuid(), D(2, 1), 5, "February 2027");
+        var inJan = Tx(Cheque, D(1, 10), 1, -100, Petrol);
+        var otherItem = Tx(Cheque, D(1, 11), 2, -50, Food);
+        var inFeb = Tx(Cheque, D(2, 3), 6, -70, Petrol);
+        var tracked = Tx(Savings, D(1, 12), 3, -30, Petrol);
+        var split = new Transaction(Guid.NewGuid(), Cheque, D(1, 15), 4, -90, new[] { new SplitLine(Petrol, -40), new SplitLine(Food, -50) });
+        var snapshot = Snapshot(new[] { inJan, otherItem, inFeb, tracked, split }, new[] { marker });
+
+        var january = BudgetEngine.TransactionsBehind(snapshot, BudgetEngine.FirstMonthId, Petrol);
+        Assert.Equal(new[] { inJan.Id, split.Id }.OrderBy(x => x), january.OrderBy(x => x));
+        Assert.Equal(new[] { inFeb.Id }, BudgetEngine.TransactionsBehind(snapshot, marker.Id, Petrol));
+
+        // The same transactions add up to the Spent figure the budget shows.
+        Assert.Equal(-140, Month(BudgetEngine.Calculate(snapshot), BudgetEngine.FirstMonthId).Items.Single(i => i.ItemId == Petrol).Activity);
+    }
+
     private static MonthSummary Month(IReadOnlyList<MonthSummary> all, Guid id) => all.Single(m => m.MonthId == id);
 
     private static BudgetSnapshot Snapshot(

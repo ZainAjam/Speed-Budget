@@ -39,6 +39,9 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
     public Microsoft.UI.Xaml.Media.Brush BalanceBrush => Balance is { } b ? Format.Signed(b) : Format.Theme("TextFillColorPrimaryBrush");
 }
 
+/// <summary>Asks the transactions page to list only what makes up one figure on the budget: an item in a month.</summary>
+public sealed record TransactionDrillDown(Guid MonthId, Guid ItemId);
+
 /// <summary>Id is null for "all accounts".</summary>
 public sealed record AccountOption(Guid? Id, string Name, bool IsOnBudget);
 
@@ -609,9 +612,33 @@ public sealed partial class TransactionsViewModel : ObservableObject
         if (_loaded) _ = ReloadAsync();
     }
 
-    public bool HasFilters => Filters.Any;
+    public bool HasFilters => Filters.Any || _drill is not null;
 
-    public void ClearFilters() => Filters.Clear();
+    /// <summary>
+    /// Set when the page was opened from a figure on the budget: only the transactions that make up that figure are listed.
+    /// It ends with the page, like the column filters.
+    /// </summary>
+    private TransactionDrillDown? _drill;
+
+    [ObservableProperty] public partial string DrillText { get; set; } = "";
+
+    public void ShowBehind(TransactionDrillDown? drill)
+    {
+        _drill = drill;
+        DrillText = "";
+        OnPropertyChanged(nameof(HasFilters));
+        if (_loaded) _ = ReloadAsync();
+    }
+
+    public void ClearFilters()
+    {
+        var hadDrill = _drill is not null;
+        _drill = null;
+        DrillText = "";
+        OnPropertyChanged(nameof(HasFilters));
+        if (Filters.Any) Filters.Clear();   // this reloads the list
+        else if (hadDrill && _loaded) _ = ReloadAsync();
+    }
 
     [ObservableProperty]
     public partial string Message { get; set; } = "";
@@ -825,7 +852,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
         // Month lines are budget-wide, so they are hidden while looking at a tracked account.
         var viewedAccount = _accounts.FirstOrDefault(a => a.Id == AccountId);
-        var showLines = (viewedAccount is null || viewedAccount.IsOnBudget) && !Filters.Any;   // month lines have no place in a filtered list
+        var showLines = (viewedAccount is null || viewedAccount.IsOnBudget) && !HasFilters;   // month lines have no place in a filtered list
         SyncColumnLayout();
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
@@ -841,10 +868,19 @@ public sealed partial class TransactionsViewModel : ObservableObject
             foreach (var m in await _store.GetMarkersAsync())
                 entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
         }
+        IReadOnlySet<Guid>? behind = null;
+        if (_drill is { } drill)
+        {
+            behind = BudgetEngine.TransactionsBehind(snapshot, drill.MonthId, drill.ItemId);
+            var itemName = snapshot.Items.FirstOrDefault(i => i.Id == drill.ItemId)?.Name ?? "";
+            var monthLabel = months.FirstOrDefault(m => m.MonthId == drill.MonthId)?.Label ?? "";
+            DrillText = $"{itemName}, {monthLabel}";
+        }
         var filterSeen = Enum.GetValues<FilterColumn>().ToDictionary(c => c, _ => new Dictionary<string, IComparable>());
         foreach (var d in details)
         {
             if (HideCleared && d.Transaction.IsCleared) continue;
+            if (behind is not null && !behind.Contains(d.Transaction.Id)) continue;
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
             var otherSide = d.Transaction.TransferPairId is { } pair

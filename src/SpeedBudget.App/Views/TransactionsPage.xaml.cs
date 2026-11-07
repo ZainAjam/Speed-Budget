@@ -450,8 +450,11 @@ public sealed partial class TransactionsPage : Page, IReloadable
     }
 
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>
-    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
         ViewModel.AccountId = e.Parameter is Guid id ? id : null;
+        ViewModel.ShowBehind(e.Parameter as TransactionDrillDown);
+    }
 
     /// <summary>Right-click (or the menu key) on a transaction row: edit it or delete it.</summary>
     private void Row_ContextRequested(UIElement sender, ContextRequestedEventArgs args)

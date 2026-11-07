@@ -559,6 +559,22 @@ public sealed partial class BudgetPage : Page, IReloadable
         else await ViewModel.MoveBudgetAsync(monthId, (chosen.ItemId, -amount));
     }
 
+    /// <summary>A Received figure was pressed: open All Bank Accounts showing only the transactions that make it up.</summary>
+    private void Received_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is IncomeCell { ItemId: var item } cell && item != Guid.Empty)
+            ShowBehind(cell.MonthId, item);
+    }
+
+    /// <summary>A Spent figure was pressed: the same, for what was spent on the item.</summary>
+    private void Spent_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is OutflowCell { Line.ItemId: { } item } cell) ShowBehind(cell.MonthId, item);
+    }
+
+    private static void ShowBehind(Guid monthId, Guid itemId) =>
+        (App.MainWindow as MainWindow)?.NavigateTo("tx:all", new TransactionDrillDown(monthId, itemId));
+
     /// <summary>Right-click (or the menu key) on an "Available now" figure: hold some of it for next month.</summary>
     private void Income_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
