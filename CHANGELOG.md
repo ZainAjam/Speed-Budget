@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.19
+
+- **Fixed: the Month line and Expected transactions panels were see-through at some zoom levels below 100%** (for example 95%, 85% and 75%), letting the table show through them. They are now solid at every zoom.
+
 ## 0.9.18
 
 - **See what makes up a figure.** Press a value in the **Received** or **Spent** column on the Budget screen and All Bank Accounts opens showing only the transactions that make up that figure (that budget item, in that month). The item and month are shown beside **Clear filters**. Filters, including this one, only last until you leave that screen: coming back to the transactions always starts with nothing filtered.

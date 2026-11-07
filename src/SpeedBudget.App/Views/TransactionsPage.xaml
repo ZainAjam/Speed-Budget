@@ -309,9 +309,7 @@
             <!-- Expected transactions: a flyout that rises from the bar along the bottom. Things that are coming but have not happened yet are kept
                  here, and each moves into the table, with the date it happened, when it does. -->
             <Grid x:Name="ExpectedHost" Grid.Row="3" Grid.RowSpan="2" VerticalAlignment="Bottom" Height="340" Margin="-32,0,-32,-24" Padding="32,16,32,16"
-                  Visibility="Collapsed" RowSpacing="10"
-                  Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
-                  BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" CornerRadius="8,8,0,0">
+                  Visibility="Collapsed" RowSpacing="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -319,6 +317,9 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
+                <!-- The panel's solid background is a shape of its own: a Grid's or Border's own Background lets the table show through at some zoom levels below 100%. -->
+                <Rectangle Grid.RowSpan="5" Margin="-32,-16,-32,-16" Fill="{ThemeResource SolidBackgroundFillColorSecondaryBrush}" RadiusX="8" RadiusY="8" IsHitTestVisible="False" />
+                <Border Grid.RowSpan="5" Margin="-32,-16,-32,-16" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" CornerRadius="8,8,0,0" IsHitTestVisible="False" />
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -433,9 +434,9 @@
 
             <!-- The month line panel floats over the table from the right edge. It slides in while a month line is selected. Transactions are edited in their own rows. -->
             <Grid x:Name="DetailHost" Grid.Row="3" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,0,-32,-24"
-                  Width="{x:Bind Layout.DetailWidth, Mode=OneWay}" Padding="20,16,20,16" IsHitTestVisible="False"
-                  Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
-                  BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0">
+                  Width="{x:Bind Layout.DetailWidth, Mode=OneWay}" Padding="20,16,20,16" IsHitTestVisible="False">
+            <Rectangle Margin="-20,-16,-20,-16" Fill="{ThemeResource SolidBackgroundFillColorSecondaryBrush}" RadiusX="8" RadiusY="8" IsHitTestVisible="False" />
+            <Border Margin="-20,-16,-20,-16" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0" IsHitTestVisible="False" />
             <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <CalendarDatePicker x:Name="MarkerDateBox" Header="This month starts on" DateChanged="MarkerDate_Changed"
