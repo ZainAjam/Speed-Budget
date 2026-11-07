@@ -38,8 +38,6 @@ public sealed partial class MainWindow : Window
 
         // At the bottom of the panel, below a line that sets them apart.
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
-        _zoomItem = new NavigationViewItem { Content = "Zoom", Tag = "zoom", Icon = ZoomIcon() };
-        Nav.FooterMenuItems.Add(_zoomItem);
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
@@ -88,13 +86,17 @@ public sealed partial class MainWindow : Window
             Nav.KeyboardAccelerators.Add(accelerator);
         }
         ZoomOuter.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(ZoomOuter_Wheel), handledEventsToo: true);
-        AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() =>
+        AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() => { ApplyZoom(); ShowZoomLevel(); });
+        ZoomOut.Click += async (_, _) => await AppServices.StepZoomAsync(-1);
+        ZoomIn.Click += async (_, _) => await AppServices.StepZoomAsync(1);
+        ZoomLevelHost.Tapped += (_, _) => BeginTypingZoom();
+        ZoomLevelBox.KeyDown += async (_, e) =>
         {
-            ApplyZoom();
-            _zoomItem.Icon = ZoomIcon();
-            if (_zoomFlyoutText is not null) _zoomFlyoutText.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
-            else ShowToast($"Zoom {Math.Round(AppServices.Zoom * 100)}%");   // the flyout shows the level itself when it is open
-        });
+            if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; await FinishTypingZoom(true); }
+            else if (e.Key == Windows.System.VirtualKey.Escape) { e.Handled = true; await FinishTypingZoom(false); }
+        };
+        ZoomLevelBox.LostFocus += async (_, _) => await FinishTypingZoom(true);
+        ShowZoomLevel();
         ApplyZoom();
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
@@ -117,7 +119,6 @@ public sealed partial class MainWindow : Window
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
         Nav.SelectedItem = budget;
-        _lastPageItem = budget;
 
         // Look when the app opens, then every few hours, for people who leave it running.
         _ = CheckForUpdateAsync();
@@ -653,88 +654,34 @@ public sealed partial class MainWindow : Window
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (_suppressSelection) return;
-        if ((args.SelectedItem as NavigationViewItem)?.Tag as string == "zoom")
-        {
-            // Zoom is not a page: the highlight goes back to where it was, and the zoom controls open beside the item.
-            _suppressSelection = true;
-            Nav.SelectedItem = _lastPageItem;
-            _suppressSelection = false;
-            ShowZoomFlyout();
-            return;
-        }
-        _lastPageItem = args.SelectedItem as NavigationViewItem;
         Show((args.SelectedItem as NavigationViewItem)?.Tag as string, null);
     }
 
-    private NavigationViewItem _zoomItem = null!;
-    private NavigationViewItem? _lastPageItem;
-    private TextBlock? _zoomFlyoutText;
+    private bool _typingZoom;
 
-    /// <summary>The panel's zoom icon is the current level itself (70%), so it reads as zoom and not as a search.</summary>
-    private static FontIcon ZoomIcon() => new()
+    private void ShowZoomLevel() => ZoomLevel.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
+
+    /// <summary>Click the percentage to type one: Enter applies it (from 50 to 200), Esc leaves it as it was.</summary>
+    private void BeginTypingZoom()
     {
-        Glyph = $"{Math.Round(AppServices.Zoom * 100)}%", FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Variable"),
-        FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-    };
+        if (_typingZoom) return;
+        _typingZoom = true;
+        ZoomLevelBox.Text = $"{Math.Round(AppServices.Zoom * 100)}";
+        ZoomLevel.Visibility = Visibility.Collapsed;
+        ZoomLevelBox.Visibility = Visibility.Visible;
+        ZoomLevelBox.Focus(FocusState.Programmatic);
+        ZoomLevelBox.SelectAll();
+    }
 
-    /// <summary>The zoom controls: smaller, the level, larger, and back to 100%.</summary>
-    private void ShowZoomFlyout()
+    private async Task FinishTypingZoom(bool apply)
     {
-        var level = new TextBlock { Text = $"{Math.Round(AppServices.Zoom * 100)}%", HorizontalTextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        _zoomFlyoutText = level;
-        // Click the percentage to type one: Enter applies it (from 50 to 200), Esc leaves it as it was.
-        var typed = new TextBox { Visibility = Visibility.Collapsed, TextAlignment = TextAlignment.Center, MaxLength = 3, VerticalAlignment = VerticalAlignment.Center };
-        var levelHost = new Grid { MinWidth = 64, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent) };
-        ToolTipService.SetToolTip(levelHost, "Click to type a percentage");
-        levelHost.Children.Add(level);
-        levelHost.Children.Add(typed);
-        var applying = false;
-        levelHost.Tapped += (_, _) =>
-        {
-            if (typed.Visibility == Visibility.Visible) return;
-            typed.Text = $"{Math.Round(AppServices.Zoom * 100)}";
-            level.Visibility = Visibility.Collapsed;
-            typed.Visibility = Visibility.Visible;
-            typed.Focus(FocusState.Programmatic);
-            typed.SelectAll();
-        };
-        async Task Finish(bool apply)
-        {
-            if (applying || typed.Visibility != Visibility.Visible) return;
-            applying = true;
-            var text = typed.Text.Trim().TrimEnd('%').Trim();
-            typed.Visibility = Visibility.Collapsed;
-            level.Visibility = Visibility.Visible;
-            if (apply && int.TryParse(text, out var percent)) await AppServices.SetZoomAsync(Math.Clamp(percent, 50, 200) / 100.0);
-            level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
-            applying = false;
-        }
-        typed.KeyDown += async (_, e) =>
-        {
-            if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; await Finish(true); }
-            else if (e.Key == Windows.System.VirtualKey.Escape) { e.Handled = true; await Finish(false); }
-        };
-        typed.LostFocus += async (_, _) => await Finish(true);
-        var out_ = new Button { Content = new FontIcon { Glyph = "\uE71F", FontSize = 14 } };
-        ToolTipService.SetToolTip(out_, "Zoom out (Ctrl and -)");
-        out_.Click += async (_, _) => await AppServices.StepZoomAsync(-1);
-        var in_ = new Button { Content = new FontIcon { Glyph = "\uE8A3", FontSize = 14 } };
-        ToolTipService.SetToolTip(in_, "Zoom in (Ctrl and +)");
-        in_.Click += async (_, _) => await AppServices.StepZoomAsync(1);
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        row.Children.Add(out_);
-        row.Children.Add(levelHost);
-        row.Children.Add(in_);
-        var flyout = new Flyout { Content = row, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.RightEdgeAlignedBottom };
-        _paneHeld = true;   // the left panel stays open while the controls are
-        flyout.Closed += (_, _) =>
-        {
-            _zoomFlyoutText = null;
-            _paneHeld = false;
-            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
-        };
-        flyout.ShowAt(_zoomItem);
+        if (!_typingZoom) return;
+        _typingZoom = false;
+        var text = ZoomLevelBox.Text.Trim().TrimEnd('%').Trim();
+        ZoomLevelBox.Visibility = Visibility.Collapsed;
+        ZoomLevel.Visibility = Visibility.Visible;
+        if (apply && int.TryParse(text, out var percent)) await AppServices.SetZoomAsync(Math.Clamp(percent, 50, 200) / 100.0);
+        ShowZoomLevel();
     }
 
     /// <summary>
@@ -748,7 +695,6 @@ public sealed partial class MainWindow : Window
             _suppressSelection = true;
             Nav.SelectedItem = item;
             _suppressSelection = false;
-            _lastPageItem = item;
         }
         Show(tag, parameter);
     }

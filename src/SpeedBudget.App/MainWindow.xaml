@@ -76,5 +76,22 @@
         </Grid>
     </NavigationView>
     </Grid>
+    <!-- The zoom block in the bottom right corner (like Word): smaller, the level (click to type one), larger. It is not scaled with the rest. -->
+    <Border x:Name="ZoomBar" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,18,10" Padding="4,2" CornerRadius="6" BorderThickness="1"
+            Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            AutomationProperties.Name="Zoom">
+        <StackPanel Orientation="Horizontal" Spacing="2">
+            <Button x:Name="ZoomOut" Padding="6,4" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Zoom out" ToolTipService.ToolTip="Zoom out (Ctrl and -)">
+                <FontIcon Glyph="&#xE738;" FontSize="12" />
+            </Button>
+            <Grid x:Name="ZoomLevelHost" MinWidth="52" Background="Transparent" ToolTipService.ToolTip="Click to type a zoom percentage">
+                <TextBlock x:Name="ZoomLevel" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="13" />
+                <TextBox x:Name="ZoomLevelBox" Visibility="Collapsed" MaxLength="3" TextAlignment="Center" MinHeight="28" Padding="4,3" VerticalAlignment="Center" />
+            </Grid>
+            <Button x:Name="ZoomIn" Padding="6,4" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Zoom in" ToolTipService.ToolTip="Zoom in (Ctrl and +)">
+                <FontIcon Glyph="&#xE710;" FontSize="12" />
+            </Button>
+        </StackPanel>
+    </Border>
     </Grid>
 </Window>
