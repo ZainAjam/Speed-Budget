@@ -76,26 +76,5 @@
         </Grid>
     </NavigationView>
     </Grid>
-    <!-- The zoom block in the bottom right corner (like Word): smaller, the level (click to type one), larger. It is not scaled with the rest. -->
-    <Border x:Name="ZoomBar" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,18,10" Padding="4,2" CornerRadius="6" BorderThickness="1"
-            Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            AutomationProperties.Name="Zoom" PointerEntered="ZoomBar_PointerEntered" PointerExited="ZoomBar_PointerExited">
-        <StackPanel Orientation="Horizontal" Spacing="2">
-            <!-- Resting state: just a magnifying glass with a plus. The controls open while the pointer is over it. -->
-            <FontIcon x:Name="ZoomGlyph" Glyph="&#xE8A3;" FontSize="20" Margin="8,6" ToolTipService.ToolTip="Zoom" />
-            <StackPanel x:Name="ZoomControls" Orientation="Horizontal" Spacing="2" Visibility="Collapsed">
-            <Button x:Name="ZoomOut" Padding="8,6" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Zoom out" ToolTipService.ToolTip="Zoom out (Ctrl and -)">
-                <FontIcon Glyph="&#xE738;" FontSize="14" />
-            </Button>
-            <Grid x:Name="ZoomLevelHost" MinWidth="52" Background="Transparent" ToolTipService.ToolTip="Click to type a zoom percentage">
-                <TextBlock x:Name="ZoomLevel" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" />
-                <TextBox x:Name="ZoomLevelBox" Visibility="Collapsed" MaxLength="3" TextAlignment="Center" MinHeight="28" Padding="4,3" VerticalAlignment="Center" />
-            </Grid>
-            <Button x:Name="ZoomIn" Padding="8,6" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Zoom in" ToolTipService.ToolTip="Zoom in (Ctrl and +)">
-                <FontIcon Glyph="&#xE710;" FontSize="14" />
-            </Button>
-            </StackPanel>
-        </StackPanel>
-    </Border>
     </Grid>
 </Window>
