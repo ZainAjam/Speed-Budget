@@ -79,8 +79,11 @@
     <!-- The zoom block in the bottom right corner (like Word): smaller, the level (click to type one), larger. It is not scaled with the rest. -->
     <Border x:Name="ZoomBar" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,18,10" Padding="4,2" CornerRadius="6" BorderThickness="1"
             Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-            AutomationProperties.Name="Zoom">
+            AutomationProperties.Name="Zoom" PointerEntered="ZoomBar_PointerEntered" PointerExited="ZoomBar_PointerExited">
         <StackPanel Orientation="Horizontal" Spacing="2">
+            <!-- Resting state: just a magnifying glass with a plus. The controls open while the pointer is over it. -->
+            <FontIcon x:Name="ZoomGlyph" Glyph="&#xE8A3;" FontSize="14" Margin="6,4" ToolTipService.ToolTip="Zoom" />
+            <StackPanel x:Name="ZoomControls" Orientation="Horizontal" Spacing="2" Visibility="Collapsed">
             <Button x:Name="ZoomOut" Padding="6,4" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Zoom out" ToolTipService.ToolTip="Zoom out (Ctrl and -)">
                 <FontIcon Glyph="&#xE738;" FontSize="12" />
             </Button>
@@ -91,6 +94,7 @@
             <Button x:Name="ZoomIn" Padding="6,4" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Zoom in" ToolTipService.ToolTip="Zoom in (Ctrl and +)">
                 <FontIcon Glyph="&#xE710;" FontSize="12" />
             </Button>
+            </StackPanel>
         </StackPanel>
     </Border>
     </Grid>

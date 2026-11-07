@@ -97,6 +97,7 @@ public sealed partial class MainWindow : Window
         };
         ZoomLevelBox.LostFocus += async (_, _) => await FinishTypingZoom(true);
         ShowZoomLevel();
+        ShowZoomControls(false);
         ApplyZoom();
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
@@ -658,6 +659,27 @@ public sealed partial class MainWindow : Window
     }
 
     private bool _typingZoom;
+    private bool _pointerInZoom;
+
+    private void ZoomBar_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        _pointerInZoom = true;
+        ShowZoomControls(true);
+    }
+
+    private void ZoomBar_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        _pointerInZoom = false;
+        if (!_typingZoom) ShowZoomControls(false);
+    }
+
+    /// <summary>The zoom block rests as a single icon and opens into the controls while the pointer is over it.</summary>
+    private void ShowZoomControls(bool open)
+    {
+        ZoomControls.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        ZoomGlyph.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+        ZoomBar.Opacity = open ? 1 : 0.75;
+    }
 
     private void ShowZoomLevel() => ZoomLevel.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
 
@@ -682,6 +704,7 @@ public sealed partial class MainWindow : Window
         ZoomLevel.Visibility = Visibility.Visible;
         if (apply && int.TryParse(text, out var percent)) await AppServices.SetZoomAsync(Math.Clamp(percent, 50, 200) / 100.0);
         ShowZoomLevel();
+        if (!_pointerInZoom) ShowZoomControls(false);   // typing ended with the pointer already gone
     }
 
     /// <summary>
