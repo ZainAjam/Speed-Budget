@@ -41,13 +41,11 @@ public sealed partial class MainWindow : Window
             else if (tag == "zoom" && !Nav.IsPaneOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
 
-        // At the bottom of the panel, below a line that sets them apart.
-        Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
         // Zoom: while the panel is open the buttons sit right in it; when it is narrow only the icon shows (and opens them in a small box).
         _zoomItem = new NavigationViewItem { Tag = "zoom", SelectsOnInvoked = false, Icon = new FontIcon { Glyph = "\uE8A3" } };
         _zoomItem.Content = BuildZoomControls(inFlyout: false);
         Nav.FooterMenuItems.Add(_zoomItem);
-        Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
+        Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());   // a line sets App Settings apart from the zoom
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
         // The available balance beside each account follows every change to the data.
@@ -805,7 +803,6 @@ public sealed partial class MainWindow : Window
         {
             case "budget": ContentFrame.Navigate(typeof(BudgetPage), parameter); break;
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage)); break;
-            case "shortcuts": ContentFrame.Navigate(typeof(KeyboardShortcutsPage)); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):
                 ContentFrame.Navigate(typeof(TransactionsPage), id);

@@ -4,8 +4,8 @@ using Microsoft.UI.Xaml.Media;
 
 namespace SpeedBudget.App.Views;
 
-/// <summary>Lists every keyboard shortcut in the app, grouped by where it works.</summary>
-public sealed partial class KeyboardShortcutsPage : Page
+/// <summary>Every keyboard shortcut in the app, grouped by where it works. Shown in App Settings.</summary>
+public static class KeyboardShortcuts
 {
     private static readonly (string Section, (string Keys, string What)[] Rows)[] Sections =
     [
@@ -39,14 +39,16 @@ public sealed partial class KeyboardShortcutsPage : Page
         ]),
     ];
 
-    public KeyboardShortcutsPage()
+    /// <summary>The list as controls: a section heading above each group, with the keys beside what they do.</summary>
+    public static IEnumerable<UIElement> Build()
     {
-        InitializeComponent();
         var divider = (Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"];
+        var first = true;
         foreach (var (section, rows) in Sections)
         {
-            Host.Children.Add(new Border { Height = 1, Background = divider, Margin = new Thickness(0, 8, 0, 0) });
-            Host.Children.Add(new TextBlock { Text = section, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"] });
+            if (!first) yield return new Border { Height = 1, Background = divider, Margin = new Thickness(0, 4, 0, 0) };
+            first = false;
+            yield return new TextBlock { Text = section, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"] };
             foreach (var (keys, what) in rows)
             {
                 var row = new Grid { ColumnSpacing = 16 };
@@ -57,7 +59,7 @@ public sealed partial class KeyboardShortcutsPage : Page
                 Grid.SetColumn(text, 1);
                 row.Children.Add(key);
                 row.Children.Add(text);
-                Host.Children.Add(row);
+                yield return row;
             }
         }
     }

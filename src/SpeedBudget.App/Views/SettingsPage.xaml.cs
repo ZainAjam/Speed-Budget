@@ -16,6 +16,7 @@ public sealed partial class SettingsPage : Page
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
         PanelModeBox.SelectedIndex = PanelModes.IndexOf(AppServices.PanelMode);
+        foreach (var element in KeyboardShortcuts.Build()) ShortcutsHost.Children.Add(element);
         ShowBackupInfo();
         ShowZoom();
         AppServices.ZoomChanged += ShowZoom;

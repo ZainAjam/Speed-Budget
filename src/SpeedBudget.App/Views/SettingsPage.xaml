@@ -40,6 +40,11 @@
 
             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
+            <TextBlock Text="Keyboard shortcuts" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
+            <StackPanel x:Name="ShortcutsHost" Spacing="10" />
+
+            <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
             <TextBlock Text="Backup and export" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
 
             <StackPanel Spacing="8">
