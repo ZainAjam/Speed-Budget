@@ -16,22 +16,24 @@ public sealed partial class SettingsPage : Page
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
         PanelModeBox.SelectedIndex = PanelModes.IndexOf(AppServices.PanelMode);
-        foreach (var element in KeyboardShortcuts.Build()) ShortcutsHost.Children.Add(element);
         ShowBackupInfo();
-        ShowZoom();
-        AppServices.ZoomChanged += ShowZoom;
-        Unloaded += (_, _) => AppServices.ZoomChanged -= ShowZoom;
         ShowDeveloper();
         Loaded += async (_, _) => await ShowUpdateStateAsync();
     }
 
-    private void ShowZoom() => ZoomText.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
-
-    private async void ZoomIn_Click(object sender, RoutedEventArgs e) => await AppServices.StepZoomAsync(1);
-
-    private async void ZoomOut_Click(object sender, RoutedEventArgs e) => await AppServices.StepZoomAsync(-1);
-
-    private async void ZoomReset_Click(object sender, RoutedEventArgs e) => await AppServices.StepZoomAsync(0);
+    /// <summary>Every keyboard shortcut, in a pop-up.</summary>
+    private async void Shortcuts_Click(object sender, RoutedEventArgs e)
+    {
+        var panel = new StackPanel { Spacing = 10, MinWidth = 560 };
+        foreach (var element in KeyboardShortcuts.Build()) panel.Children.Add(element);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "Keyboard shortcuts", CloseButtonText = "Close", DefaultButton = ContentDialogButton.Close,
+            Content = new ScrollViewer { Content = panel, MaxHeight = 480, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+        };
+        dialog.Resources["ContentDialogMaxWidth"] = 760.0;
+        await dialog.ShowAsync();
+    }
 
     private static readonly List<string> PanelModes = ["show", "hover", "hide"];
 

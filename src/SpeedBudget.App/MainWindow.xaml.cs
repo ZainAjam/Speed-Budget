@@ -98,6 +98,7 @@ public sealed partial class MainWindow : Window
             ApplyZoom();
             foreach (var level in _zoomLevels) level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
         });
+        Nav.Loaded += (_, _) => ApplyPaneLook();
         ApplyZoom();
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
@@ -146,8 +147,45 @@ public sealed partial class MainWindow : Window
     private void ZoomOuter_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyZoom();
 
     /// <summary>Scales everything, and gives the scaled host the size that makes it exactly fill the window.</summary>
+    private Microsoft.UI.Xaml.Controls.Grid? _paneRoot;
+    private Microsoft.UI.Xaml.Controls.Border? _paneCover;
+
+    /// <summary>
+    /// The panel's frosted look (it hides and blurs what is behind it) is lost once the app is scaled: the content shows through sharply.
+    /// While zoomed, a plain cover of the colour the panel has at 100% sits behind the panel's items, so it looks the same at every zoom.
+    /// </summary>
+    private void ApplyPaneLook()
+    {
+        _paneRoot ??= FindChild<Microsoft.UI.Xaml.Controls.Grid>(Nav, "PaneRoot");
+        if (_paneRoot is null) return;
+        var zoomed = Math.Abs(AppServices.Zoom - 1.0) > 0.001;
+        if (_paneCover is null)
+        {
+            if (!zoomed) return;
+            _paneCover = new Microsoft.UI.Xaml.Controls.Border { IsHitTestVisible = false };
+            Microsoft.UI.Xaml.Controls.Grid.SetRowSpan(_paneCover, Math.Max(1, _paneRoot.RowDefinitions.Count));
+            Microsoft.UI.Xaml.Controls.Grid.SetColumnSpan(_paneCover, Math.Max(1, _paneRoot.ColumnDefinitions.Count));
+            _paneRoot.Children.Insert(0, _paneCover);
+        }
+        _paneCover.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Nav.ActualTheme == ElementTheme.Light
+            ? Windows.UI.Color.FromArgb(255, 238, 238, 238) : Windows.UI.Color.FromArgb(255, 46, 47, 46));
+        _paneCover.Visibility = zoomed ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static T? FindChild<T>(DependencyObject parent, string name) where T : FrameworkElement
+    {
+        for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+            if (child is T found && found.Name == name) return found;
+            if (FindChild<T>(child, name) is { } deeper) return deeper;
+        }
+        return null;
+    }
+
     private void ApplyZoom()
     {
+        ApplyPaneLook();
         var zoom = AppServices.Zoom;
         ZoomScale.ScaleX = ZoomScale.ScaleY = zoom;
         if (ZoomOuter.ActualWidth <= 0 || ZoomOuter.ActualHeight <= 0) return;

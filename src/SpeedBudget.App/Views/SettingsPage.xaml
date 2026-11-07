@@ -26,22 +26,13 @@
                            Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
-            <StackPanel Spacing="8">
-                <TextBlock Text="Zoom" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Click="ZoomOut_Click" AutomationProperties.Name="Zoom out" ToolTipService.ToolTip="Zoom out (Ctrl and -)"><FontIcon Glyph="&#xE71F;" FontSize="14" /></Button>
-                    <TextBlock x:Name="ZoomText" VerticalAlignment="Center" MinWidth="56" HorizontalTextAlignment="Center" />
-                    <Button Click="ZoomIn_Click" AutomationProperties.Name="Zoom in" ToolTipService.ToolTip="Zoom in (Ctrl and +)"><FontIcon Glyph="&#xE8A3;" FontSize="14" /></Button>
-                    <Button Content="Reset to 100%" Click="ZoomReset_Click" />
-                </StackPanel>
-                <TextBlock Text="Zoom out to fit more on screen, for example when Speed Budget is snapped beside a banking website. Press Ctrl and + or -, or hold Ctrl and turn the mouse wheel, anywhere in the app. Ctrl and 0 goes back to 100%."
-                           Opacity="0.7" TextWrapping="Wrap" />
-            </StackPanel>
-
             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-            <TextBlock Text="Keyboard shortcuts" Style="{StaticResource TitleTextBlockStyle}" FontSize="22" Margin="0,8,0,0" />
-            <StackPanel x:Name="ShortcutsHost" Spacing="10" />
+            <StackPanel Spacing="8">
+                <TextBlock Text="Keyboard shortcuts" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <Button Content="Show keyboard shortcuts" Click="Shortcuts_Click" />
+                <TextBlock Text="Opens a list of every keyboard shortcut in the app." Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
 
             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
