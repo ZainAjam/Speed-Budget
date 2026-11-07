@@ -4,10 +4,13 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
-## 0.9.15
+## 0.9.16
 
 - **Zoom.** Press Ctrl and + or Ctrl and - (or hold Ctrl and turn the mouse wheel) to make the whole app smaller or larger, from 50% to 200%, and Ctrl and 0 to go back to 100%. Zoom out to fit more on screen when Speed Budget is snapped beside a banking website. The zoom sits in the footer of the left panel, above Keyboard Shortcuts, on every screen: with the panel open it shows − and + buttons with the current percentage between them (click the percentage to type any value from 50 to 200), and with the panel narrow it is just a magnifying glass with a plus, which opens the same buttons when clicked. The panel keeps the same frosted look at every zoom level. The zoom is remembered the next time the app opens. Pop-up boxes stay at normal size.
 - **Keyboard Shortcuts moved into App Settings**: a **Show keyboard shortcuts** button there opens the full list in a pop-up. The left panel now ends with the zoom, a line, and App Settings. The zoom controls are only in the left panel (and Ctrl with + or −), no longer in App Settings.
+
+## 0.9.15
+
 - **Counterparties are now edited and deleted right in the Counterparty drop-down** of the transaction table: each one has a pencil (rename, change its icon) and a bin. A counterparty that transactions still use can't be deleted, and you are told how many use it. The Counterparties page under Configurations is gone, along with its Ctrl+3 shortcut.
 - **Backups are tidier, and you can restore one.** The automatic backup runs once a day and only the newest 31 are kept, so there are never more than 31 automatic backup files. Backups you make yourself with Back up now are never deleted. File names now say how they were made (`budget-auto-…` or `budget-manual-…`). **Restore a backup…** in App Settings lists every backup with its date, time and method; pick one and the app restarts on it. Your current data is saved as a manual backup first, so a restore can itself be undone.
 - **Fix for the app closing while you moved over the left panel.** The crash log showed the panel refusing to open from inside a pointer movement ("Unspecified error"), which closed the whole app. The panel is now opened and closed a moment after the movement, and a refusal is ignored instead of closing the app.
