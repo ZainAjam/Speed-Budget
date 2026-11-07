@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.17
+
+- **Zoomed-out left panel stays tidy.** When you zoom out, the items under Budget and Transactions no longer drift to the left edge: they stay lined up under their headings at every zoom level.
+
 ## 0.9.16
 
 - **Zoom.** Press Ctrl and + or Ctrl and - (or hold Ctrl and turn the mouse wheel) to make the whole app smaller or larger, from 50% to 200%, and Ctrl and 0 to go back to 100%. Zoom out to fit more on screen when Speed Budget is snapped beside a banking website. The zoom sits in the footer of the left panel, above Keyboard Shortcuts, on every screen: with the panel open it shows − and + buttons with the current percentage between them (click the percentage to type any value from 50 to 200), and with the panel narrow it is just a magnifying glass with a plus, which opens the same buttons when clicked. The panel keeps the same frosted look at every zoom level. The zoom is remembered the next time the app opens. Pop-up boxes stay at normal size.

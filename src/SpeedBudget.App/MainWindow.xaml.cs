@@ -105,12 +105,13 @@ public sealed partial class MainWindow : Window
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
-        Nav.PaneOpening += (_, _) => ShowHeadings(true);
+        Nav.PaneOpening += (_, _) => { ShowHeadings(true); ApplyCompactLength(true); };
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
             if (_zoomHold || _paneHeld) { args.Cancel = true; return; }
             ShowHeadings(false);
+            ApplyCompactLength(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
         ApplyPanelMode();
@@ -186,12 +187,22 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
+    /// <summary>
+    /// The items size their icon column from the strip's width. Open, they are scaled along with the panel, so they must be given the 100% width
+    /// (else the column shrinks twice and the items drift left of their headings); closed, the strip itself is as wide as the zoom makes it.
+    /// </summary>
+    private void ApplyCompactLength(bool open)
+    {
+        if (_compactPane100 == 0) return;
+        Nav.CompactPaneLength = open ? _compactPane100 : _compactPane100 * AppServices.Zoom;
+    }
+
     private void ApplyZoom()
     {
         var zoom = AppServices.Zoom;
         if (_openPane100 == 0) { _openPane100 = Nav.OpenPaneLength; _compactPane100 = Nav.CompactPaneLength; }
         Nav.OpenPaneLength = _openPane100 * zoom;
-        Nav.CompactPaneLength = _compactPane100 * zoom;
+        ApplyCompactLength(Nav.IsPaneOpen);
         ContentScale.ScaleX = ContentScale.ScaleY = zoom;
         if (ContentZoomOuter.ActualWidth > 0 && ContentZoomOuter.ActualHeight > 0)
         {
