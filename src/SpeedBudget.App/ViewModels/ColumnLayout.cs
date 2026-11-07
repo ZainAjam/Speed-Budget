@@ -51,13 +51,20 @@ public sealed partial class ColumnLayout : ObservableObject
     public GridLength InflowColumn => new(Snap(Inflow));
     public GridLength ClearedColumn => new(Snap(Cleared));
 
+    // The lines of the table are always one screen pixel wide, however far the table is zoomed.
+    private static double LineWidth => Math.Abs(AppServices.Zoom - 1) < 0.0001 ? 1 : 1 / AppServices.Zoom;
+    public Thickness CellLine => new(0, 0, LineWidth, LineWidth);
+    public Thickness HeadingLine => new(0, 0, LineWidth, 0);
+    public Thickness ActionLine => new(0, 0, 0, LineWidth);
+
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
     public ColumnLayout() =>
         AppServices.ZoomChanged += () => _queue?.TryEnqueue(() =>
         {
             foreach (var name in new[] { nameof(DateColumn), nameof(BankDateColumn), nameof(CounterpartyColumn), nameof(MemoColumn), nameof(ItemColumn),
-                                         nameof(AccountColumn), nameof(OutflowColumn), nameof(InflowColumn), nameof(ClearedColumn) })
+                                         nameof(AccountColumn), nameof(OutflowColumn), nameof(InflowColumn), nameof(ClearedColumn),
+                                         nameof(CellLine), nameof(HeadingLine), nameof(ActionLine) })
                 OnPropertyChanged(name);
         });
     public GridLength DetailColumn => new(DetailWidth);
