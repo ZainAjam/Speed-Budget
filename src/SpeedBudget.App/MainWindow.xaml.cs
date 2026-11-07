@@ -12,6 +12,8 @@ namespace SpeedBudget.App;
 public sealed partial class MainWindow : Window
 {
     // "Transactions" is only a label for the accounts listed under it: it cannot be selected, and pressing it does nothing.
+    /// <summary>The first entry under Transactions: every account's transactions together.</summary>
+    private readonly NavigationViewItem _allAccountsItem = new() { Content = "All Bank Accounts", Tag = "tx:all", Icon = new FontIcon { Glyph = "" } };   // a row of columns, like a bank with many accounts
     private readonly NavigationViewItem _transactions = new() { Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false };
 
     private bool _onTransactions;
@@ -33,6 +35,7 @@ public sealed partial class MainWindow : Window
         Nav.MenuItems.Add(Heading("Budget"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
+        Nav.MenuItems.Add(_allAccountsItem);
         Nav.MenuItems.Add(_addAccountItem);
         Nav.ItemInvoked += (sender, args) =>
         {
@@ -586,7 +589,7 @@ public sealed partial class MainWindow : Window
         _balanceBlocks.Clear();
         _accountOrder.Clear();
         _accountOrder.AddRange(accounts.Select(a => a.Id));
-        var at = Nav.MenuItems.IndexOf(_transactions) + 1;
+        var at = Nav.MenuItems.IndexOf(_allAccountsItem) + 1;   // the accounts follow "All Bank Accounts"
         foreach (var account in accounts)
         {
             var item = AccountItem(account, balances.GetValueOrDefault(account.Id));
@@ -605,7 +608,7 @@ public sealed partial class MainWindow : Window
         }
 
         // Keep the same page selected, or fall back to the first account if its account went away.
-        if (selectedTag is not null && selectedTag.StartsWith("tx:"))
+        if (selectedTag is not null && selectedTag.StartsWith("tx:") && selectedTag != "tx:all")
         {
             var again = _accountItems.FirstOrDefault(i => (string?)i.Tag == selectedTag);
             Nav.SelectedItem = again ?? _accountItems.FirstOrDefault() ?? Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string?)i.Tag == "budget");
