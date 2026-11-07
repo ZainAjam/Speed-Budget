@@ -33,15 +33,33 @@ public sealed partial class ColumnLayout : ObservableObject
     [ObservableProperty] public partial bool ShowItem { get; set; } = true;
     [ObservableProperty] public partial bool ShowAccount { get; set; } = true;
 
-    public GridLength DateColumn => new(Date);
-    public GridLength BankDateColumn => new(BankDate);
-    public GridLength CounterpartyColumn => new(Counterparty);
-    public GridLength MemoColumn => new(Memo);
-    public GridLength ItemColumn => new(ShowItem ? Item : 0);
-    public GridLength AccountColumn => new(ShowAccount ? Account : 0);
-    public GridLength OutflowColumn => new(Outflow);
-    public GridLength InflowColumn => new(Inflow);
-    public GridLength ClearedColumn => new(Cleared);
+    // The widths shown are nudged (by less than a pixel) so that, at the table's zoom, every column edge falls on a whole screen pixel and
+    // all the lines between the columns look the same.
+    private static double Snap(double width)
+    {
+        var zoom = AppServices.Zoom;
+        return Math.Abs(zoom - 1) < 0.0001 ? width : Math.Round(width * zoom) / zoom;
+    }
+
+    public GridLength DateColumn => new(Snap(Date));
+    public GridLength BankDateColumn => new(Snap(BankDate));
+    public GridLength CounterpartyColumn => new(Snap(Counterparty));
+    public GridLength MemoColumn => new(Snap(Memo));
+    public GridLength ItemColumn => new(ShowItem ? Snap(Item) : 0);
+    public GridLength AccountColumn => new(ShowAccount ? Snap(Account) : 0);
+    public GridLength OutflowColumn => new(Snap(Outflow));
+    public GridLength InflowColumn => new(Snap(Inflow));
+    public GridLength ClearedColumn => new(Snap(Cleared));
+
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? _queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+    public ColumnLayout() =>
+        AppServices.ZoomChanged += () => _queue?.TryEnqueue(() =>
+        {
+            foreach (var name in new[] { nameof(DateColumn), nameof(BankDateColumn), nameof(CounterpartyColumn), nameof(MemoColumn), nameof(ItemColumn),
+                                         nameof(AccountColumn), nameof(OutflowColumn), nameof(InflowColumn), nameof(ClearedColumn) })
+                OnPropertyChanged(name);
+        });
     public GridLength DetailColumn => new(DetailWidth);
 
     /// <summary>What the table needs: every column at its own width, and the last one at least wide enough for the delete button.</summary>

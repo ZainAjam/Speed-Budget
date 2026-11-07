@@ -24,6 +24,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
         HeadingGrid.AddHandler(PointerPressedEvent, new PointerEventHandler(Heading_PointerPressed), true);
         WireFilters();
+        Loaded += (_, _) => AppServices.ZoomChanged += OnZoomForRows;
+        Unloaded += (_, _) => AppServices.ZoomChanged -= OnZoomForRows;
         StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
         ViewModel.AskMonthAsync = AskMonthAsync;
         ViewModel.AskStartEarlierAsync = AskStartEarlierAsync;
@@ -442,11 +444,52 @@ public sealed partial class TransactionsPage : Page, IReloadable
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
+    // ---- Crisp lines when the table is zoomed ----
+    // Each row is made just tall enough (by less than a pixel) to end on a whole screen pixel at the current zoom, so the lines between
+    // rows are all the same thickness instead of some falling across two pixels.
+
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ListViewItem, object> _snappedRows = new();
+
+    private void EntryList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.ItemContainer is not ListViewItem item || _snappedRows.TryGetValue(item, out _)) return;
+        _snappedRows.Add(item, new object());
+        item.SizeChanged += (_, _) => SnapRow(item);
+    }
+
+    private static void SnapRow(ListViewItem item)
+    {
+        if (item.ContentTemplateRoot is not FrameworkElement root) return;
+        var zoom = AppServices.Zoom;
+        var natural = root.DesiredSize.Height;
+        if (natural <= 0) return;
+        var wanted = Math.Abs(zoom - 1) < 0.0001 ? 0 : Math.Ceiling(natural * zoom - 0.001) / zoom;
+        if (Math.Abs(item.MinHeight - wanted) > 0.001) item.MinHeight = wanted;
+    }
+
+    /// <summary>The zoom changed: every row works out its height again.</summary>
+    private void OnZoomForRows() => DispatcherQueue.TryEnqueue(() => { UpdateTableWidth(); SnapAllRows(); });
+
+    private void SnapAllRows()
+    {
+        if (EntryList.ItemsPanelRoot is not Panel panel) return;
+        foreach (var item in panel.Children.OfType<ListViewItem>())
+        {
+            item.MinHeight = 0;
+            item.InvalidateMeasure();
+        }
+    }
+
     private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTableWidth();
 
     private void UpdateTableWidth()
     {
-        TableRegion.Width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);   // fills the room on offer; Memo takes what the columns do not need (the edit panel floats over the table, so it needs no room of its own)
+        var width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);
+        // Zoomed, the width is nudged (by less than a pixel) so the Memo column ends on a whole screen pixel, and so do the columns after it.
+        var zoom = AppServices.Zoom;
+        if (Math.Abs(zoom - 1) > 0.0001 && width > ColumnLayout.ActionsMinimum) width = Math.Round((width - ColumnLayout.ActionsMinimum) * zoom) / zoom + ColumnLayout.ActionsMinimum;
+        TableRegion.Width = width;
+        TableFrame.BorderThickness = new Thickness(Math.Abs(zoom - 1) < 0.0001 ? 1 : 1 / zoom);   // one screen pixel, so the table's edge is as crisp as at 100%
     }
 
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>

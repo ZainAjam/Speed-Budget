@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.19
 
+- **Crisp table lines when zoomed out or in.** The lines between rows and between columns in the transactions table now all have the same thickness at every zoom level (before, some looked thicker than others).
+- **The Month line panel now runs all the way down to the bottom of the window**, as it does beside the Expected transactions bar.
 - **Zoom now only affects the tables.** Zooming in or out changes the size of the budget table and the transactions table only. Everything else stays at normal size: page titles, buttons, balances, the pinned-items strip, the left panel and the Month line and Expected transactions panels. On the Budget screen, zooming out also makes room for more months side by side.
 - **Fixed: the Month line and Expected transactions panels were see-through at some zoom levels below 100%** (for example 95%, 85% and 75%), letting the table show through them. They are now solid at every zoom.
 

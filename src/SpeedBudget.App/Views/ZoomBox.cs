@@ -25,6 +25,9 @@ public sealed partial class ZoomBox : Panel
         if (Children.Count == 0) return new Windows.Foundation.Size(0, 0);
         var child = Children[0];
         var zoom = AppServices.Zoom;
+        // At 100% sizes snap to whole pixels as usual. Zoomed, the table's own sizes are left exact so rows and columns can be fitted to the
+        // screen's pixels after scaling (rounding them first would round them to the wrong grid).
+        child.UseLayoutRounding = Math.Abs(zoom - 1) < 0.0001;
         child.Measure(new Windows.Foundation.Size(available.Width / zoom, available.Height / zoom));
         return new Windows.Foundation.Size(child.DesiredSize.Width * zoom, child.DesiredSize.Height * zoom);
     }
