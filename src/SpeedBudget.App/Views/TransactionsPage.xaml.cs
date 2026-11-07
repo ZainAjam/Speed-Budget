@@ -23,6 +23,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         AddHandler(KeyDownEvent, new KeyEventHandler(Page_KeyDown), true);
         HeadingGrid.AddHandler(PointerPressedEvent, new PointerEventHandler(Heading_PointerPressed), true);
+        WireFilters();
         StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
         ViewModel.AskMonthAsync = AskMonthAsync;
         ViewModel.AskStartEarlierAsync = AskStartEarlierAsync;

@@ -347,6 +347,30 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         : IsTransfer && _item.Id is null && AccountOnBudget == OtherOnBudget ? "Not Applicable"
         : _item.Id is null ? "" : _item.Label;
 
+    /// <summary>What the column shows for this row, which is what the column's filter lists and matches. An empty cell is an empty string.</summary>
+    public string FilterValue(FilterColumn column) => column switch
+    {
+        FilterColumn.Date => DateText,
+        FilterColumn.BankDate => BankDateText,
+        FilterColumn.Counterparty => Entity.Payee ?? "",
+        FilterColumn.Memo => Entity.Memo ?? "",
+        FilterColumn.Item => ItemName,
+        FilterColumn.Account => AccountName,
+        FilterColumn.Outflow => OutflowText,
+        FilterColumn.Inflow => InflowText,
+        FilterColumn.Cleared => Entity.IsCleared ? "Cleared" : "Uncleared",
+        _ => "",
+    };
+
+    /// <summary>What the column's values are ordered by in its filter list: dates by date and amounts by size, the rest alphabetically.</summary>
+    public IComparable FilterOrder(FilterColumn column) => column switch
+    {
+        FilterColumn.Date => Entity.Date,
+        FilterColumn.BankDate => Entity.BankDate ?? DateOnly.MinValue,
+        FilterColumn.Outflow or FilterColumn.Inflow => Math.Abs(Entity.Amount),
+        _ => FilterValue(column).ToLowerInvariant(),
+    };
+
     public string OutflowText => Entity.Amount < 0 ? AppServices.ToRands(-Entity.Amount).ToString("N2") : "";
     public string InflowText => Entity.Amount > 0 ? AppServices.ToRands(Entity.Amount).ToString("N2") : "";
     public string PayeeText => IsTransfer ? $"⇄ {Entity.Payee}" : owner.WithIcon(Entity.Payee);
@@ -423,7 +447,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
     private readonly BudgetStore _store = AppServices.Store;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public TransactionsViewModel() => Expected = new ExpectedViewModel(this);
+    public TransactionsViewModel()
+    {
+        Expected = new ExpectedViewModel(this);
+        Filters.Changed += OnFiltersChanged;
+    }
 
     /// <summary>Lets the Expected transactions flyout take its turn with everything else this page does to the database.</summary>
     internal SemaphoreSlim Gate => _gate;
@@ -564,6 +592,26 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public partial int SortIndex { get; set; } = s_sortIndex;
 
     [ObservableProperty] public partial bool HideCleared { get; set; } = s_hideCleared;
+
+    /// <summary>The filters on the table's columns. They last until the page is left.</summary>
+    public ColumnFilters Filters { get; } = new();
+
+    // Every value each column has among the account's transactions, in order, for the lists in the column filters.
+    private readonly Dictionary<FilterColumn, List<string>> _filterValues = new();
+
+    /// <summary>The values to offer in a column's filter.</summary>
+    public IReadOnlyList<string> FilterValues(FilterColumn column) =>
+        _filterValues.TryGetValue(column, out var values) ? values : [];
+
+    private void OnFiltersChanged()
+    {
+        OnPropertyChanged(nameof(HasFilters));
+        if (_loaded) _ = ReloadAsync();
+    }
+
+    public bool HasFilters => Filters.Any;
+
+    public void ClearFilters() => Filters.Clear();
 
     [ObservableProperty]
     public partial string Message { get; set; } = "";
@@ -777,7 +825,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
         // Month lines are budget-wide, so they are hidden while looking at a tracked account.
         var viewedAccount = _accounts.FirstOrDefault(a => a.Id == AccountId);
-        var showLines = viewedAccount is null || viewedAccount.IsOnBudget;
+        var showLines = (viewedAccount is null || viewedAccount.IsOnBudget) && !Filters.Any;   // month lines have no place in a filtered list
         SyncColumnLayout();
 
         var accountNames = _accounts.ToDictionary(a => a.Id, a => a.Name);
@@ -793,6 +841,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             foreach (var m in await _store.GetMarkersAsync())
                 entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
         }
+        var filterSeen = Enum.GetValues<FilterColumn>().ToDictionary(c => c, _ => new Dictionary<string, IComparable>());
         foreach (var d in details)
         {
             if (HideCleared && d.Transaction.IsCleared) continue;
@@ -805,8 +854,16 @@ public sealed partial class TransactionsViewModel : ObservableObject
             {
                 OtherAccountId = otherSide.TransactionId == Guid.Empty ? null : otherSide.AccountId,
             };
+            foreach (var column in Enum.GetValues<FilterColumn>())
+            {
+                var value = row.FilterValue(column);
+                if (!filterSeen[column].ContainsKey(value)) filterSeen[column][value] = row.FilterOrder(column);
+            }
+            if (!Filters.Passes(row)) continue;
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
+        foreach (var (column, seen) in filterSeen)
+            _filterValues[column] = seen.OrderBy(v => v.Value).ThenBy(v => v.Key, StringComparer.CurrentCultureIgnoreCase).Select(v => v.Key).ToList();
 
         var ordered = entries.OrderBy(e => e.Key).ThenBy(e => e.Rank).ThenBy(e => e.Id).Select(e => e.Row).ToList();
         if (SortIndex == 0) ordered.Reverse();

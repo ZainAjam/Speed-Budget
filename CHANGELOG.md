@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.18
+
+- **Filter the recorded transactions like in Excel.** Every column heading in the transactions table now has a small funnel. Press it to see the values in that column, tick the ones you want to keep (or search for them), and press OK. A filtered column's funnel turns gold, and a **Clear filters** button appears beside **Hide cleared**. Filters on several columns work together, and they reset when you leave the page. While a filter is on, the month lines are hidden.
+
 ## 0.9.17
 
 - **Zoom now affects only the page, not the left panel.** The left panel keeps the same size and look at every zoom level, so its items always line up under their headings and it opens and closes the same way. The budget and the bank account transactions are what zoom in and out.
