@@ -6,11 +6,11 @@ into the release.
 
 ## 0.9.17
 
-- **Zoomed-out left panel stays tidy.** When you zoom out, the items under Budget and Transactions no longer drift to the left edge: they stay lined up under their headings at every zoom level.
+- **Zoom now affects only the page, not the left panel.** The left panel keeps the same size and look at every zoom level, so its items always line up under their headings and it opens and closes the same way. The budget and the bank account transactions are what zoom in and out.
 
 ## 0.9.16
 
-- **Zoom.** Press Ctrl and + or Ctrl and - (or hold Ctrl and turn the mouse wheel) to make the whole app smaller or larger, from 50% to 200%, and Ctrl and 0 to go back to 100%. Zoom out to fit more on screen when Speed Budget is snapped beside a banking website. The zoom sits in the footer of the left panel, above Keyboard Shortcuts, on every screen: with the panel open it shows − and + buttons with the current percentage between them (click the percentage to type any value from 50 to 200), and with the panel narrow it is just a magnifying glass with a plus, which opens the same buttons when clicked. The panel keeps the same frosted look at every zoom level. The zoom is remembered the next time the app opens. Pop-up boxes stay at normal size.
+- **Zoom.** Press Ctrl and + or Ctrl and - (or hold Ctrl and turn the mouse wheel) to make the whole app smaller or larger, from 50% to 200%, and Ctrl and 0 to go back to 100%. Zoom out to fit more on screen when Speed Budget is snapped beside a banking website. The zoom sits in the footer of the left panel, above Keyboard Shortcuts, on every screen: with the panel open it shows − and + buttons with the current percentage between them (click the percentage to type any value from 50 to 200), and with the panel narrow it is just a magnifying glass with a plus, which opens the same buttons when clicked. The zoom is remembered the next time the app opens. Pop-up boxes stay at normal size.
 - **Keyboard Shortcuts moved into App Settings**: a **Show keyboard shortcuts** button there opens the full list in a pop-up. The left panel now ends with the zoom, a line, and App Settings. The zoom controls are only in the left panel (and Ctrl with + or −), no longer in App Settings.
 
 ## 0.9.15

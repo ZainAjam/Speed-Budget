@@ -7,8 +7,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
     <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
-    <!-- The window's own size is kept for working out the zoom. The navigation view is not scaled (its frosted panel background only works unscaled);
-         instead the page area and the panel's contents are each scaled by the zoom, and the panel is made that much wider or narrower. -->
+    <!-- Only the page area is zoomed (see ApplyZoom); the left panel is never scaled. -->
     <Grid x:Name="ZoomOuter" SizeChanged="ZoomOuter_SizeChanged">
     <Grid x:Name="ZoomHost">
     <NavigationView x:Name="Nav" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"

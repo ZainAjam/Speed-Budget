@@ -105,13 +105,12 @@ public sealed partial class MainWindow : Window
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
-        Nav.PaneOpening += (_, _) => { ShowHeadings(true); ApplyCompactLength(true); };
+        Nav.PaneOpening += (_, _) => ShowHeadings(true);
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
             if (_zoomHold || _paneHeld) { args.Cancel = true; return; }
             ShowHeadings(false);
-            ApplyCompactLength(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
         ApplyPanelMode();
@@ -147,69 +146,19 @@ public sealed partial class MainWindow : Window
 
     private void ZoomOuter_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyZoom();
 
-    /// <summary>Scales everything, and gives the scaled host the size that makes it exactly fill the window.</summary>
-    private Microsoft.UI.Xaml.Controls.Grid? _paneRoot, _paneContent;
-    private double _openPane100, _compactPane100;
-
     /// <summary>
-    /// Scales the panel's contents. The panel itself is made wider or narrower by the zoom (see ApplyZoom) and only what is inside it is
-    /// scaled, so its frosted background (which hides and blurs what is behind it) is never under a scale and looks the same at every zoom.
+    /// Zooms the page area only (the budget and the transactions): it is scaled, and given the size that makes it exactly fill the room.
+    /// The left panel is never scaled, so it looks and behaves the same at every zoom.
     /// </summary>
-    private void ApplyPaneZoom()
-    {
-        if (_paneRoot is null)
-        {
-            _paneRoot = FindChild<Microsoft.UI.Xaml.Controls.Grid>(Nav, "PaneRoot");
-            _paneContent = FindChild<Microsoft.UI.Xaml.Controls.Grid>(Nav, "PaneContentGrid");
-            if (_paneRoot is null || _paneContent is null) return;
-            _paneContent.HorizontalAlignment = HorizontalAlignment.Left;
-            _paneContent.VerticalAlignment = VerticalAlignment.Top;
-            _paneContent.RenderTransformOrigin = new Windows.Foundation.Point(0, 0);
-            _paneContent.RenderTransform = new Microsoft.UI.Xaml.Media.ScaleTransform();
-            _paneRoot.SizeChanged += (_, _) => ApplyPaneZoom();
-        }
-        var zoom = AppServices.Zoom;
-        var scale = (Microsoft.UI.Xaml.Media.ScaleTransform)_paneContent!.RenderTransform;
-        scale.ScaleX = scale.ScaleY = zoom;
-        if (_paneRoot.ActualWidth <= 0 || _paneRoot.ActualHeight <= 0) return;
-        _paneContent.Width = _paneRoot.ActualWidth / zoom;
-        _paneContent.Height = _paneRoot.ActualHeight / zoom;
-    }
-
-    private static T? FindChild<T>(DependencyObject parent, string name) where T : FrameworkElement
-    {
-        for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent); i++)
-        {
-            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
-            if (child is T found && found.Name == name) return found;
-            if (FindChild<T>(child, name) is { } deeper) return deeper;
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// The items size their icon column from the strip's width. Open, they are scaled along with the panel, so they must be given the 100% width
-    /// (else the column shrinks twice and the items drift left of their headings); closed, the strip itself is as wide as the zoom makes it.
-    /// </summary>
-    private void ApplyCompactLength(bool open)
-    {
-        if (_compactPane100 == 0) return;
-        Nav.CompactPaneLength = open ? _compactPane100 : _compactPane100 * AppServices.Zoom;
-    }
-
     private void ApplyZoom()
     {
         var zoom = AppServices.Zoom;
-        if (_openPane100 == 0) { _openPane100 = Nav.OpenPaneLength; _compactPane100 = Nav.CompactPaneLength; }
-        Nav.OpenPaneLength = _openPane100 * zoom;
-        ApplyCompactLength(Nav.IsPaneOpen);
         ContentScale.ScaleX = ContentScale.ScaleY = zoom;
         if (ContentZoomOuter.ActualWidth > 0 && ContentZoomOuter.ActualHeight > 0)
         {
             ContentZoomHost.Width = ContentZoomOuter.ActualWidth / zoom;
             ContentZoomHost.Height = ContentZoomOuter.ActualHeight / zoom;
         }
-        ApplyPaneZoom();
     }
 
     private readonly SemaphoreSlim _undoGate = new(1, 1);
