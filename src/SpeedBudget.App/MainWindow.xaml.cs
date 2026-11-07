@@ -107,7 +107,12 @@ public sealed partial class MainWindow : Window
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
         Nav.PaneOpening += (_, _) => ShowHeadings(true);
-        Nav.PaneClosing += (_, _) => ShowHeadings(false);
+        Nav.PaneClosing += (_, args) =>
+        {
+            // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
+            if (_zoomHold) { args.Cancel = true; return; }
+            ShowHeadings(false);
+        };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
         ApplyPanelMode();
         AppServices.InterfaceChanged += () => DispatcherQueue.TryEnqueue(ApplyPanelMode);
@@ -116,7 +121,7 @@ public sealed partial class MainWindow : Window
         Nav.PointerExited += (_, _) =>
         {
             _pointerInNav = false;
-            if (AppServices.PanelMode == "hover" && !_paneHeld) SetPane(false);
+            if (AppServices.PanelMode == "hover" && !_paneHeld && !_zoomHold) SetPane(false);
         };
 
         RebuildAccountPages();
@@ -269,6 +274,14 @@ public sealed partial class MainWindow : Window
     /// <summary>With "show on hover": the panel opens when the pointer reaches its narrow strip, and closes when the pointer leaves it.</summary>
     private void Nav_PointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
+        var window = e.GetCurrentPoint(null).Position;
+        _lastPointer = window;
+        if (_zoomHold)
+        {
+            // Zooming moves the buttons away from under the pointer; the panel stays open until the pointer is moved on purpose.
+            if (Math.Abs(window.X - _zoomHoldAt.X) + Math.Abs(window.Y - _zoomHoldAt.Y) < 40) return;
+            _zoomHold = false;
+        }
         if (AppServices.PanelMode != "hover") return;
         var x = e.GetCurrentPoint(Nav).Position.X;
         if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
@@ -660,6 +673,16 @@ public sealed partial class MainWindow : Window
         Show((args.SelectedItem as NavigationViewItem)?.Tag as string, null);
     }
 
+    private bool _zoomHold;
+    private Windows.Foundation.Point _lastPointer, _zoomHoldAt;
+
+    /// <summary>Called when a zoom button in the panel is pressed: the panel stays open even though the zoom moves the buttons off the pointer.</summary>
+    private void HoldPaneForZoom()
+    {
+        _zoomHold = true;
+        _zoomHoldAt = _lastPointer;
+    }
+
     private NavigationViewItem _zoomItem = null!;
     private readonly List<TextBlock> _zoomLevels = [];
 
@@ -672,11 +695,11 @@ public sealed partial class MainWindow : Window
         var out_ = new Button { Content = new FontIcon { Glyph = "\uE738", FontSize = 14 }, Padding = new Thickness(8, 5, 8, 5) };
         ToolTipService.SetToolTip(out_, "Zoom out (Ctrl and -)");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(out_, "Zoom out");
-        out_.Click += async (_, _) => await AppServices.StepZoomAsync(-1);
+        out_.Click += async (_, _) => { HoldPaneForZoom(); await AppServices.StepZoomAsync(-1); };
         var in_ = new Button { Content = new FontIcon { Glyph = "\uE710", FontSize = 14 }, Padding = new Thickness(8, 5, 8, 5) };
         ToolTipService.SetToolTip(in_, "Zoom in (Ctrl and +)");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(in_, "Zoom in");
-        in_.Click += async (_, _) => await AppServices.StepZoomAsync(1);
+        in_.Click += async (_, _) => { HoldPaneForZoom(); await AppServices.StepZoomAsync(1); };
 
         var level = new TextBlock { Text = $"{Math.Round(AppServices.Zoom * 100)}%", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         _zoomLevels.Add(level);
@@ -706,12 +729,12 @@ public sealed partial class MainWindow : Window
             var text = typed.Text.Trim().TrimEnd('%').Trim();
             typed.Visibility = Visibility.Collapsed;
             level.Visibility = Visibility.Visible;
-            if (apply && int.TryParse(text, out var percent)) await AppServices.SetZoomAsync(Math.Clamp(percent, 50, 200) / 100.0);
+            if (apply && int.TryParse(text, out var percent)) { if (!inFlyout) HoldPaneForZoom(); await AppServices.SetZoomAsync(Math.Clamp(percent, 50, 200) / 100.0); }
             level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
             if (!inFlyout)
             {
                 _paneHeld = false;
-                if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false);
+                if (AppServices.PanelMode == "hover" && !_pointerInNav && !_zoomHold) SetPane(false);
             }
         }
         typed.KeyDown += async (_, e) =>
