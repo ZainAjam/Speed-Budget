@@ -38,6 +38,8 @@ public sealed partial class MainWindow : Window
 
         // At the bottom of the panel, below a line that sets them apart.
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());
+        _zoomItem = new NavigationViewItem { Content = ZoomLabel(), Tag = "zoom", Icon = new FontIcon { Glyph = "\uE71E" } };
+        Nav.FooterMenuItems.Add(_zoomItem);
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "Keyboard Shortcuts", Tag = "shortcuts", Icon = new SymbolIcon(Symbol.Keyboard) });
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
 
@@ -86,7 +88,13 @@ public sealed partial class MainWindow : Window
             Nav.KeyboardAccelerators.Add(accelerator);
         }
         ZoomOuter.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(ZoomOuter_Wheel), handledEventsToo: true);
-        AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() => { ApplyZoom(); ShowToast($"Zoom {Math.Round(AppServices.Zoom * 100)}%"); });
+        AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            ApplyZoom();
+            _zoomItem.Content = ZoomLabel();
+            if (_zoomFlyoutText is not null) _zoomFlyoutText.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
+            else ShowToast($"Zoom {Math.Round(AppServices.Zoom * 100)}%");   // the flyout shows the level itself when it is open
+        });
         ApplyZoom();
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
@@ -109,6 +117,7 @@ public sealed partial class MainWindow : Window
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
         Nav.SelectedItem = budget;
+        _lastPageItem = budget;
 
         // Look when the app opens, then every few hours, for people who leave it running.
         _ = CheckForUpdateAsync();
@@ -644,7 +653,54 @@ public sealed partial class MainWindow : Window
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (_suppressSelection) return;
+        if ((args.SelectedItem as NavigationViewItem)?.Tag as string == "zoom")
+        {
+            // Zoom is not a page: the highlight goes back to where it was, and the zoom controls open beside the item.
+            _suppressSelection = true;
+            Nav.SelectedItem = _lastPageItem;
+            _suppressSelection = false;
+            ShowZoomFlyout();
+            return;
+        }
+        _lastPageItem = args.SelectedItem as NavigationViewItem;
         Show((args.SelectedItem as NavigationViewItem)?.Tag as string, null);
+    }
+
+    private NavigationViewItem _zoomItem = null!;
+    private NavigationViewItem? _lastPageItem;
+    private TextBlock? _zoomFlyoutText;
+
+    private static string ZoomLabel() => $"Zoom  {Math.Round(AppServices.Zoom * 100)}%";
+
+    /// <summary>The zoom controls: smaller, the level, larger, and back to 100%.</summary>
+    private void ShowZoomFlyout()
+    {
+        var level = new TextBlock { Text = $"{Math.Round(AppServices.Zoom * 100)}%", MinWidth = 52, HorizontalTextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        _zoomFlyoutText = level;
+        var out_ = new Button { Content = new FontIcon { Glyph = "\uE71F", FontSize = 14 } };
+        ToolTipService.SetToolTip(out_, "Zoom out (Ctrl and -)");
+        out_.Click += async (_, _) => await AppServices.StepZoomAsync(-1);
+        var in_ = new Button { Content = new FontIcon { Glyph = "\uE8A3", FontSize = 14 } };
+        ToolTipService.SetToolTip(in_, "Zoom in (Ctrl and +)");
+        in_.Click += async (_, _) => await AppServices.StepZoomAsync(1);
+        var reset = new Button { Content = "100%" };
+        ToolTipService.SetToolTip(reset, "Back to 100% (Ctrl and 0)");
+        reset.Click += async (_, _) => await AppServices.StepZoomAsync(0);
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        row.Children.Add(out_);
+        row.Children.Add(level);
+        row.Children.Add(in_);
+        row.Children.Add(reset);
+        var flyout = new Flyout { Content = row, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.RightEdgeAlignedBottom };
+        _paneHeld = true;   // the left panel stays open while the controls are
+        flyout.Closed += (_, _) =>
+        {
+            _zoomFlyoutText = null;
+            _paneHeld = false;
+            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
+        };
+        flyout.ShowAt(_zoomItem);
     }
 
     /// <summary>
@@ -658,6 +714,7 @@ public sealed partial class MainWindow : Window
             _suppressSelection = true;
             Nav.SelectedItem = item;
             _suppressSelection = false;
+            _lastPageItem = item;
         }
         Show(tag, parameter);
     }
