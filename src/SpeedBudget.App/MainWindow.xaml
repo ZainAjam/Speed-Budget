@@ -7,14 +7,17 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
     <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
-    <!-- Everything sits in a host that is scaled by the zoom level; its size is the window's size divided by the zoom, so the layout fills the window at any zoom. -->
+    <!-- The window's own size is kept for working out the zoom. The navigation view is not scaled (its frosted panel background only works unscaled);
+         instead the page area and the panel's contents are each scaled by the zoom, and the panel is made that much wider or narrower. -->
     <Grid x:Name="ZoomOuter" SizeChanged="ZoomOuter_SizeChanged">
-    <Grid x:Name="ZoomHost" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0">
-        <Grid.RenderTransform>
-            <ScaleTransform x:Name="ZoomScale" />
-        </Grid.RenderTransform>
+    <Grid x:Name="ZoomHost">
     <NavigationView x:Name="Nav" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
                     IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
+        <Grid x:Name="ContentZoomOuter" SizeChanged="ZoomOuter_SizeChanged">
+        <Grid x:Name="ContentZoomHost" HorizontalAlignment="Left" VerticalAlignment="Top" RenderTransformOrigin="0,0">
+            <Grid.RenderTransform>
+                <ScaleTransform x:Name="ContentScale" />
+            </Grid.RenderTransform>
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -73,6 +76,8 @@
                     Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                 <TextBlock x:Name="UndoToastText" />
             </Border>
+        </Grid>
+        </Grid>
         </Grid>
     </NavigationView>
     </Grid>

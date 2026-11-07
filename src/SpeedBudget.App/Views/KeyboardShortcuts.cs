@@ -39,28 +39,30 @@ public static class KeyboardShortcuts
         ]),
     ];
 
-    /// <summary>The list as controls: a section heading above each group, with the keys beside what they do.</summary>
-    public static IEnumerable<UIElement> Build()
+    /// <summary>The list as controls, one list of elements per section: the heading, then each shortcut with the keys beside what they do.</summary>
+    public static IReadOnlyList<IReadOnlyList<UIElement>> BuildBySection()
     {
-        var divider = (Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"];
-        var first = true;
+        var result = new List<IReadOnlyList<UIElement>>();
         foreach (var (section, rows) in Sections)
         {
-            if (!first) yield return new Border { Height = 1, Background = divider, Margin = new Thickness(0, 4, 0, 0) };
-            first = false;
-            yield return new TextBlock { Text = section, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"] };
+            var elements = new List<UIElement>
+            {
+                new TextBlock { Text = section, Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"], Margin = new Thickness(0, 0, 0, 4) },
+            };
             foreach (var (keys, what) in rows)
             {
                 var row = new Grid { ColumnSpacing = 16 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
-                row.ColumnDefinitions.Add(new ColumnDefinition());
-                var key = new TextBlock { Text = keys, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], TextWrapping = TextWrapping.Wrap };
-                var text = new TextBlock { Text = what, TextWrapping = TextWrapping.Wrap, Opacity = 0.85 };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                var key = new TextBlock { Text = keys, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"] };
+                var text = new TextBlock { Text = what, Opacity = 0.85 };
                 Grid.SetColumn(text, 1);
                 row.Children.Add(key);
                 row.Children.Add(text);
-                yield return row;
+                elements.Add(row);
             }
+            result.Add(elements);
         }
+        return result;
     }
 }

@@ -21,17 +21,43 @@ public sealed partial class SettingsPage : Page
         Loaded += async (_, _) => await ShowUpdateStateAsync();
     }
 
-    /// <summary>Every keyboard shortcut, in a pop-up.</summary>
+    /// <summary>
+    /// Every keyboard shortcut, in a pop-up that shows all of them at once (no scrolling): the sections are laid out in two columns, and
+    /// if they still would not fit the app's window the whole list is shrunk to fit.
+    /// </summary>
     private async void Shortcuts_Click(object sender, RoutedEventArgs e)
     {
-        var panel = new StackPanel { Spacing = 10, MinWidth = 560 };
-        foreach (var element in KeyboardShortcuts.Build()) panel.Children.Add(element);
+        var sections = KeyboardShortcuts.BuildBySection();
+        var total = sections.Sum(s => s.Count);
+        var columns = new[] { new StackPanel { Spacing = 8 }, new StackPanel { Spacing = 8 } };
+        var used = 0;
+        foreach (var section in sections)
+        {
+            var target = used * 2 < total ? columns[0] : columns[1];   // fill the first column up to half of the rows
+            if (target.Children.Count > 0) target.Children.Add(new Border { Height = 12 });
+            foreach (var element in section) target.Children.Add(element);
+            used += section.Count;
+        }
+        var grid = new Grid { ColumnSpacing = 56 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(columns[0]);
+        Grid.SetColumn(columns[1], 1);
+        grid.Children.Add(columns[1]);
+
+        var window = XamlRoot.Size;
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot, Title = "Keyboard shortcuts", CloseButtonText = "Close", DefaultButton = ContentDialogButton.Close,
-            Content = new ScrollViewer { Content = panel, MaxHeight = 480, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+            // Shrinks the list (text and all) only when it is bigger than the app's window allows.
+            Content = new Viewbox
+            {
+                Child = grid, Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform, StretchDirection = StretchDirection.DownOnly,
+                MaxWidth = Math.Max(300, window.Width - 140), MaxHeight = Math.Max(200, window.Height - 240),
+            },
         };
-        dialog.Resources["ContentDialogMaxWidth"] = 760.0;
+        dialog.Resources["ContentDialogMaxWidth"] = Math.Max(400, window.Width - 40);
+        dialog.Resources["ContentDialogMaxHeight"] = Math.Max(300, window.Height - 40);
         await dialog.ShowAsync();
     }
 

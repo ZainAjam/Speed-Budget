@@ -98,7 +98,7 @@ public sealed partial class MainWindow : Window
             ApplyZoom();
             foreach (var level in _zoomLevels) level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
         });
-        Nav.Loaded += (_, _) => ApplyPaneLook();
+        Nav.Loaded += (_, _) => ApplyZoom();
         ApplyZoom();
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
@@ -147,29 +147,32 @@ public sealed partial class MainWindow : Window
     private void ZoomOuter_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyZoom();
 
     /// <summary>Scales everything, and gives the scaled host the size that makes it exactly fill the window.</summary>
-    private Microsoft.UI.Xaml.Controls.Grid? _paneRoot;
-    private Microsoft.UI.Xaml.Controls.Border? _paneCover;
+    private Microsoft.UI.Xaml.Controls.Grid? _paneRoot, _paneContent;
+    private double _openPane100, _compactPane100;
 
     /// <summary>
-    /// The panel's frosted look (it hides and blurs what is behind it) is lost once the app is scaled: the content shows through sharply.
-    /// While zoomed, a plain cover of the colour the panel has at 100% sits behind the panel's items, so it looks the same at every zoom.
+    /// Scales the panel's contents. The panel itself is made wider or narrower by the zoom (see ApplyZoom) and only what is inside it is
+    /// scaled, so its frosted background (which hides and blurs what is behind it) is never under a scale and looks the same at every zoom.
     /// </summary>
-    private void ApplyPaneLook()
+    private void ApplyPaneZoom()
     {
-        _paneRoot ??= FindChild<Microsoft.UI.Xaml.Controls.Grid>(Nav, "PaneRoot");
-        if (_paneRoot is null) return;
-        var zoomed = Math.Abs(AppServices.Zoom - 1.0) > 0.001;
-        if (_paneCover is null)
+        if (_paneRoot is null)
         {
-            if (!zoomed) return;
-            _paneCover = new Microsoft.UI.Xaml.Controls.Border { IsHitTestVisible = false };
-            Microsoft.UI.Xaml.Controls.Grid.SetRowSpan(_paneCover, Math.Max(1, _paneRoot.RowDefinitions.Count));
-            Microsoft.UI.Xaml.Controls.Grid.SetColumnSpan(_paneCover, Math.Max(1, _paneRoot.ColumnDefinitions.Count));
-            _paneRoot.Children.Insert(0, _paneCover);
+            _paneRoot = FindChild<Microsoft.UI.Xaml.Controls.Grid>(Nav, "PaneRoot");
+            _paneContent = FindChild<Microsoft.UI.Xaml.Controls.Grid>(Nav, "PaneContentGrid");
+            if (_paneRoot is null || _paneContent is null) return;
+            _paneContent.HorizontalAlignment = HorizontalAlignment.Left;
+            _paneContent.VerticalAlignment = VerticalAlignment.Top;
+            _paneContent.RenderTransformOrigin = new Windows.Foundation.Point(0, 0);
+            _paneContent.RenderTransform = new Microsoft.UI.Xaml.Media.ScaleTransform();
+            _paneRoot.SizeChanged += (_, _) => ApplyPaneZoom();
         }
-        _paneCover.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Nav.ActualTheme == ElementTheme.Light
-            ? Windows.UI.Color.FromArgb(255, 238, 238, 238) : Windows.UI.Color.FromArgb(255, 46, 47, 46));
-        _paneCover.Visibility = zoomed ? Visibility.Visible : Visibility.Collapsed;
+        var zoom = AppServices.Zoom;
+        var scale = (Microsoft.UI.Xaml.Media.ScaleTransform)_paneContent!.RenderTransform;
+        scale.ScaleX = scale.ScaleY = zoom;
+        if (_paneRoot.ActualWidth <= 0 || _paneRoot.ActualHeight <= 0) return;
+        _paneContent.Width = _paneRoot.ActualWidth / zoom;
+        _paneContent.Height = _paneRoot.ActualHeight / zoom;
     }
 
     private static T? FindChild<T>(DependencyObject parent, string name) where T : FrameworkElement
@@ -185,12 +188,17 @@ public sealed partial class MainWindow : Window
 
     private void ApplyZoom()
     {
-        ApplyPaneLook();
         var zoom = AppServices.Zoom;
-        ZoomScale.ScaleX = ZoomScale.ScaleY = zoom;
-        if (ZoomOuter.ActualWidth <= 0 || ZoomOuter.ActualHeight <= 0) return;
-        ZoomHost.Width = ZoomOuter.ActualWidth / zoom;
-        ZoomHost.Height = ZoomOuter.ActualHeight / zoom;
+        if (_openPane100 == 0) { _openPane100 = Nav.OpenPaneLength; _compactPane100 = Nav.CompactPaneLength; }
+        Nav.OpenPaneLength = _openPane100 * zoom;
+        Nav.CompactPaneLength = _compactPane100 * zoom;
+        ContentScale.ScaleX = ContentScale.ScaleY = zoom;
+        if (ContentZoomOuter.ActualWidth > 0 && ContentZoomOuter.ActualHeight > 0)
+        {
+            ContentZoomHost.Width = ContentZoomOuter.ActualWidth / zoom;
+            ContentZoomHost.Height = ContentZoomOuter.ActualHeight / zoom;
+        }
+        ApplyPaneZoom();
     }
 
     private readonly SemaphoreSlim _undoGate = new(1, 1);
