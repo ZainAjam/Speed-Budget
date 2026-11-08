@@ -747,8 +747,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         ItemOptions.Add(NoItem);
         foreach (var g in groups)
             foreach (var i in items.Where(i => i.GroupId == g.Id))
-                ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}{(i.IsArchived ? " (archived)" : "")}", i.Kind, g.Id, i.Name,
-                    $"{i.DisplayName}{(i.IsArchived ? " (archived)" : "")}"));
+                ItemOptions.Add(new ItemOption(i.Id, $"{g.Name} › {i.DisplayName}", i.Kind, g.Id, i.Name,
+                    $"{i.DisplayName}"));
     }
 
     /// <summary>Changes a counterparty's name (on all of its transactions) and icon, and updates what is on screen. Returns an error sentence, or null.</summary>

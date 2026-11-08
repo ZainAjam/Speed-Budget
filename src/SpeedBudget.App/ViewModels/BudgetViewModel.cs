@@ -20,7 +20,7 @@ public sealed partial class GroupState(string name) : ObservableObject
 /// One row of the budget, as labelled in the left-hand column. Every month column has a cell for each line, in the
 /// same order, so the rows line up across the page.
 /// </summary>
-public sealed partial class BudgetLine(Guid? itemId, string name, int depth, bool isArchived, GroupState? group, bool isHeader,
+public sealed partial class BudgetLine(Guid? itemId, string name, int depth, GroupState? group, bool isHeader,
     Guid? groupId = null, Guid? parentItemId = null) : ObservableObject
 {
     public Guid? ItemId { get; } = itemId;
@@ -28,7 +28,6 @@ public sealed partial class BudgetLine(Guid? itemId, string name, int depth, boo
     public Guid? ParentItemId { get; } = parentItemId;
     public string Name { get; } = name;
     public Thickness Indent { get; } = new(depth * 20, 0, 0, 0);
-    public bool IsArchived { get; } = isArchived;
     public GroupState? Group { get; } = group;
     public bool IsHeader { get; } = isHeader;
     public bool IsItem => !IsHeader;
@@ -389,11 +388,11 @@ public sealed partial class BudgetViewModel : ObservableObject
                 var lines = group.Kind == ItemKind.Income ? _incomeLines : _outflowLines;
                 var state = new GroupState(group.Name);
                 state.PropertyChanged += (_, _) => ApplyVisibility();
-                var header = new BudgetLine(null, group.Name, 0, false, state, isHeader: true, group.Id);
+                var header = new BudgetLine(null, group.Name, 0, state, isHeader: true, group.Id);
                 lines.Add(header);
                 foreach (var (item, depth) in Flatten(inGroup))
                 {
-                    lines.Add(new BudgetLine(item.Id, item.DisplayName, depth, item.IsArchived, state, isHeader: false, item.GroupId, item.ParentItemId));
+                    lines.Add(new BudgetLine(item.Id, item.DisplayName, depth, state, isHeader: false, item.GroupId, item.ParentItemId));
                     header.GroupItemIds.Add(item.Id);
                 }
             }
@@ -520,28 +519,17 @@ public sealed partial class BudgetViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Archived items only show while some visible month has numbers on them, and folded groups hide their items.
-    /// Every column hides the same lines, so the rows keep lining up.
+    /// Folded groups hide their items. Every column hides the same lines, so the rows keep lining up.
     /// </summary>
     private void ApplyVisibility()
     {
-        var shown = Columns.Select(c => _months.First(m => m.MonthId == c.MonthId)).ToList();
-        var withNumbers = new HashSet<Guid>();
-        foreach (var m in shown)
-        {
-            foreach (var i in m.Items.Where(i => i.Budgeted != 0 || i.Activity != 0)) withNumbers.Add(i.ItemId);
-            foreach (var i in m.IncomeItems.Where(i => i.Received != 0 || i.Held != 0)) withNumbers.Add(i.ItemId);
-        }
-
-        bool Relevant(BudgetLine line) => !line.IsArchived || withNumbers.Contains(line.ItemId!.Value);
-
         foreach (var lines in new[] { _incomeLines, _outflowLines })
         {
             foreach (var line in lines.Where(l => l.IsItem))
-                line.IsVisible = Relevant(line) && line.Group!.IsExpanded;
+                line.IsVisible = line.Group!.IsExpanded;
             // A heading shows while its group has something to show, and always when the group is empty (so items can be added to it).
             foreach (var header in lines.Where(l => l.IsHeader))
-                header.IsVisible = !lines.Any(l => l.IsItem && l.Group == header.Group) || lines.Any(l => l.IsItem && l.Group == header.Group && Relevant(l));
+                header.IsVisible = true;
         }
     }
 
@@ -603,13 +591,13 @@ public sealed partial class BudgetViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>The budget items of a month that budget can be moved to or from, with what is left on each. Archived items are left out.</summary>
+    /// <summary>The budget items of a month that budget can be moved to or from, with what is left on each.</summary>
     public List<Views.BudgetChoice> ChoicesFor(Guid monthId, Guid? excluding = null, bool onlyWithMoneyLeft = false)
     {
         var column = Columns.FirstOrDefault(c => c.MonthId == monthId);
         if (column is null) return [];
         return column.Outflow
-            .Where(c => c.Line.IsItem && !c.Line.IsArchived && c.Line.ItemId != excluding && (!onlyWithMoneyLeft || c.LeftCents > 0))
+            .Where(c => c.Line.IsItem && c.Line.ItemId != excluding && (!onlyWithMoneyLeft || c.LeftCents > 0))
             .Select(c => new Views.BudgetChoice(c.Line.ItemId!.Value, c.Line.Name, c.LeftCents))
             .ToList();
     }
@@ -790,29 +778,30 @@ public sealed partial class BudgetViewModel : ObservableObject
         await LoadAsync();
     }
 
-    /// <summary>Deletes a budget item, or archives it (hides it, keeping its history) when it has budget or transactions.</summary>
+    /// <summary>Deletes a budget item that has never been used. One with budget or transactions on it is left alone, and the reason is shown.</summary>
     public async Task DeleteItemAsync(Guid itemId)
     {
         if (await GetItemAsync(itemId) is not { } item) return;
         await _gate.WaitAsync();
         try
         {
-            var deleted = await _store.DeleteOrArchiveItemAsync(item);
-            Message = deleted ? "" : $"{item.Name} has budget or transactions, so it was archived instead of deleted: it is hidden, and its history is kept.";
+            var why = await _store.WhyItemCannotBeDeletedAsync(itemId);
+            if (why is not null) Message = $"{item.Name} can't be deleted because {why}.";
+            else { await _store.DeleteItemAsync(item); Message = ""; }
         }
         catch (Exception ex) { Message = $"Could not delete: {ex.Message}"; }
         finally { _gate.Release(); }
         await LoadAsync();
     }
 
-    /// <summary>Deletes a group and its items (an item with budget or transactions is archived instead, and then the group stays).</summary>
+    /// <summary>Deletes a group and its items, but only when none of them has ever been used.</summary>
     public async Task DeleteGroupAsync(Guid groupId, string name)
     {
         await _gate.WaitAsync();
         try
         {
-            var (_, archived, groupDeleted) = await _store.DeleteGroupWithItemsAsync(groupId);
-            Message = groupDeleted ? "" : $"{name} was kept: {archived} of its items have budget or transactions, so they were archived instead of deleted.";
+            var (deleted, blocker) = await _store.DeleteGroupWithItemsAsync(groupId);
+            Message = deleted ? "" : $"{name} was not deleted: {blocker}";
         }
         catch (Exception ex) { Message = $"Could not delete: {ex.Message}"; }
         finally { _gate.Release(); }

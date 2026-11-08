@@ -364,7 +364,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public const int MaxPinnedItems = 5;
 
     public async Task<List<Guid>> GetPinnedItemIdsAsync(CancellationToken ct = default) =>
-        await db.Items.AsNoTracking().Where(i => i.IsPinned && !i.IsArchived && i.Kind == ItemKind.Expense)
+        await db.Items.AsNoTracking().Where(i => i.IsPinned && i.Kind == ItemKind.Expense)
             .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => i.Id).Take(MaxPinnedItems).ToListAsync(ct);
 
     /// <summary>Replaces a transaction's split lines. They must add up to the transaction's amount.</summary>
@@ -784,22 +784,45 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return true;
     }
 
-    /// <summary>Deletes an item, or archives it instead when it is in use or has sub-items. Returns true if deleted.</summary>
-    public async Task<bool> DeleteOrArchiveItemAsync(ItemEntity item, CancellationToken ct = default)
+    /// <summary>
+    /// Why a budget item can't be deleted (as a short phrase), or null when it can: it has never been used. Budget of zero and income held
+    /// of zero don't count as use. <paramref name="ignoreSubItemsIn"/> lists items being deleted along with it, whose sub-items don't block it.
+    /// </summary>
+    public async Task<string?> WhyItemCannotBeDeletedAsync(Guid itemId, ISet<Guid>? ignoreSubItemsIn = null, CancellationToken ct = default)
     {
-        var inUse = await db.SplitLines.AnyAsync(s => s.BudgetItemId == item.Id, ct)
-            || await db.Allocations.AnyAsync(a => a.BudgetItemId == item.Id, ct)
-            || await db.Holds.AnyAsync(h => h.IncomeItemId == item.Id, ct)
-            || await db.Items.AnyAsync(i => i.ParentItemId == item.Id, ct);
-        if (inUse)
-        {
-            item.IsArchived = true;
-            await db.SaveChangesAsync(ct);
-            return false;
-        }
-        db.Items.Remove(item);
+        if (await db.SplitLines.AnyAsync(s => s.BudgetItemId == itemId, ct)) return "it has transactions";
+        if (await db.Expected.AnyAsync(e => e.BudgetItemId == itemId, ct)) return "an expected transaction uses it";
+        if (await db.Allocations.AnyAsync(a => a.BudgetItemId == itemId && a.Amount != 0, ct)) return "it has budget on it";
+        if (await db.Holds.AnyAsync(h => h.IncomeItemId == itemId && h.Amount != 0, ct)) return "it has income held on it";
+        var children = await db.Items.Where(i => i.ParentItemId == itemId).Select(i => i.Id).ToListAsync(ct);
+        if (children.Any(c => ignoreSubItemsIn is null || !ignoreSubItemsIn.Contains(c))) return "it has sub-items";
+        return null;
+    }
+
+    /// <summary>Deletes an item that has never been used. Returns false, changing nothing, when it has been used.</summary>
+    public async Task<bool> DeleteItemAsync(ItemEntity item, CancellationToken ct = default)
+    {
+        if (await WhyItemCannotBeDeletedAsync(item.Id, null, ct) is not null) return false;
+        await RemoveItemRowsAsync(item, ct);
         await db.SaveChangesAsync(ct);
         return true;
+    }
+
+    private async Task RemoveItemRowsAsync(ItemEntity item, CancellationToken ct)
+    {
+        // Budget of zero and nothing held are leftovers of typing and clearing a figure: they go with the item.
+        db.Allocations.RemoveRange(await db.Allocations.Where(a => a.BudgetItemId == item.Id).ToListAsync(ct));
+        db.Holds.RemoveRange(await db.Holds.Where(h => h.IncomeItemId == item.Id).ToListAsync(ct));
+        db.Items.Remove(item);
+    }
+
+    /// <summary>One-off clean-up: budget items that were hidden by an earlier version are shown again, as every item is now.</summary>
+    public async Task<int> ShowAllItemsAsync(CancellationToken ct = default)
+    {
+        var hidden = await db.Items.Where(i => i.IsArchived).ToListAsync(ct);
+        foreach (var item in hidden) item.IsArchived = false;
+        if (hidden.Count > 0) await db.SaveChangesAsync(ct);
+        return hidden.Count;
     }
 
     /// <summary>Changes all the details of an account.</summary>
@@ -831,22 +854,22 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>
-    /// Deletes a group together with its items. An item that has budget or transactions is archived instead (its history is kept),
-    /// and then the group stays too. Returns how many items were deleted and archived, and whether the group itself went.
+    /// Deletes a group together with its items, but only when none of them has ever been used. Otherwise nothing is deleted and the
+    /// reason is returned, naming the item in the way.
     /// </summary>
-    public async Task<(int Deleted, int Archived, bool GroupDeleted)> DeleteGroupWithItemsAsync(Guid groupId, CancellationToken ct = default)
+    public async Task<(bool Deleted, string? Blocker)> DeleteGroupWithItemsAsync(Guid groupId, CancellationToken ct = default)
     {
         var group = await db.Groups.SingleAsync(g => g.Id == groupId, ct);
         var items = await db.Items.Where(i => i.GroupId == groupId).ToListAsync(ct);
+        var going = items.Select(i => i.Id).ToHashSet();
+        foreach (var item in items)
+            if (await WhyItemCannotBeDeletedAsync(item.Id, going, ct) is { } why)
+                return (false, $"{item.Name} can't be deleted because {why}.");
 
-        int Depth(ItemEntity i) => i.ParentItemId is { } p && items.FirstOrDefault(x => x.Id == p) is { } parent ? 1 + Depth(parent) : 0;
-        int deleted = 0, archived = 0;
-        foreach (var item in items.OrderByDescending(Depth))   // sub-items first, so a parent with no history can go too
-        {
-            if (await DeleteOrArchiveItemAsync(item, ct)) deleted++; else archived++;
-        }
-        var groupDeleted = archived == 0 && await DeleteGroupAsync(group, ct);
-        return (deleted, archived, groupDeleted);
+        foreach (var item in items) await RemoveItemRowsAsync(item, ct);
+        db.Groups.Remove(group);
+        await db.SaveChangesAsync(ct);
+        return (true, null);
     }
 
     /// <summary>Deletes a group. Refused (false) while it still has items.</summary>

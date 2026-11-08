@@ -83,6 +83,10 @@ public static class AppServices
         Db = LocalDatabase.Open();
         Store = new BudgetStore(Db);
 
+        // An earlier version could hide budget items; every item is shown now.
+        try { Store.ShowAllItemsAsync().GetAwaiter().GetResult(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not show hidden items: {ex.Message}"); }
+
         // Budgets planned ahead used to be kept under fixed ids; this moves them to their calendar month, once.
         try { Store.MigrateLegacyPlannedMonthsAsync().GetAwaiter().GetResult(); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not move planned budgets: {ex.Message}"); }

@@ -56,6 +56,7 @@ public class ItemEntity : SyncEntity
     public string? AccountRef { get; set; }
     public string? Notes { get; set; }
     public bool IsPinned { get; set; }
+    /// <summary>Legacy column from a version that hid items. Nothing uses it any more; every item is shown.</summary>
     public bool IsArchived { get; set; }
     public int SortOrder { get; set; }
 }

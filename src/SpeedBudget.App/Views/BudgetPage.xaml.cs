@@ -378,7 +378,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot, Title = $"Delete {name}?",
-            Content = "The budget item is deleted. If it already has budget or transactions it is archived instead: it is hidden, and its history is kept.",
+            Content = "The budget item is deleted. A budget item that has budget or transactions on it can't be deleted.",
             PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteItemAsync(itemId);
@@ -390,7 +390,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         {
             XamlRoot = XamlRoot, Title = $"Delete {name}?",
             Content = itemCount == 0 ? "The budget group is deleted."
-                : $"The budget group and its {itemCount} budget item{(itemCount == 1 ? "" : "s")} are deleted. An item that already has budget or transactions is archived instead (hidden, with its history kept), and then the group stays.",
+                : $"The budget group and its {itemCount} budget item{(itemCount == 1 ? "" : "s")} are deleted. A group can't be deleted if any of its items has budget or transactions on it.",
             PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteGroupAsync(groupId, name);

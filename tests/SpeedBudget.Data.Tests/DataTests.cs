@@ -201,17 +201,48 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
-    public async Task Item_in_use_or_with_sub_items_is_archived_not_deleted()
+    public async Task An_item_that_has_been_used_or_has_sub_items_cannot_be_deleted_and_is_left_alone()
     {
         var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
         var parent = await _store.AddItemAsync(group.Id, null, "Parent", ItemKind.Expense);
         await _store.AddItemAsync(group.Id, parent.Id, "Child", ItemKind.Expense);
         var plain = await _store.AddItemAsync(group.Id, null, "Plain", ItemKind.Expense);
+        var budgeted = await _store.AddItemAsync(group.Id, null, "Budgeted", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, budgeted.Id, 100_00);
 
-        Assert.False(await _store.DeleteOrArchiveItemAsync(parent));
-        Assert.True(await _store.DeleteOrArchiveItemAsync(plain));
-        Assert.True(parent.IsArchived);
+        Assert.False(await _store.DeleteItemAsync(parent));
+        Assert.False(await _store.DeleteItemAsync(budgeted));
+        Assert.True(await _store.DeleteItemAsync(plain));
+        Assert.Equal("it has sub-items", await _store.WhyItemCannotBeDeletedAsync(parent.Id));
+        Assert.Equal("it has budget on it", await _store.WhyItemCannotBeDeletedAsync(budgeted.Id));
         Assert.False(await _store.DeleteGroupAsync(group));
+        Assert.Equal(3, (await _store.GetItemsAsync()).Count);   // the ones that could not be deleted are all still there
+    }
+
+    [Fact]
+    public async Task An_item_whose_budget_was_typed_and_cleared_back_to_zero_can_still_be_deleted()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var item = await _store.AddItemAsync(group.Id, null, "Food", ItemKind.Expense);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, item.Id, 100_00);
+        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, item.Id, 0);
+
+        Assert.Null(await _store.WhyItemCannotBeDeletedAsync(item.Id));
+        Assert.True(await _store.DeleteItemAsync(item));
+        Assert.Empty(await _store.GetItemsAsync());
+    }
+
+    [Fact]
+    public async Task Items_hidden_by_an_earlier_version_are_shown_again()
+    {
+        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
+        var item = await _store.AddItemAsync(group.Id, null, "Old", ItemKind.Expense);
+        item.IsArchived = true;
+        await _store.SaveAsync();
+
+        Assert.Equal(1, await _store.ShowAllItemsAsync());
+        Assert.False((await _store.GetItemsAsync()).Single().IsArchived);
+        Assert.Equal(0, await _store.ShowAllItemsAsync());
     }
 
     [Fact]
@@ -1391,20 +1422,22 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
-    public async Task Deleting_a_group_removes_its_unused_items_and_keeps_a_group_with_history()
+    public async Task Deleting_a_group_removes_it_and_its_items_only_when_none_has_been_used()
     {
         var empty = await _store.AddGroupAsync("Empty", ItemKind.Expense);
         await _store.AddItemAsync(empty.Id, null, "Unused", ItemKind.Expense);
         var result = await _store.DeleteGroupWithItemsAsync(empty.Id);
-        Assert.Equal((1, 0, true), result);
+        Assert.Equal((true, (string?)null), result);
         Assert.Empty(await _store.GetGroupsAsync());
 
         var used = await _store.AddGroupAsync("Used", ItemKind.Expense);
+        await _store.AddItemAsync(used.Id, null, "Spare", ItemKind.Expense);
         var item = await _store.AddItemAsync(used.Id, null, "Food", ItemKind.Expense);
         await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, item.Id, 100_00);
         result = await _store.DeleteGroupWithItemsAsync(used.Id);
-        Assert.Equal((0, 1, false), result);
-        Assert.Single(await _store.GetGroupsAsync());   // the group stays, with its archived item
-        Assert.True((await _store.GetItemsAsync()).Single().IsArchived);
+        Assert.False(result.Deleted);
+        Assert.Equal("Food can't be deleted because it has budget on it.", result.Blocker);
+        Assert.Single(await _store.GetGroupsAsync());      // nothing was deleted
+        Assert.Equal(2, (await _store.GetItemsAsync()).Count);   // not even the item that was never used
     }
 }
