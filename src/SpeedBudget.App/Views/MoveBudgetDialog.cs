@@ -31,10 +31,11 @@ public sealed class MoveBudgetDialog : ContentDialog
 
     /// <param name="maxFor">The most that may be moved when the given item is the other side.</param>
     /// <param name="suggested">The amount filled in first (capped to what the chosen item allows).</param>
-    /// <param name="headline">The first thing the dialog says, on a line of its own and emphasised: how much is available, left or short.</param>
+    /// <param name="headline">The first thing the dialog says, on a line of its own, in bold and colour: how much is available, left or short.</param>
+    /// <param name="shortfall">Whether the headline is about money that is missing (red) rather than money there is (green).</param>
     /// <param name="intro">What to do about it.</param>
     public MoveBudgetDialog(string title, string headline, string intro, string itemHeader, string primaryText,
-        IReadOnlyList<BudgetChoice> choices, Func<BudgetChoice, long> maxFor, long suggested)
+        IReadOnlyList<BudgetChoice> choices, Func<BudgetChoice, long> maxFor, long suggested, bool shortfall = false)
     {
         _maxFor = maxFor;
         _suggested = suggested;
@@ -61,8 +62,12 @@ public sealed class MoveBudgetDialog : ContentDialog
             Spacing = 12, MinWidth = 420,
             Children =
             {
-                new TextBlock { Text = headline, TextWrapping = TextWrapping.Wrap, FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
-                new TextBlock { Text = intro, TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Margin = new Thickness(0, -4, 0, 0) },
+                new TextBlock
+                {
+                    Text = headline, TextWrapping = TextWrapping.Wrap, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = Format.Theme(shortfall ? "SystemFillColorCriticalBrush" : "SystemFillColorSuccessBrush"),
+                },
+                new TextBlock { Text = intro, TextWrapping = TextWrapping.Wrap, Opacity = 0.8, Margin = new Thickness(0, -6, 0, 0) },
                 _item, _amount, _limit,
             },
         };

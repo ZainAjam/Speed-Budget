@@ -559,7 +559,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         var choices = ViewModel.ChoicesFor(monthId, excluding: toItem, onlyWithMoneyLeft: true);
         var dialog = new MoveBudgetDialog("Cover the shortfall",
             $"The shortfall is {Format.Money(shortfall)}.", "Choose a budget item with money left to take it from, and how much.",
-            "Take it from", "Cover", choices, c => Math.Min(shortfall, c.LeftCents), shortfall) { XamlRoot = XamlRoot };
+            "Take it from", "Cover", choices, c => Math.Min(shortfall, c.LeftCents), shortfall, shortfall: true) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
         var amount = dialog.AmountCents;
         if (toItem is { } to) await ViewModel.MoveBudgetAsync(monthId, (chosen.ItemId, -amount), (to, amount));
