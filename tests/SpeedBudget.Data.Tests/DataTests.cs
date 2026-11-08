@@ -245,21 +245,6 @@ public sealed class DataTests : IDisposable
         Assert.Equal(0, await _store.ShowAllItemsAsync());
     }
 
-    [Fact]
-    public async Task Moving_an_item_swaps_it_with_its_neighbour_and_stops_at_the_ends()
-    {
-        var group = await _store.AddGroupAsync("Daily", ItemKind.Expense);
-        var a = await _store.AddItemAsync(group.Id, null, "A", ItemKind.Expense);
-        var b = await _store.AddItemAsync(group.Id, null, "B", ItemKind.Expense);
-        var c = await _store.AddItemAsync(group.Id, null, "C", ItemKind.Expense);
-
-        Assert.False(await _store.MoveItemAsync(a, up: true));
-        Assert.True(await _store.MoveItemAsync(c, up: true));
-
-        var order = (await _store.GetItemsAsync()).Select(i => i.Name).ToArray();
-        Assert.Equal(new[] { "A", "C", "B" }, order);
-    }
-
     private Task<TransactionEntity> AddTx(AccountEntity account, DateOnly date, long amount, Guid? itemId = null, string payee = "") =>
         _store.AddTransactionAsync(
             new TransactionEntity { AccountId = account.Id, Date = date, DayOrder = 0, Amount = amount, Payee = payee },
@@ -875,19 +860,6 @@ public sealed class DataTests : IDisposable
         Assert.Equal("April 2024", await _store.GetFirstMonthLabelAsync());
         Assert.Single(_db.Settings.ToList());
         Assert.Equal(SettingEntity.IdFor("firstMonthLabel"), _db.Settings.Single().Id);
-        Assert.True(await _store.HasBudgetTransactionsAsync());
-    }
-
-    [Fact]
-    public async Task Only_transactions_in_budget_accounts_count_as_the_first_budget_transaction()
-    {
-        var tracked = await _store.AddAccountAsync("Retirement", AccountType.Investment, false);
-        await AddTx(tracked, new(2024, 5, 9), -10_00);
-        Assert.False(await _store.HasBudgetTransactionsAsync());
-
-        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
-        await AddTx(cheque, new(2024, 5, 10), -10_00);
-        Assert.True(await _store.HasBudgetTransactionsAsync());
     }
 
     [Fact]

@@ -637,8 +637,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>The Split row of a transaction's budget item drop-down, or the button on a split transaction: edit its lines.</summary>
     private async void Item_SplitRequested(object? sender, EventArgs e) => await SplitAsync(sender);
 
-    private async void Split_Click(object sender, RoutedEventArgs e) => await SplitAsync(sender);
-
     private async Task SplitAsync(object? sender)
     {
         if ((sender as FrameworkElement)?.DataContext is not TransactionRow row) return;
@@ -652,7 +650,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines0 = row.DraftSplits
                     ?? (row.Item.Id is { } first ? new[] { ((Guid?)first, 0L, (string?)null) } : Array.Empty<(Guid?, long, string?)>());
                 dialog = new SplitDialog(ViewModel, "Split between items   ·   the total is worked out from the lines", 0, row.Entity.Amount > 0 ? 1 : -1,
-                    ViewModel.RequiresItem(row), lines0, lines => { row.SetSplitFromLines(lines); return Task.FromResult<string?>(null); }, openEnded: true);
+                    lines0, lines => { row.SetSplitFromLines(lines); return Task.FromResult<string?>(null); }, openEnded: true);
             }
             else
             {
@@ -660,7 +658,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> existing = row.DraftSplits
                     ?? (row.Item.Id is { } id ? new[] { ((Guid?)id, row.Entity.Amount, (string?)null) } : Array.Empty<(Guid?, long, string?)>());
                 dialog = new SplitDialog(ViewModel, $"Split between items   ·   total {AppServices.ToRands(total):N2}", total, row.Entity.Amount < 0 ? -1 : 1,
-                    ViewModel.RequiresItem(row), existing, lines => { row.SetDraftSplits(lines); return Task.FromResult<string?>(null); });
+                    existing, lines => { row.SetDraftSplits(lines); return Task.FromResult<string?>(null); });
             }
         }
         else

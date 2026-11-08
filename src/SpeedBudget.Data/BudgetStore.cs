@@ -649,8 +649,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// <summary>Starts keeping the history for Ctrl+Z. Called once the app has finished starting up.</summary>
     public void StartRecordingUndo() => db.Undo.Recording = true;
 
-    public void ClearUndo() => db.Undo.Clear();
-
     /// <summary>
     /// Reverses the latest action (or, with redo, puts back the one just undone): every row it changed goes back to how it was,
     /// and every row it added is removed. Returns what was reversed, or null when there is nothing to do.
@@ -688,13 +686,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         finally { log.Reversing = null; }
 
         return new UndoResult(unit.Describe(), unit.Rows.Any(r => r.EntityType == typeof(AccountEntity)));
-    }
-
-    /// <summary>True once any transaction exists in an account that is part of the budget.</summary>
-    public async Task<bool> HasBudgetTransactionsAsync(CancellationToken ct = default)
-    {
-        var budgetAccounts = await db.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToListAsync(ct);
-        return await db.Transactions.AnyAsync(t => budgetAccounts.Contains(t.AccountId), ct);
     }
 
     /// <summary>True when nothing has been set up yet, so the first-run welcome should show.</summary>
@@ -889,14 +880,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         return true;
     }
 
-    /// <summary>Swaps an item with its previous or next sibling. Returns false at the end of the list.</summary>
-    public async Task<bool> MoveItemAsync(ItemEntity item, bool up, CancellationToken ct = default)
-    {
-        var siblings = await db.Items.Where(i => i.GroupId == item.GroupId && i.ParentItemId == item.ParentItemId)
-            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).ToListAsync(ct);
-        return await SwapAsync(siblings, item, up, (i, order) => i.SortOrder = order, i => i.SortOrder, ct);
-    }
-
     /// <summary>
     /// Moves an item (and any sub-items under it) to a group, optionally under another item, placing it before the given
     /// sibling or last. Returns an error sentence, or null when moved.
@@ -938,27 +921,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         if (row is null) db.SyncState.Add(new SyncStateEntity { Key = key, Value = value });
         else row.Value = value;
         await db.SaveChangesAsync(ct);
-    }
-
-    public async Task<bool> MoveGroupAsync(GroupEntity group, bool up, CancellationToken ct = default)
-    {
-        var all = await GetGroupsAsync(ct);
-        return await SwapAsync(all, group, up, (g, order) => g.SortOrder = order, g => g.SortOrder, ct);
-    }
-
-    private async Task<bool> SwapAsync<T>(List<T> ordered, T moving, bool up, Action<T, int> setOrder, Func<T, int> getOrder, CancellationToken ct)
-        where T : SyncEntity
-    {
-        var index = ordered.IndexOf(moving);
-        var target = up ? index - 1 : index + 1;
-        if (index < 0 || target < 0 || target >= ordered.Count) return false;
-
-        (ordered[index], ordered[target]) = (ordered[target], ordered[index]);
-        // Renumber the whole list so ties (equal sort orders) never leave the swap looking like a no-op.
-        for (var n = 0; n < ordered.Count; n++)
-            if (getOrder(ordered[n]) != n) setOrder(ordered[n], n);
-        await db.SaveChangesAsync(ct);
-        return true;
     }
 
     /// <summary>
