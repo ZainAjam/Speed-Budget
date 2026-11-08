@@ -8,6 +8,7 @@ into the release.
 
 - **Right-click a transaction that is being edited** and the menu now offers **Save** and **Delete** (instead of Edit and Delete), so you can save it without reaching for the tick.
 - **Moving or covering budget (right-click a Left figure on the Budget screen):** the "Move it to" and "Take it from" boxes are now ordinary drop-downs with the search inside the list. Beside each item the list shows what is left on it, in green when there is money left.
+- **The move, allocate and cover dialogs now lead with the figure**: how much is available to budget, left on the item, or short is the first thing in the box, on a line of its own in larger bold type, with what to do underneath.
 
 ## 0.9.19
 

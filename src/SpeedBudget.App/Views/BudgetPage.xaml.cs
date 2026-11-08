@@ -532,7 +532,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     private async Task AllocateAvailableAsync(SummaryCell cell)
     {
         var dialog = new MoveBudgetDialog("Allocate available budget",
-            $"{Format.Money(cell.Cents)} is available to budget. Choose the item to give some of it to, and how much.",
+            $"{Format.Money(cell.Cents)} is available to budget.", "Choose the item to give some of it to, and how much.",
             "Budget item", "Allocate", ViewModel.ChoicesFor(cell.MonthId), _ => cell.Cents, cell.Cents) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
         await ViewModel.MoveBudgetAsync(cell.MonthId, (chosen.ItemId, dialog.AmountCents));
@@ -543,7 +543,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         var from = cell.Line.ItemId!.Value;
         var dialog = new MoveBudgetDialog($"Move budget from {cell.Line.Name}",
-            $"{Format.Money(cell.LeftCents)} is left on {cell.Line.Name}. Choose the item to move some of it to, and how much.",
+            $"{Format.Money(cell.LeftCents)} is left on {cell.Line.Name}.", "Choose the item to move some of it to, and how much.",
             "Move it to", "Move", ViewModel.ChoicesFor(cell.MonthId, excluding: from), _ => cell.LeftCents, cell.LeftCents) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
         var amount = dialog.AmountCents;
@@ -558,7 +558,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         var choices = ViewModel.ChoicesFor(monthId, excluding: toItem, onlyWithMoneyLeft: true);
         var dialog = new MoveBudgetDialog("Cover the shortfall",
-            $"The shortfall is {Format.Money(shortfall)}. Choose a budget item with money left to take it from, and how much.",
+            $"The shortfall is {Format.Money(shortfall)}.", "Choose a budget item with money left to take it from, and how much.",
             "Take it from", "Cover", choices, c => Math.Min(shortfall, c.LeftCents), shortfall) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
         var amount = dialog.AmountCents;
