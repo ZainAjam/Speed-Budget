@@ -165,10 +165,14 @@
         </Grid.RowDefinitions>
 
         <!-- The account's name on the left, its balances in the middle and what kind of account it is on the right -->
-        <!-- These rows move onto further lines as the window narrows, so nothing is cut off (see FlowPanel). -->
-        <local:FlowPanel HorizontalSpacing="16" VerticalSpacing="12">
-            <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-            <local:FlowPanel HorizontalAlignment="Center" VerticalAlignment="Center" HorizontalSpacing="48" VerticalSpacing="8">
+        <Grid ColumnSpacing="16" Background="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{x:Bind ViewModel.PageTitle, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="48" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel>
                     <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" Text="Cleared bank balance" />
                     <TextBlock Text="{x:Bind ViewModel.ClearedText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -181,23 +185,28 @@
                     <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" Text="Available bank balance" />
                     <TextBlock Text="{x:Bind ViewModel.AvailableText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                 </StackPanel>
-            </local:FlowPanel>
+            </StackPanel>
             <!-- Says whether this account is part of the budget or only tracked -->
-            <Border HorizontalAlignment="Right" CornerRadius="14" Padding="14,5" VerticalAlignment="Center" Background="{x:Bind ViewModel.AccountBadgeBrush, Mode=OneWay}"
+            <Border Grid.Column="2" CornerRadius="14" Padding="14,5" VerticalAlignment="Center" Background="{x:Bind ViewModel.AccountBadgeBrush, Mode=OneWay}"
                     BorderBrush="{x:Bind ViewModel.AccountBadgeBorderBrush, Mode=OneWay}" BorderThickness="1"
                     Visibility="{x:Bind ViewModel.ShowAccountBadge, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind ViewModel.AccountBadgeTip, Mode=OneWay}">
                 <TextBlock Text="{x:Bind ViewModel.AccountBadgeText, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
                            Foreground="{x:Bind ViewModel.AccountBadgeTextBrush, Mode=OneWay}" />
             </Border>
-        </local:FlowPanel>
+        </Grid>
 
         <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                  Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
         <!-- 3. The recorded transactions -->
         <!-- The recorded transactions: what can be done in the middle (new rows go into the table; a new month starts a line in it) -->
-        <local:FlowPanel Grid.Row="2" HorizontalSpacing="16" VerticalSpacing="12">
-            <local:FlowPanel HorizontalAlignment="Left" VerticalAlignment="Center" HorizontalSpacing="12" VerticalSpacing="8">
+        <Grid Grid.Row="2" ColumnSpacing="16" Background="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left" VerticalAlignment="Center">
                 <Button Style="{StaticResource AccentButtonStyle}" Click="NewTransaction_Click">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE710;" FontSize="14" />
@@ -206,8 +215,8 @@
                 </Button>
                 <Button Content="New Transfer" Click="Transfer_Click" />
                 <Button Content="Start a new month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
-            </local:FlowPanel>
-            <local:FlowPanel HorizontalAlignment="Right" VerticalAlignment="Center" HorizontalSpacing="16" VerticalSpacing="8">
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                 <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
                     <ComboBoxItem Content="Newest first" />
                     <ComboBoxItem Content="Oldest first" />
@@ -216,8 +225,8 @@
                            ToolTipService.ToolTip="The transactions behind the figure you pressed on the budget" />
                 <Button Content="Clear filters" Click="ClearFilters_Click" Visibility="{x:Bind ViewModel.HasFilters, Mode=OneWay}" />
                 <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
-            </local:FlowPanel>
-        </local:FlowPanel>
+            </StackPanel>
+        </Grid>
 
         <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, this area scrolls sideways. -->
         <local:ZoomBox Grid.Row="3">
