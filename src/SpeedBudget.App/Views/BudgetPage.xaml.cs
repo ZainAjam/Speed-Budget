@@ -492,7 +492,7 @@ public sealed partial class BudgetPage : Page, IReloadable
 
             // Money that is available now can be set aside so it only becomes available next month.
             var holdable = ViewModel.HoldableFromAvailable(cell.MonthId, cell.Cents);
-            var hold = new MenuFlyoutItem { Text = "Hold for next month…", Icon = new FontIcon { Glyph = "" }, IsEnabled = holdable > 0 };
+            var hold = new MenuFlyoutItem { Text = "Hold for next month…", Icon = new FontIcon { Glyph = "" }, IsEnabled = holdable > 0 };
             hold.Click += async (_, _) => await HoldAvailableAsync(cell, holdable);
             menu.Items.Add(hold);
         }

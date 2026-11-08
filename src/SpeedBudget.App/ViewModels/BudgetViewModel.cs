@@ -190,10 +190,6 @@ public sealed partial class SummaryCell(bool isStrong) : ObservableObject
     /// <summary>For "Available to budget": whether anything is held from this month, or released into it, so a small marker can say so.</summary>
     [ObservableProperty] public partial bool HasHold { get; set; }
 
-    /// <summary>Whether money is held from this month (a pause marker), and whether money is released into it (a history marker).</summary>
-    [ObservableProperty] public partial bool HasHeldOut { get; set; }
-    [ObservableProperty] public partial bool HasHeldIn { get; set; }
-
     /// <summary>What the marker says when pointed at.</summary>
     [ObservableProperty] public partial string HoldNote { get; set; } = "";
 
@@ -248,8 +244,6 @@ public sealed partial class MonthColumn : ObservableObject
         Summary[6].Cents = m.Available;
         Summary[6].HeldOutCents = m.HeldOut;
         Summary[6].HasHold = m.HeldOut != 0 || m.HeldIn != 0;
-        Summary[6].HasHeldOut = m.HeldOut != 0;
-        Summary[6].HasHeldIn = m.HeldIn != 0;
         var note = new List<string>();
         if (m.HeldOut != 0) note.Add($"Held for next month: {Format.Money(m.HeldOut)}");
         if (m.HeldIn != 0) note.Add($"Released from last month: {Format.Money(m.HeldIn)}");

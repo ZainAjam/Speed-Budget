@@ -62,10 +62,8 @@
                     <TextBlock Text="{x:Bind Text, Mode=OneWay}" Foreground="{x:Bind Brush, Mode=OneWay}" HorizontalTextAlignment="Center"
                                VerticalAlignment="Center" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" FontSize="{x:Bind app:Glyphs.SummarySize(IsStrong)}" />
                     <!-- Marks a month with money held for next month, or released into it. Pointing at it says how much. -->
-                    <FontIcon Glyph="&#xE769;" FontSize="14" Opacity="0.8" VerticalAlignment="Center"
-                              Visibility="{x:Bind HasHeldOut, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind HoldNote, Mode=OneWay}" />
-                    <FontIcon Glyph="&#xE81C;" FontSize="14" Opacity="0.8" VerticalAlignment="Center"
-                              Visibility="{x:Bind HasHeldIn, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind HoldNote, Mode=OneWay}" />
+                    <FontIcon Glyph="&#xE7C1;" FontSize="14" Opacity="0.8" VerticalAlignment="Center"
+                              Visibility="{x:Bind HasHold, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind HoldNote, Mode=OneWay}" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
