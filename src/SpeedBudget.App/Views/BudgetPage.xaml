@@ -228,7 +228,9 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid>
+            <!-- The title and buttons along the top shrink to fit a narrow window and keep their places (see ShrinkBox). -->
+            <local:ShrinkBox>
+            <Grid ColumnSpacing="24">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -288,6 +290,7 @@
                     </ToggleButton>
                 </StackPanel>
             </Grid>
+            </local:ShrinkBox>
 
             <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                      Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
