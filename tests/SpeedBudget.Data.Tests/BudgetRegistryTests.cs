@@ -66,16 +66,16 @@ public sealed class BudgetRegistryTests : IDisposable
     }
 
     [Fact]
-    public void Budgets_keep_separate_data()
+    public async Task Budgets_keep_separate_data()
     {
         var registry = BudgetRegistry.Load(_root);
         var second = registry.Create("Second");
 
         using (var a = LocalDatabase.Open(registry.DirectoryOf(registry.Budgets[0]), _root))
-            new BudgetStore(a).AddGroupAsync("Only in first", ItemKind.Expense).GetAwaiter().GetResult();
+            await new BudgetStore(a).AddGroupAsync("Only in first", ItemKind.Expense);
         using var b = LocalDatabase.Open(registry.DirectoryOf(second), _root);
 
-        Assert.Empty(new BudgetStore(b).GetGroupsAsync().GetAwaiter().GetResult());
+        Assert.Empty(await new BudgetStore(b).GetGroupsAsync());
     }
 
     [Fact]

@@ -43,8 +43,14 @@ public static class AppUpdates
     {
         get
         {
+            // Development runs (a Debug build, or a run on test data) never ask GitHub for updates: every start and every timer tick would count against its rate limit.
+#if DEBUG
+            return false;
+#else
+            if (Environment.GetEnvironmentVariable("SPEEDBUDGET_DATA") is { Length: > 0 }) return false;
             try { return new UpdateManager("https://localhost/none").IsInstalled; }
             catch { return false; }
+#endif
         }
     }
 
