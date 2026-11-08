@@ -853,6 +853,17 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Why a group and its items can't be deleted (a sentence naming the item in the way), or null when none of them has ever been used.</summary>
+    public async Task<string?> WhyGroupCannotBeDeletedAsync(Guid groupId, CancellationToken ct = default)
+    {
+        var items = await db.Items.Where(i => i.GroupId == groupId).ToListAsync(ct);
+        var going = items.Select(i => i.Id).ToHashSet();
+        foreach (var item in items)
+            if (await WhyItemCannotBeDeletedAsync(item.Id, going, ct) is { } why)
+                return $"{item.Name} can't be deleted because {why}.";
+        return null;
+    }
+
     /// <summary>
     /// Deletes a group together with its items, but only when none of them has ever been used. Otherwise nothing is deleted and the
     /// reason is returned, naming the item in the way.
@@ -861,10 +872,7 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     {
         var group = await db.Groups.SingleAsync(g => g.Id == groupId, ct);
         var items = await db.Items.Where(i => i.GroupId == groupId).ToListAsync(ct);
-        var going = items.Select(i => i.Id).ToHashSet();
-        foreach (var item in items)
-            if (await WhyItemCannotBeDeletedAsync(item.Id, going, ct) is { } why)
-                return (false, $"{item.Name} can't be deleted because {why}.");
+        if (await WhyGroupCannotBeDeletedAsync(groupId, ct) is { } blocker) return (false, blocker);
 
         foreach (var item in items) await RemoveItemRowsAsync(item, ct);
         db.Groups.Remove(group);

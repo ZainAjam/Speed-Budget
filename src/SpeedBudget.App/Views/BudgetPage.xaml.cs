@@ -375,10 +375,13 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     private async Task DeleteItemAsync(Guid itemId, string name)
     {
+        // An item that has been used can't be deleted, so there is nothing to ask: say why.
+        if (await ViewModel.WhyCannotDeleteItemAsync(itemId) is { } why) { ViewModel.Message = why; return; }
+
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot, Title = $"Delete {name}?",
-            Content = "The budget item is deleted. A budget item that has budget or transactions on it can't be deleted.",
+            Content = "This budget item has never been used, so it will be deleted.",
             PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteItemAsync(itemId);
@@ -386,11 +389,13 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     private async Task DeleteGroupAsync(Guid groupId, string name, int itemCount)
     {
+        if (await ViewModel.WhyCannotDeleteGroupAsync(groupId, name) is { } why) { ViewModel.Message = why; return; }
+
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot, Title = $"Delete {name}?",
-            Content = itemCount == 0 ? "The budget group is deleted."
-                : $"The budget group and its {itemCount} budget item{(itemCount == 1 ? "" : "s")} are deleted. A group can't be deleted if any of its items has budget or transactions on it.",
+            Content = itemCount == 0 ? "This budget group is empty, so it will be deleted."
+                : $"None of this budget group's {itemCount} budget item{(itemCount == 1 ? " has" : "s has")} been used, so the group and {(itemCount == 1 ? "its item" : "its items")} will be deleted.",
             PrimaryButtonText = "Delete", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteGroupAsync(groupId, name);

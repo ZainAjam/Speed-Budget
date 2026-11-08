@@ -778,6 +778,17 @@ public sealed partial class BudgetViewModel : ObservableObject
         await LoadAsync();
     }
 
+    /// <summary>A sentence saying why a budget item can't be deleted, or null when it can (it has never been used). Asked before anything is confirmed.</summary>
+    public async Task<string?> WhyCannotDeleteItemAsync(Guid itemId)
+    {
+        if (await GetItemAsync(itemId) is not { } item) return null;
+        return await _store.WhyItemCannotBeDeletedAsync(itemId) is { } why ? $"{item.Name} can't be deleted because {why}." : null;
+    }
+
+    /// <summary>A sentence saying why a group can't be deleted, or null when it can (none of its items has ever been used).</summary>
+    public async Task<string?> WhyCannotDeleteGroupAsync(Guid groupId, string name) =>
+        await _store.WhyGroupCannotBeDeletedAsync(groupId) is { } blocker ? $"{name} can't be deleted. {blocker}" : null;
+
     /// <summary>Deletes a budget item that has never been used. One with budget or transactions on it is left alone, and the reason is shown.</summary>
     public async Task DeleteItemAsync(Guid itemId)
     {
