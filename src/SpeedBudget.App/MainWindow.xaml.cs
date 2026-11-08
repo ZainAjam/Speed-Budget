@@ -20,6 +20,17 @@ public sealed partial class MainWindow : Window
     private Guid? _accountPage;
     private readonly HashSet<Guid> _trackedAccounts = [];
 
+    private readonly NavigationViewItem _budgetsItem;
+
+    /// <summary>Shows which budget is open: in the left panel and in the title of the window.</summary>
+    private void ShowBudgetName()
+    {
+        var name = AppServices.CurrentBudget.Name;
+        _budgetsItem.Content = name;
+        ToolTipService.SetToolTip(_budgetsItem, $"{name} is open. Click to switch to another budget or make a new one.");
+        Title = $"Speed Budget - {name}";
+    }
+
     public WatcherService Watcher => AppServices.Watcher;
 
     public MainWindow()
@@ -41,12 +52,16 @@ public sealed partial class MainWindow : Window
         {
             var tag = args.InvokedItemContainer?.Tag as string;
             if (tag == "add-account") _ = AddAccountAsync();
+            else if (tag == "budgets") _ = BudgetsDialog.ShowAsync(Nav.XamlRoot, ShowBudgetName);
             else if (tag == "zoom" && !Nav.IsPaneOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
 
         // Zoom: while the panel is open the buttons sit right in it; when it is narrow only the icon shows (and opens them in a small box).
         _zoomItem = new NavigationViewItem { Tag = "zoom", SelectsOnInvoked = false, Icon = new FontIcon { Glyph = "\uE8A3" } };
         _zoomItem.Content = BuildZoomControls(inFlyout: false);
+        _budgetsItem = new NavigationViewItem { Tag = "budgets", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Library) };
+        Nav.FooterMenuItems.Add(_budgetsItem);
+        ShowBudgetName();
         Nav.FooterMenuItems.Add(_zoomItem);
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());   // a line sets App Settings apart from the zoom
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
@@ -226,7 +241,7 @@ public sealed partial class MainWindow : Window
         try
         {
             UpdateBar.Message = "Downloading the update. Speed Budget will restart when it is ready.";
-            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
+            BackupService.CreateBackup(AppServices.Db, AppServices.BudgetDirectory);
             await AppUpdates.DownloadAndRestartAsync(info);
         }
         catch (Exception ex)
@@ -534,7 +549,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            using var reader = LocalDatabase.OpenForReading();
+            using var reader = AppServices.OpenReader();
             var store = new BudgetStore(reader);
             foreach (var (id, block) in _balanceBlocks.ToList())
                 ShowBalance(block, (await store.GetBalancesAsync(id)).BookBalance);
@@ -551,7 +566,7 @@ public sealed partial class MainWindow : Window
         var balances = new Dictionary<Guid, long>();
         try
         {
-            using var reader = LocalDatabase.OpenForReading();
+            using var reader = AppServices.OpenReader();
             var readStore = new BudgetStore(reader);
             // Budget accounts come first, then tracked ones; within each, in the order the user has dragged them into.
             // Open accounts first (budget accounts, then tracked ones, in the order they were dragged into), closed ones after them.

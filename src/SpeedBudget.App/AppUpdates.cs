@@ -21,9 +21,13 @@ public static class AppUpdates
     public const string DefaultSource = "https://github.com/ZainAjam/Speed-Budget";
 
     public static async Task<string> GetSourceAsync() =>
-        await AppServices.Store.GetLocalSettingAsync(SourceKey) is { } saved && !string.IsNullOrWhiteSpace(saved) ? saved : DefaultSource;
+        (AppSettings.Get(SourceKey) ?? await AppServices.Store.GetLocalSettingAsync(SourceKey)) is { } saved && !string.IsNullOrWhiteSpace(saved) ? saved : DefaultSource;
 
-    public static Task SetSourceAsync(string source) => AppServices.Store.SetLocalSettingAsync(SourceKey, source.Trim());
+    public static Task SetSourceAsync(string source)
+    {
+        AppSettings.Set(SourceKey, source.Trim());
+        return Task.CompletedTask;
+    }
 
     /// <summary>A GitHub repository address uses that repository's Releases, pre-releases included while the app is below 1.0; anything else is a web address or a folder.</summary>
     private static UpdateManager Open(string source)

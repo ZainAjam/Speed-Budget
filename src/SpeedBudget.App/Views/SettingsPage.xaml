@@ -41,7 +41,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="Your data" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <TextBlock x:Name="DataPath" IsTextSelectionEnabled="True" TextWrapping="Wrap" Opacity="0.8" />
-                <TextBlock Text="Everything is stored in one file on this PC. Copy the folder, or keep it in OneDrive, to move your budget." Opacity="0.7" TextWrapping="Wrap" />
+                <TextBlock Text="This budget is stored in one file in this folder on this PC. Its backups are kept beside it." Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 
             <StackPanel Spacing="8">
@@ -72,7 +72,7 @@
             <StackPanel Spacing="8">
                 <TextBlock Text="Factory reset" Style="{StaticResource SubtitleTextBlockStyle}" />
                 <Button Content="Reset the app…" Click="Reset_Click" />
-                <TextBlock Text="Deletes all your accounts, budget items, transactions, counterparties and settings, so the app starts again from a clean slate and the setup wizard runs. A backup is saved first."
+                <TextBlock Text="Deletes everything in the budget that is open (its accounts, budget items, transactions, counterparties and settings), so it starts again from a clean slate and the setup wizard runs. Other budgets are not touched. A backup is saved first."
                            Opacity="0.7" TextWrapping="Wrap" />
             </StackPanel>
 

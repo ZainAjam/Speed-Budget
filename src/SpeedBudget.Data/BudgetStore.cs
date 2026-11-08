@@ -50,7 +50,7 @@ public static class LocalDatabase
             if (!File.Exists(readme))
                 File.WriteAllLines(readme,
                 [
-                    "This folder holds your Speed Budget data (your budget is the file budget.db) and its backups.",
+                    "This folder holds your Speed Budget data. Each budget has its own folder inside \"budgets\" (the budget itself is the file budget.db) with its backups.",
                     "Please do not delete it. The Speed Budget program itself is kept in the SpeedBudget-App folder next to this one,",
                     "so installing, updating or uninstalling the program never touches this data.",
                 ]);
@@ -70,11 +70,15 @@ public static class LocalDatabase
         return id;
     }
 
-    public static SpeedBudgetDb Open(string? directory = null)
+    /// <summary>
+    /// Opens (creating if needed) the database in a budget's folder. The device id belongs to this installation, not to the budget,
+    /// so it is kept in <paramref name="deviceIdDirectory"/> (the data folder) and shared by every budget; by default it sits beside the database.
+    /// </summary>
+    public static SpeedBudgetDb Open(string? directory = null, string? deviceIdDirectory = null)
     {
         // A restore chosen in the app is swapped in here, before the database is opened.
         BackupService.ApplyPendingRestore(directory ?? DefaultDirectory, Path.Combine(directory ?? DefaultDirectory, "budget.db"));
-        var db = OpenWithoutMigrating(directory);
+        var db = OpenWithoutMigrating(directory, deviceIdDirectory);
         db.Database.Migrate();
         return db;
     }
@@ -83,12 +87,12 @@ public static class LocalDatabase
     /// A second context on the same file, for background reads (such as the pinned-items strip) that must not
     /// share a context with whatever the user is editing. Call after Open has migrated the database.
     /// </summary>
-    public static SpeedBudgetDb OpenForReading(string? directory = null) => OpenWithoutMigrating(directory);
+    public static SpeedBudgetDb OpenForReading(string? directory = null, string? deviceIdDirectory = null) => OpenWithoutMigrating(directory, deviceIdDirectory);
 
-    private static SpeedBudgetDb OpenWithoutMigrating(string? directory)
+    private static SpeedBudgetDb OpenWithoutMigrating(string? directory, string? deviceIdDirectory)
     {
         directory ??= DefaultDirectory;
-        var clock = new HlcClock(GetOrCreateDeviceId(directory));
+        var clock = new HlcClock(GetOrCreateDeviceId(deviceIdDirectory ?? directory));
         var options = new DbContextOptionsBuilder<SpeedBudgetDb>()
             .UseSqlite($"Data Source={Path.Combine(directory, "budget.db")}")
             .Options;

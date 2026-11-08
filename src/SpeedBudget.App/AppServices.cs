@@ -2,12 +2,21 @@ using SpeedBudget.Data;
 
 namespace SpeedBudget.App;
 
-/// <summary>Holds the one local database and store shared by every page.</summary>
 /// <summary>The screens that are zoomed on their own: the Budget, and the bank account transactions.</summary>
 public enum ZoomArea { Budget, Transactions }
 
+/// <summary>Holds the open budget's database and store, shared by every page. Switching budgets restarts the app, so they never change during a run.</summary>
 public static class AppServices
 {
+    /// <summary>The budgets on this computer.</summary>
+    public static BudgetRegistry Registry { get; private set; } = null!;
+
+    /// <summary>The budget that is open.</summary>
+    public static BudgetEntry CurrentBudget { get; private set; } = null!;
+
+    /// <summary>The folder holding the open budget's database and backups.</summary>
+    public static string BudgetDirectory { get; private set; } = null!;
+
     public static SpeedBudgetDb Db { get; private set; } = null!;
     public static BudgetStore Store { get; private set; } = null!;
     public static WatcherService Watcher { get; private set; } = null!;
@@ -17,6 +26,7 @@ public static class AppServices
 
     public static void RaiseAccountsChanged() => AccountsChanged?.Invoke();
 
+    /// <summary>The data folder: the list of budgets, each budget's folder, and things that belong to the installation (window position, icon cache).</summary>
     public static string DataDirectory => LocalDatabase.DefaultDirectory;
 
     /// <summary>How the left panel behaves: "show" (always open), "hover" (a strip of icons that opens under the pointer) or "hide" (out of sight, opened with a small menu button).</summary>
@@ -61,26 +71,32 @@ public static class AppServices
         await SetZoomAsync(next);
     }
 
-    public static async Task SetZoomAsync(double zoom)
+    public static Task SetZoomAsync(double zoom)
     {
         var area = CurrentZoomArea;
         if (area == ZoomArea.Budget) BudgetZoom = zoom; else TransactionsZoom = zoom;
         ZoomChanged?.Invoke();
-        try { await Store.SetLocalSettingAsync(area == ZoomArea.Budget ? "zoomBudget" : "zoomTransactions", ((int)Math.Round(zoom * 100)).ToString()); }
-        catch { /* the zoom still applies for this run */ }
+        AppSettings.Set(area == ZoomArea.Budget ? "zoomBudget" : "zoomTransactions", ((int)Math.Round(zoom * 100)).ToString());
+        return Task.CompletedTask;
     }
 
-    public static async Task SetPanelModeAsync(string mode)
+    public static Task SetPanelModeAsync(string mode)
     {
         PanelMode = mode;
         InterfaceChanged?.Invoke();
-        try { await Store.SetLocalSettingAsync("panelMode", mode); }
-        catch { /* the choice still applies for this run */ }
+        AppSettings.Set("panelMode", mode);
+        return Task.CompletedTask;
     }
 
     public static void Initialize()
     {
-        Db = LocalDatabase.Open();
+        Registry = BudgetRegistry.Load(DataDirectory);
+        CurrentBudget = Registry.Current;
+        BudgetDirectory = Registry.DirectoryOf(CurrentBudget);
+        try { Registry.SetCurrent(CurrentBudget.Id); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not remember the budget: {ex.Message}"); }
+
+        Db = LocalDatabase.Open(BudgetDirectory, DataDirectory);
         Store = new BudgetStore(Db);
 
         // An earlier version could hide budget items; every item is shown now.
@@ -92,14 +108,14 @@ public static class AppServices
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not move planned budgets: {ex.Message}"); }
         try { Store.EnsureBudgetStartAsync().GetAwaiter().GetResult(); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not set the start of the budget: {ex.Message}"); }
-        try { var saved = Store.GetLocalSettingAsync("panelMode").GetAwaiter().GetResult(); if (saved is "show" or "hover" or "hide") PanelMode = saved; }
+        try { var saved = InstallationSetting("panelMode"); if (saved is "show" or "hover" or "hide") PanelMode = saved; }
         catch { /* the panel just uses the normal mode */ }
         try
         {
             // One zoom used to cover everything; it is the starting point for both until each has been set on its own.
-            var legacy = int.TryParse(Store.GetLocalSettingAsync("zoom").GetAwaiter().GetResult(), out var old) && old is >= 50 and <= 200 ? old / 100.0 : 1.0;
-            BudgetZoom = int.TryParse(Store.GetLocalSettingAsync("zoomBudget").GetAwaiter().GetResult(), out var b) && b is >= 50 and <= 200 ? b / 100.0 : legacy;
-            TransactionsZoom = int.TryParse(Store.GetLocalSettingAsync("zoomTransactions").GetAwaiter().GetResult(), out var t) && t is >= 50 and <= 200 ? t / 100.0 : legacy;
+            var legacy = int.TryParse(InstallationSetting("zoom"), out var old) && old is >= 50 and <= 200 ? old / 100.0 : 1.0;
+            BudgetZoom = int.TryParse(InstallationSetting("zoomBudget"), out var b) && b is >= 50 and <= 200 ? b / 100.0 : legacy;
+            TransactionsZoom = int.TryParse(InstallationSetting("zoomTransactions"), out var t) && t is >= 50 and <= 200 ? t / 100.0 : legacy;
         }
         catch { /* the app just opens at 100% */ }
         // A summary the user folded on purpose stays folded; otherwise it opens at the top of the page and folds as it is scrolled.
@@ -109,7 +125,7 @@ public static class AppServices
                 SpeedBudget.App.ViewModels.SummaryView.UserCollapsed = SpeedBudget.App.ViewModels.SummaryView.Expanded = false;
         }
         catch { /* the summary just starts open */ }
-        Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
+        Watcher = new WatcherService(Db, OpenReader());
         Store.StartRecordingUndo();   // from here on, what the user does can be undone with Ctrl+Z
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.
@@ -118,8 +134,30 @@ public static class AppServices
 
         // A failed backup must never stop the app from opening.
         // Once a day, and only the newest 31 automatic backups are kept.
-        try { BackupService.BackupIfDue(Db, DataDirectory); }
+        try { BackupService.BackupIfDue(Db, BudgetDirectory); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Automatic backup failed: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// A choice kept for the whole installation. Before there were several budgets these were kept inside the budget, so a budget
+    /// that still holds one supplies it until it has been set again.
+    /// </summary>
+    private static string? InstallationSetting(string key) => AppSettings.Get(key) ?? Store.GetLocalSettingAsync(key).GetAwaiter().GetResult();
+
+    /// <summary>Picks up the open budget's entry again after it has been renamed.</summary>
+    public static void RefreshCurrentBudget() => CurrentBudget = Registry.Budgets.First(b => b.Id == CurrentBudget.Id);
+
+    /// <summary>A second connection to the open budget, for background reads that must not share a context with what the user is editing.</summary>
+    public static SpeedBudgetDb OpenReader() => LocalDatabase.OpenForReading(BudgetDirectory, DataDirectory);
+
+    /// <summary>Starts the app again on the chosen budget (it is remembered as the one to open) and closes this run.</summary>
+    public static void SwitchBudget(Guid id)
+    {
+        var exe = Environment.ProcessPath ?? throw new InvalidOperationException("The program could not be found to restart it.");
+        Registry.SetCurrent(id);
+        Diagnostics.Note($"switch budget {id}");
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+        Environment.Exit(0);
     }
 
     /// <summary>The app shows money in rands but stores whole cents.</summary>
