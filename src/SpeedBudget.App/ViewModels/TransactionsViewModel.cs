@@ -438,19 +438,8 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
 
     public string Heading => $"{Label} starts here";
 
-    public bool HasDate => DateLabel != "";
-
-    /// <summary>The date of the line, shown beside its heading: the date the month starts on (for the first month, the date the budget starts on).</summary>
-    public string DateLabel
-    {
-        get
-        {
-            var date = Entity?.Date ?? StartDate;
-            if (date is not { } d) return "";
-            var text = d.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
-            return IsFirst ? $"budget starts {text}" : text;
-        }
-    }
+    /// <summary>The date the month starts on, written out, for the line's sentence. For the first month it is the date the budget starts on.</summary>
+    public string StartDateText => (Entity?.Date ?? StartDate) is { } d ? d.ToString("d MMMM yyyy", CultureInfo.CurrentCulture) : "";
 
     public override string ToString() => Heading;
 }

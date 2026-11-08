@@ -141,10 +141,10 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="⠿" Opacity="0.6" VerticalAlignment="Center"
                                Visibility="{x:Bind CanDrag}" ToolTipService.ToolTip="Drag this line to change where the month starts" />
-                    <TextBlock Text="{x:Bind Heading, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
-                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                    <TextBlock Text="{x:Bind DateLabel}" Opacity="0.75" VerticalAlignment="Center"
-                               Visibility="{x:Bind HasDate}" ToolTipService.ToolTip="The date this month line sits on" />
+                    <!-- One plain sentence: which budget month starts, and on what date. -->
+                    <TextBlock VerticalAlignment="Center" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}">
+                        <Run Text="{x:Bind Label}" FontWeight="Bold" /><Run Text=" budget month starts on " /><Run Text="{x:Bind StartDateText}" FontWeight="Bold" />
+                    </TextBlock>
                 </StackPanel>
                 <Rectangle Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind LineBelow}" />
             </StackPanel>
