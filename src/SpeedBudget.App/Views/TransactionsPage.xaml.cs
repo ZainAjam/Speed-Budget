@@ -460,7 +460,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     private static void SnapRow(ListViewItem item)
     {
         if (item.ContentTemplateRoot is not FrameworkElement root) return;
-        var zoom = AppServices.Zoom;
+        var zoom = AppServices.TransactionsZoom;
         var natural = root.DesiredSize.Height;
         if (natural <= 0) return;
         var wanted = Math.Abs(zoom - 1) < 0.0001 ? 0 : Math.Ceiling(natural * zoom - 0.001) / zoom;
@@ -486,7 +486,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         var width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);
         // Zoomed, the width is nudged (by less than a pixel) so the Memo column ends on a whole screen pixel, and so do the columns after it.
-        var zoom = AppServices.Zoom;
+        var zoom = AppServices.TransactionsZoom;
         if (Math.Abs(zoom - 1) > 0.0001 && width > ColumnLayout.ActionsMinimum) width = Math.Round((width - ColumnLayout.ActionsMinimum) * zoom) / zoom + ColumnLayout.ActionsMinimum;
         TableRegion.Width = width;
         TableFrame.BorderThickness = new Thickness(Math.Abs(zoom - 1) < 0.0001 ? 1 : 1 / zoom);   // one screen pixel, so the table's edge is as crisp as at 100%

@@ -293,7 +293,7 @@
                      Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
             <!-- The budget table: the month headings and the items below them. Only this is zoomed (see ZoomBox); the title, month buttons and everything else stay at normal size. -->
-            <local:ZoomBox Grid.Row="2">
+            <local:ZoomBox Grid.Row="2" Area="Budget">
             <Grid RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />

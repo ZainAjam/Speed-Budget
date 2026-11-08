@@ -98,7 +98,11 @@ public sealed partial class MainWindow : Window
         ZoomOuter.AddHandler(UIElement.PointerWheelChangedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(ZoomOuter_Wheel), handledEventsToo: true);
         AppServices.ZoomChanged += () => DispatcherQueue.TryEnqueue(() =>
         {
-            foreach (var level in _zoomLevels) level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
+            foreach (var level in _zoomLevels)
+            {
+                level.Text = $"{Math.Round(AppServices.Zoom * 100)}%";
+                ToolTipService.SetToolTip(level, $"The zoom of {AppServices.ZoomAreaName}. Click to type a percentage.");
+            }
         });
 
         // The pinned-items strip belongs with the transactions, where you are spending, so it shows nowhere else.
@@ -692,7 +696,7 @@ public sealed partial class MainWindow : Window
         _zoomLevels.Add(level);
         var typed = new TextBox { Visibility = Visibility.Collapsed, TextAlignment = TextAlignment.Center, MaxLength = 3, MinHeight = 28, Padding = new Thickness(4, 3, 4, 3), VerticalAlignment = VerticalAlignment.Center };
         var host = new Grid { MinWidth = 56, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent) };
-        ToolTipService.SetToolTip(host, "Click to type a zoom percentage");
+        ToolTipService.SetToolTip(level, $"The zoom of {AppServices.ZoomAreaName}. Click to type a percentage.");
         host.Children.Add(level);
         host.Children.Add(typed);
 
@@ -786,6 +790,9 @@ public sealed partial class MainWindow : Window
     {
         Diagnostics.Note($"open page {tag}");
         _onTransactions = tag is not null && tag.StartsWith("tx");
+        // The zoom controls in the panel follow the screen: the Budget has its own zoom, and so do the transactions.
+        if (tag == "budget") AppServices.SetZoomArea(ZoomArea.Budget);
+        else if (_onTransactions) AppServices.SetZoomArea(ZoomArea.Transactions);
         _accountPage = tag is not null && tag.StartsWith("tx:") && Guid.TryParse(tag.AsSpan(3), out var page) ? page : null;
         UpdateWatcherStrip();
         switch (tag)

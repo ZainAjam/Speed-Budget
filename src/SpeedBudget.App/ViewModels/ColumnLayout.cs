@@ -37,7 +37,7 @@ public sealed partial class ColumnLayout : ObservableObject
     // all the lines between the columns look the same.
     private static double Snap(double width)
     {
-        var zoom = AppServices.Zoom;
+        var zoom = AppServices.TransactionsZoom;
         return Math.Abs(zoom - 1) < 0.0001 ? width : Math.Round(width * zoom) / zoom;
     }
 
@@ -52,7 +52,7 @@ public sealed partial class ColumnLayout : ObservableObject
     public GridLength ClearedColumn => new(Snap(Cleared));
 
     // The lines of the table are always one screen pixel wide, however far the table is zoomed.
-    private static double LineWidth => Math.Abs(AppServices.Zoom - 1) < 0.0001 ? 1 : 1 / AppServices.Zoom;
+    private static double LineWidth => Math.Abs(AppServices.TransactionsZoom - 1) < 0.0001 ? 1 : 1 / AppServices.TransactionsZoom;
     public Thickness CellLine => new(0, 0, LineWidth, LineWidth);
     public Thickness HeadingLine => new(0, 0, LineWidth, 0);
     public Thickness ActionLine => new(0, 0, 0, LineWidth);

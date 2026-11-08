@@ -80,7 +80,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// makes more room for months and zooming in makes less.
     /// </summary>
     private void FitMonths(double width) =>
-        ViewModel.SetCapacity((int)Math.Floor(((width - PageMargins) / AppServices.Zoom - ScrollBarWidth - NameColumnWidth) / MonthColumnWidth));
+        ViewModel.SetCapacity((int)Math.Floor(((width - PageMargins) / AppServices.BudgetZoom - ScrollBarWidth - NameColumnWidth) / MonthColumnWidth));
 
     private void ZoomChanged() => DispatcherQueue.TryEnqueue(() => FitMonths(ActualWidth));
 

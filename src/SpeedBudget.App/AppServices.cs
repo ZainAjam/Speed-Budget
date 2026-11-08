@@ -3,6 +3,9 @@ using SpeedBudget.Data;
 namespace SpeedBudget.App;
 
 /// <summary>Holds the one local database and store shared by every page.</summary>
+/// <summary>The screens that are zoomed on their own: the Budget, and the bank account transactions.</summary>
+public enum ZoomArea { Budget, Transactions }
+
 public static class AppServices
 {
     public static SpeedBudgetDb Db { get; private set; } = null!;
@@ -24,7 +27,26 @@ public static class AppServices
     /// <summary>The steps of the zoom, from 50% to 200%. The app is made smaller to fit more on screen (for example beside a banking website), or larger to read.</summary>
     public static readonly double[] ZoomSteps = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0];
 
-    public static double Zoom { get; private set; } = 1.0;
+    // The Budget screen and the bank account transaction screens each have a zoom of their own. The zoom controls in the left panel
+    // change the one belonging to the screen that is showing.
+    public static double BudgetZoom { get; private set; } = 1.0;
+    public static double TransactionsZoom { get; private set; } = 1.0;
+    public static ZoomArea CurrentZoomArea { get; private set; } = ZoomArea.Budget;
+
+    public static double ZoomOf(ZoomArea area) => area == ZoomArea.Budget ? BudgetZoom : TransactionsZoom;
+
+    /// <summary>The zoom of the screen that is showing.</summary>
+    public static double Zoom => ZoomOf(CurrentZoomArea);
+
+    public static string ZoomAreaName => CurrentZoomArea == ZoomArea.Budget ? "the Budget screen" : "the bank account transaction screens";
+
+    /// <summary>Says which screen the zoom controls now belong to, so they show and change that screen's zoom.</summary>
+    public static void SetZoomArea(ZoomArea area)
+    {
+        if (area == CurrentZoomArea) return;
+        CurrentZoomArea = area;
+        ZoomChanged?.Invoke();
+    }
 
     public static event Action? ZoomChanged;
 
@@ -41,9 +63,10 @@ public static class AppServices
 
     public static async Task SetZoomAsync(double zoom)
     {
-        Zoom = zoom;
+        var area = CurrentZoomArea;
+        if (area == ZoomArea.Budget) BudgetZoom = zoom; else TransactionsZoom = zoom;
         ZoomChanged?.Invoke();
-        try { await Store.SetLocalSettingAsync("zoom", ((int)Math.Round(zoom * 100)).ToString()); }
+        try { await Store.SetLocalSettingAsync(area == ZoomArea.Budget ? "zoomBudget" : "zoomTransactions", ((int)Math.Round(zoom * 100)).ToString()); }
         catch { /* the zoom still applies for this run */ }
     }
 
@@ -69,7 +92,10 @@ public static class AppServices
         catch { /* the panel just uses the normal mode */ }
         try
         {
-            if (int.TryParse(Store.GetLocalSettingAsync("zoom").GetAwaiter().GetResult(), out var percent) && percent is >= 50 and <= 200) Zoom = percent / 100.0;
+            // One zoom used to cover everything; it is the starting point for both until each has been set on its own.
+            var legacy = int.TryParse(Store.GetLocalSettingAsync("zoom").GetAwaiter().GetResult(), out var old) && old is >= 50 and <= 200 ? old / 100.0 : 1.0;
+            BudgetZoom = int.TryParse(Store.GetLocalSettingAsync("zoomBudget").GetAwaiter().GetResult(), out var b) && b is >= 50 and <= 200 ? b / 100.0 : legacy;
+            TransactionsZoom = int.TryParse(Store.GetLocalSettingAsync("zoomTransactions").GetAwaiter().GetResult(), out var t) && t is >= 50 and <= 200 ? t / 100.0 : legacy;
         }
         catch { /* the app just opens at 100% */ }
         // A summary the user folded on purpose stays folded; otherwise it opens at the top of the page and folds as it is scrolled.

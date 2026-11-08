@@ -12,6 +12,12 @@ public sealed partial class ZoomBox : Panel
 {
     private readonly ScaleTransform _scale = new();
 
+    public static readonly DependencyProperty AreaProperty =
+        DependencyProperty.Register(nameof(Area), typeof(ZoomArea), typeof(ZoomBox), new PropertyMetadata(ZoomArea.Transactions, (d, _) => ((ZoomBox)d).InvalidateMeasure()));
+
+    /// <summary>Which screen's zoom this table follows.</summary>
+    public ZoomArea Area { get => (ZoomArea)GetValue(AreaProperty); set => SetValue(AreaProperty, value); }
+
     public ZoomBox()
     {
         Loaded += (_, _) => { AppServices.ZoomChanged += OnZoomChanged; InvalidateMeasure(); };
@@ -24,7 +30,7 @@ public sealed partial class ZoomBox : Panel
     {
         if (Children.Count == 0) return new Windows.Foundation.Size(0, 0);
         var child = Children[0];
-        var zoom = AppServices.Zoom;
+        var zoom = AppServices.ZoomOf(Area);
         // At 100% sizes snap to whole pixels as usual. Zoomed, the table's own sizes are left exact so rows and columns can be fitted to the
         // screen's pixels after scaling (rounding them first would round them to the wrong grid).
         child.UseLayoutRounding = Math.Abs(zoom - 1) < 0.0001;
@@ -36,7 +42,7 @@ public sealed partial class ZoomBox : Panel
     {
         if (Children.Count == 0) return final;
         var child = Children[0];
-        var zoom = AppServices.Zoom;
+        var zoom = AppServices.ZoomOf(Area);
         child.RenderTransform = _scale;
         child.RenderTransformOrigin = new Windows.Foundation.Point(0, 0);
         _scale.ScaleX = _scale.ScaleY = zoom;
