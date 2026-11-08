@@ -27,9 +27,8 @@ public static class BudgetsDialog
                         return;
 
                     case Choice.New:
-                        if (await AskNameAsync(root, "New budget", "", "Create and open") is not { } name) continue;
-                        AppServices.SwitchBudget(AppServices.Registry.Create(name).Id);
-                        return;
+                        if (await CreateAndOpenAsync(root)) return;
+                        continue;
 
                     case Choice.Rename when selected is { } rename:
                         if (await AskNameAsync(root, "Rename budget", rename.Name, "Rename") is { } newName)
@@ -53,6 +52,20 @@ public static class BudgetsDialog
                 await new ContentDialog { XamlRoot = root, Title = "That didn't work", Content = ex.Message, CloseButtonText = "OK" }.ShowAsync();
             }
         }
+    }
+
+    /// <summary>Asks for a name, makes the budget and opens it (the app restarts). Does nothing if the name is not given.</summary>
+    public static async Task NewAsync(XamlRoot root)
+    {
+        try { await CreateAndOpenAsync(root); }
+        catch (Exception ex) { await new ContentDialog { XamlRoot = root, Title = "That didn't work", Content = ex.Message, CloseButtonText = "OK" }.ShowAsync(); }
+    }
+
+    private static async Task<bool> CreateAndOpenAsync(XamlRoot root)
+    {
+        if (await AskNameAsync(root, "New budget", "", "Create and open") is not { } name) return false;
+        AppServices.SwitchBudget(AppServices.Registry.Create(name).Id);
+        return true;
     }
 
     private static async Task<(Choice, BudgetEntry?)> ListAsync(XamlRoot root)

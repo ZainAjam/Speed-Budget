@@ -20,15 +20,34 @@ public sealed partial class MainWindow : Window
     private Guid? _accountPage;
     private readonly HashSet<Guid> _trackedAccounts = [];
 
-    private readonly NavigationViewItem _budgetsItem;
+    // The account sits at the top of the left panel, with its budgets listed under it. Until there are accounts to sign in to,
+    // the budgets are the ones kept on this computer.
+    private readonly NavigationViewItem _accountItem = new() { Tag = "account", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Contact) };
+    private readonly TextBlock _accountBudget = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
 
-    /// <summary>Shows which budget is open: in the left panel and in the title of the window.</summary>
+    /// <summary>
+    /// Shows which budget is open (in the account item and in the title of the window) and lists the budgets under the account:
+    /// click one to open it, or make a new one or manage them at the bottom of the list.
+    /// </summary>
     private void ShowBudgetName()
     {
         var name = AppServices.CurrentBudget.Name;
-        _budgetsItem.Content = name;
-        ToolTipService.SetToolTip(_budgetsItem, $"{name} is open. Click to switch to another budget or make a new one.");
+        _accountBudget.Text = name;
         Title = $"Speed Budget - {name}";
+        ToolTipService.SetToolTip(_accountItem, $"On this computer. {name} is open. Click to see your budgets.");
+
+        _accountItem.MenuItems.Clear();
+        foreach (var budget in AppServices.Registry.Budgets)
+        {
+            var isOpen = budget.Id == AppServices.CurrentBudget.Id;
+            _accountItem.MenuItems.Add(new NavigationViewItem
+            {
+                Content = budget.Name, Tag = $"budget-switch:{budget.Id}", SelectsOnInvoked = false,
+                Icon = new FontIcon { Glyph = isOpen ? "" : "" },   // a tick on the open one, a page on the others
+            });
+        }
+        _accountItem.MenuItems.Add(new NavigationViewItem { Content = "New budget…", Tag = "budget-new", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Add) });
+        _accountItem.MenuItems.Add(new NavigationViewItem { Content = "Manage budgets…", Tag = "budgets", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Edit) });
     }
 
     public WatcherService Watcher => AppServices.Watcher;
@@ -43,6 +62,13 @@ public sealed partial class MainWindow : Window
         var budget = new NavigationViewItem { Content = "Plan your spending", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
 
         _transactions.Content = HeadingLabel("Transactions");
+        var accountText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        accountText.Children.Add(_accountBudget);
+        accountText.Children.Add(new TextBlock { Text = "On this computer", FontSize = 11, Opacity = 0.7 });
+        _accountItem.Content = accountText;
+        ShowBudgetName();
+        Nav.MenuItems.Add(_accountItem);
+        Nav.MenuItems.Add(new NavigationViewItemSeparator());
         Nav.MenuItems.Add(Heading("Budget"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
@@ -53,15 +79,17 @@ public sealed partial class MainWindow : Window
             var tag = args.InvokedItemContainer?.Tag as string;
             if (tag == "add-account") _ = AddAccountAsync();
             else if (tag == "budgets") _ = BudgetsDialog.ShowAsync(Nav.XamlRoot, ShowBudgetName);
+            else if (tag == "budget-new") _ = BudgetsDialog.NewAsync(Nav.XamlRoot);
+            else if (tag is not null && tag.StartsWith("budget-switch:") && Guid.TryParse(tag.AsSpan("budget-switch:".Length), out var budgetId))
+            {
+                if (budgetId != AppServices.CurrentBudget.Id) AppServices.SwitchBudget(budgetId);
+            }
             else if (tag == "zoom" && !Nav.IsPaneOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
 
         // Zoom: while the panel is open the buttons sit right in it; when it is narrow only the icon shows (and opens them in a small box).
         _zoomItem = new NavigationViewItem { Tag = "zoom", SelectsOnInvoked = false, Icon = new FontIcon { Glyph = "\uE8A3" } };
         _zoomItem.Content = BuildZoomControls(inFlyout: false);
-        _budgetsItem = new NavigationViewItem { Tag = "budgets", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Library) };
-        Nav.FooterMenuItems.Add(_budgetsItem);
-        ShowBudgetName();
         Nav.FooterMenuItems.Add(_zoomItem);
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());   // a line sets App Settings apart from the zoom
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
