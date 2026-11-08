@@ -165,6 +165,8 @@
         </Grid.RowDefinitions>
 
         <!-- The account's name on the left, its balances in the middle and what kind of account it is on the right -->
+        <!-- This row and the one of buttons below it shrink to fit a narrow window, and keep their places (see ShrinkBox). -->
+        <local:ShrinkBox>
         <Grid ColumnSpacing="16" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -194,13 +196,15 @@
                            Foreground="{x:Bind ViewModel.AccountBadgeTextBrush, Mode=OneWay}" />
             </Border>
         </Grid>
+        </local:ShrinkBox>
 
         <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning"
                  Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
         <!-- 3. The recorded transactions -->
         <!-- The recorded transactions: what can be done in the middle (new rows go into the table; a new month starts a line in it) -->
-        <Grid Grid.Row="2" ColumnSpacing="16" Background="Transparent">
+        <local:ShrinkBox Grid.Row="2">
+        <Grid ColumnSpacing="16" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -227,6 +231,7 @@
                 <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
             </StackPanel>
         </Grid>
+        </local:ShrinkBox>
 
         <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, this area scrolls sideways. -->
         <local:ZoomBox Grid.Row="3">

@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.20
 
+- **Nothing gets cut off when the window is narrow.** The pinned-items strip, the account heading with its balances, and the row of buttons above the transactions table now shrink to fit as the window is made narrower, and every item keeps its place. At full width they look as before.
 - **Hold for next month from "Available to budget".** Right-click a positive "Available to budget" figure and choose **Hold for next month…** to set part of it aside: it leaves that month's available budget and becomes available the following month instead. It is taken from the month's income lines (largest first), exactly as if you had held them by hand. The option is only offered when the figure is positive.
 - **A small marker shows when money is held.** A month with money held for next month, or released into it, shows a small flag beside its "Available to budget" figure, even when the summary box is folded away. Pointing at it says how much was held and how much was released. Right-click the figure and choose **Release held amount…** to give some or all of it back (you choose how much).
 - **Month lines now say which budget month starts and when.** Each month line in the transactions table reads, for example, "**November 2026 budget month starts here** on 24 October 2026", with the first part in bold. The first line shows the date the budget starts on.

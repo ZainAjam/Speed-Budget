@@ -2,6 +2,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:app="using:SpeedBudget.App"
+    xmlns:views="using:SpeedBudget.App.Views"
     Title="Speed Budget">
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -27,7 +28,8 @@
                 </InfoBar.ActionButton>
             </InfoBar>
             <Border x:Name="WatcherHost" Grid.Row="1" Padding="32,12,32,0" Visibility="Collapsed" AutomationProperties.Name="Pinned items">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalScrollMode="Auto">
+                <!-- The chips shrink together to fit a narrow window, and keep their places (see ShrinkBox). -->
+                <views:ShrinkBox>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <ItemsControl x:Name="ChipList" ItemsSource="{x:Bind Watcher.Chips}">
                             <ItemsControl.ItemsPanel>
@@ -61,7 +63,7 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                </ScrollViewer>
+                </views:ShrinkBox>
             </Border>
             <Frame Grid.Row="2" x:Name="ContentFrame" />
             <!-- A short note at the bottom saying what Ctrl+Z (or Ctrl+Y) just did -->
