@@ -22,7 +22,11 @@ public sealed partial class MainWindow : Window
 
     // The account sits at the bottom of the left panel, below App Settings. Clicking it opens a menu with the budgets under that
     // account. Until there are accounts to sign in to, they are the budgets kept on this computer.
+    // The account item sits below App Settings. The panel closes itself when one of its items is invoked, which is wrong for something
+    // that only opens a menu, so the menu is opened on the press itself and the item cannot be invoked while the menu is showing.
     private readonly NavigationViewItem _accountItem = new() { Tag = "account", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Contact) };
+    private bool _accountMenuOpen;
+    private readonly StackPanel _accountText = new() { VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _accountBudget = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
 
     /// <summary>Shows which budget is open, in the account item and in the title of the window.</summary>
@@ -41,6 +45,18 @@ public sealed partial class MainWindow : Window
     private void ShowAccountMenu()
     {
         var menu = new MenuFlyout();
+        // The left panel stays open while the menu is showing, and closes again (if the pointer is not over it) once a choice is made or the menu is dismissed.
+        if (_accountMenuOpen) return;
+        _accountMenuOpen = true;
+        _paneHeld = true;
+        _accountItem.IsHitTestVisible = false;
+        menu.Closed += (_, _) =>
+        {
+            _accountMenuOpen = false;
+            _accountItem.IsHitTestVisible = true;
+            _paneHeld = false;
+            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
+        };
         menu.Items.Add(new MenuFlyoutItem { Text = "On this computer", IsEnabled = false });
         foreach (var budget in AppServices.Registry.Budgets)
         {
@@ -73,10 +89,9 @@ public sealed partial class MainWindow : Window
         var budget = new NavigationViewItem { Content = "Plan your spending", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
 
         _transactions.Content = HeadingLabel("Transactions");
-        var accountText = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        accountText.Children.Add(_accountBudget);
-        accountText.Children.Add(new TextBlock { Text = "On this computer", FontSize = 11, Opacity = 0.7 });
-        _accountItem.Content = accountText;
+        _accountText.Children.Add(_accountBudget);
+        _accountText.Children.Add(new TextBlock { Text = "On this computer", FontSize = 11, Opacity = 0.7 });
+        _accountItem.Content = _accountText;
         ShowBudgetName();
         Nav.MenuItems.Add(Heading("Budget"));
         Nav.MenuItems.Add(budget);
@@ -87,7 +102,7 @@ public sealed partial class MainWindow : Window
         {
             var tag = args.InvokedItemContainer?.Tag as string;
             if (tag == "add-account") _ = AddAccountAsync();
-            else if (tag == "account") ShowAccountMenu();
+            else if (tag == "account") ShowAccountMenu();   // from the keyboard; a mouse press has already opened the menu
             else if (tag == "zoom" && !Nav.IsPaneOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
 
@@ -98,6 +113,7 @@ public sealed partial class MainWindow : Window
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());   // a line sets App Settings apart from the zoom
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
         Nav.FooterMenuItems.Add(_accountItem);
+        _accountItem.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ShowAccountMenu()), true);
 
         // The available balance beside each account follows every change to the data.
         _balanceTimer = DispatcherQueue.CreateTimer();
@@ -161,7 +177,16 @@ public sealed partial class MainWindow : Window
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
-            if (_zoomHold || _paneHeld) { args.Cancel = true; return; }
+            if (_zoomHold || _paneHeld)
+            {
+                args.Cancel = true;
+                if (_accountMenuOpen)
+                {
+                    // Cancelling the close leaves the panel reporting that it is closed while it is still drawn half shut; opening it again puts it back in one piece.
+                    DispatcherQueue.TryEnqueue(() => { if (!Nav.IsPaneOpen) Nav.IsPaneOpen = true; });
+                }
+                return;
+            }
             ShowHeadings(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
@@ -370,6 +395,7 @@ public sealed partial class MainWindow : Window
     private void ShowHeadings(bool open)
     {
         foreach (var label in _headingLabels) label.Opacity = open || AppServices.PanelMode == "show" ? 1 : 0;
+        _accountText.Visibility = open || AppServices.PanelMode == "show" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private readonly List<NavigationViewItem> _accountItems = [];
