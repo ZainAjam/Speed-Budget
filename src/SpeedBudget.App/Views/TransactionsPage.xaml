@@ -143,6 +143,8 @@
                                Visibility="{x:Bind CanDrag}" ToolTipService.ToolTip="Drag this line to change where the month starts" />
                     <TextBlock Text="{x:Bind Heading, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}"
                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                    <TextBlock Text="{x:Bind DateLabel}" Opacity="0.75" VerticalAlignment="Center"
+                               Visibility="{x:Bind HasDate}" ToolTipService.ToolTip="The date this month line sits on" />
                 </StackPanel>
                 <Rectangle Height="3" RadiusX="1.5" RadiusY="1.5" Fill="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind LineBelow}" />
             </StackPanel>

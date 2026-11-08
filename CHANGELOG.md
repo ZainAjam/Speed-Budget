@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.20
 
+- **Month lines now show their date.** Each "month starts here" line in the transactions table has its date beside the heading (the first line shows the date the budget starts).
 - **The Budget screen always opens on the month you are recording transactions for**: the latest month that has been started (after the last month line), not simply today's calendar month. The button that jumps back to the first month now takes you to that month too.
 - **Right-click a transaction that is being edited** and the menu now offers **Save** and **Delete** (instead of Edit and Delete), so you can save it without reaching for the tick.
 - **Moving or covering budget (right-click a Left figure on the Budget screen):** the "Move it to" and "Take it from" boxes are now ordinary drop-downs with the search inside the list. Beside each item the list shows what is left on it, in green when there is money left.
