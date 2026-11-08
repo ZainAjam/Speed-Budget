@@ -24,11 +24,12 @@ public sealed class HoldDialog : ContentDialog
 
     /// <summary>Holds back some of what is available to budget in a month (taken from its income lines).</summary>
     /// <param name="largest">The most that can be held.</param>
-    public HoldDialog(string title, long largest, string explanation)
+    public HoldDialog(string title, long largest, string explanation, string primaryText = "Hold", string header = "Amount to hold for next month (R)")
     {
         _available = largest;
         Title = title;
-        PrimaryButtonText = "Hold";
+        PrimaryButtonText = primaryText;
+        _amount.Header = header;
         CloseButtonText = "Cancel";
         DefaultButton = ContentDialogButton.Primary;
 

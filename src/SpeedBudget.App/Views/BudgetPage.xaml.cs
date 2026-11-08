@@ -481,7 +481,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         if (sender is not FrameworkElement { DataContext: SummaryCell { IsStrong: true } cell } target) return;
         args.Handled = true;
-        if (cell.Cents == 0) return;
+        if (cell.Cents == 0 && cell.HeldOutCents <= 0) return;
 
         var menu = new MenuFlyout();
         if (cell.Cents > 0)
@@ -496,11 +496,19 @@ public sealed partial class BudgetPage : Page, IReloadable
             hold.Click += async (_, _) => await HoldAvailableAsync(cell, holdable);
             menu.Items.Add(hold);
         }
-        else
+        else if (cell.Cents < 0)
         {
             var cover = new MenuFlyoutItem { Text = "Cover the shortfall from a budget item…", Icon = new FontIcon { Glyph = "\uE8AB" } };
             cover.Click += async (_, _) => await CoverFromAsync(cell.MonthId, -cell.Cents, toItem: null);
             menu.Items.Add(cover);
+        }
+
+        // Something is held for next month: it can be given back to this month.
+        if (cell.HeldOutCents > 0)
+        {
+            var release = new MenuFlyoutItem { Text = "Release held amount…", Icon = new FontIcon { Glyph = "" } };
+            release.Click += async (_, _) => await ReleaseHeldAsync(cell);
+            menu.Items.Add(release);
         }
         ShowMenu(menu, target, args);
     }
@@ -544,6 +552,16 @@ public sealed partial class BudgetPage : Page, IReloadable
             $"{Format.Money(cell.Cents)} is available to budget. Whatever you hold leaves this month's available budget and becomes available next month instead.{note}") { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         await ViewModel.HoldFromAvailableAsync(cell.MonthId, dialog.AmountCents);
+    }
+
+    /// <summary>Gives back part (or all) of what is held for next month, so it is available to budget in this month again.</summary>
+    private async Task ReleaseHeldAsync(SummaryCell cell)
+    {
+        var dialog = new HoldDialog("Release held amount", cell.HeldOutCents,
+            $"{Format.Money(cell.HeldOutCents)} is held for next month. Whatever you release is available to budget in this month again.",
+            primaryText: "Release", header: "Amount to release (R)") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.ReleaseFromAvailableAsync(cell.MonthId, dialog.AmountCents);
     }
 
     /// <summary>Gives part of a month's available budget to an item: its budgeted amount goes up by that much.</summary>

@@ -184,6 +184,15 @@ public sealed partial class SummaryCell(bool isStrong) : ObservableObject
     public Guid MonthId { get; set; }
     public long Cents { get; set; }
 
+    /// <summary>For "Available to budget": how much of the month's income is held for next month.</summary>
+    public long HeldOutCents { get; set; }
+
+    /// <summary>For "Available to budget": whether anything is held from this month, or released into it, so a small marker can say so.</summary>
+    [ObservableProperty] public partial bool HasHold { get; set; }
+
+    /// <summary>What the marker says when pointed at.</summary>
+    [ObservableProperty] public partial string HoldNote { get; set; } = "";
+
     [ObservableProperty] public partial bool IsVisible { get; set; } = isStrong || SummaryView.Expanded;
 
     [ObservableProperty] public partial string Text { get; set; } = "";
@@ -233,6 +242,13 @@ public sealed partial class MonthColumn : ObservableObject
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
         Summary[6].Brush = Format.Signed(m.Available);
         Summary[6].Cents = m.Available;
+        Summary[6].HeldOutCents = m.HeldOut;
+        Summary[6].HasHold = m.HeldOut != 0 || m.HeldIn != 0;
+        var note = new List<string>();
+        if (m.HeldOut != 0) note.Add($"Held for next month: {Format.Money(m.HeldOut)}");
+        if (m.HeldIn != 0) note.Add($"Released from last month: {Format.Money(m.HeldIn)}");
+        if (m.HeldOut != 0) note.Add("Right-click the figure to release it.");
+        Summary[6].HoldNote = string.Join("\n", note);
 
         var income = m.IncomeItems.ToDictionary(i => i.ItemId);
         foreach (var cell in Income)
@@ -654,6 +670,30 @@ public sealed partial class BudgetViewModel : ObservableObject
                 left -= take;
             }
             Message = left == 0 ? "" : $"Only {Format.Money(cents - left)} could be held: the rest of what is available is not from this month's income.";
+            await RecalculateAsync();
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>Releases part of what is held for next month, so it is available to budget this month again. The most held line is released first.</summary>
+    public async Task ReleaseFromAvailableAsync(Guid monthId, long cents)
+    {
+        if (cents <= 0) return;
+        await _gate.WaitAsync();
+        try
+        {
+            var column = Columns.FirstOrDefault(c => c.MonthId == monthId);
+            if (column is null) return;
+            var left = cents;
+            foreach (var income in column.Income.Where(i => i.Line.IsItem && i.HeldCents > 0).OrderByDescending(i => i.HeldCents))
+            {
+                if (left <= 0) break;
+                var take = Math.Min(left, income.HeldCents);
+                await _store.SetIncomeHoldAsync(monthId, income.ItemId, income.HeldCents - take);
+                left -= take;
+            }
+            Message = "";
             await RecalculateAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
