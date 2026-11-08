@@ -543,7 +543,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         var from = cell.Line.ItemId!.Value;
         var dialog = new MoveBudgetDialog($"Move budget from {cell.Line.Name}",
-            $"{Format.Money(cell.LeftCents)} is left on {cell.Line.Name}.", "Choose the item to move some of it to, and how much.",
+            $"{Format.Money(cell.LeftCents)} is left.", "Choose the item to move some of it to, and how much.",
             "Move it to", "Move", ViewModel.ChoicesFor(cell.MonthId, excluding: from), _ => cell.LeftCents, cell.LeftCents) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary || dialog.Chosen is not { } chosen) return;
         var amount = dialog.AmountCents;
