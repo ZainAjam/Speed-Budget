@@ -20,13 +20,14 @@ public sealed partial class GroupState(string name) : ObservableObject
 /// One row of the budget, as labelled in the left-hand column. Every month column has a cell for each line, in the
 /// same order, so the rows line up across the page.
 /// </summary>
-public sealed partial class BudgetLine(Guid? itemId, string name, GroupState? group, bool isHeader,
+public sealed partial class BudgetLine(Guid? itemId, string name, int depth, GroupState? group, bool isHeader,
     Guid? groupId = null, Guid? parentItemId = null) : ObservableObject
 {
     public Guid? ItemId { get; } = itemId;
     public Guid? GroupId { get; } = groupId;
     public Guid? ParentItemId { get; } = parentItemId;
     public string Name { get; } = name;
+    public Thickness Indent { get; } = new(depth * 20, 0, 0, 0);
     public GroupState? Group { get; } = group;
     public bool IsHeader { get; } = isHeader;
     public bool IsItem => !IsHeader;
@@ -101,6 +102,7 @@ public sealed partial class OutflowCell : LineCell
 
     public Guid MonthId { get; }
 
+    public long BudgetedCents => _budgeted;
 
     /// <summary>What is left on the item this month, including anything carried forward. Green when above zero, red below.</summary>
     public long LeftCents { get; private set; }
@@ -386,11 +388,11 @@ public sealed partial class BudgetViewModel : ObservableObject
                 var lines = group.Kind == ItemKind.Income ? _incomeLines : _outflowLines;
                 var state = new GroupState(group.Name);
                 state.PropertyChanged += (_, _) => ApplyVisibility();
-                var header = new BudgetLine(null, group.Name, state, isHeader: true, group.Id);
+                var header = new BudgetLine(null, group.Name, 0, state, isHeader: true, group.Id);
                 lines.Add(header);
-                foreach (var item in Flatten(inGroup))
+                foreach (var (item, depth) in Flatten(inGroup))
                 {
-                    lines.Add(new BudgetLine(item.Id, item.DisplayName, state, isHeader: false, item.GroupId, item.ParentItemId));
+                    lines.Add(new BudgetLine(item.Id, item.DisplayName, depth, state, isHeader: false, item.GroupId, item.ParentItemId));
                     header.GroupItemIds.Add(item.Id);
                 }
             }
@@ -417,13 +419,13 @@ public sealed partial class BudgetViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Items depth-first, so sub-items follow their parent.</summary>
-    private static IEnumerable<ItemEntity> Flatten(List<ItemEntity> items, Guid? parent = null)
+    /// <summary>Items depth-first, so sub-items follow their parent and carry how deep they are.</summary>
+    private static IEnumerable<(ItemEntity Item, int Depth)> Flatten(List<ItemEntity> items, Guid? parent = null, int depth = 0)
     {
         foreach (var item in items.Where(i => i.ParentItemId == parent))
         {
-            yield return item;
-            foreach (var child in Flatten(items, item.Id)) yield return child;
+            yield return (item, depth);
+            foreach (var child in Flatten(items, item.Id, depth + 1)) yield return child;
         }
     }
 

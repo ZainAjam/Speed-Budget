@@ -12,7 +12,7 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
-        DataPath.Text = AppServices.BudgetDirectory;
+        DataPath.Text = AppServices.DataDirectory;
         var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "";
         AboutText.Text = $"Speed Budget {version.Split('+')[0]}";
         PanelModeBox.SelectedIndex = PanelModes.IndexOf(AppServices.PanelMode);
@@ -71,7 +71,7 @@ public sealed partial class SettingsPage : Page
     }
 
     private void ShowBackupInfo() =>
-        BackupInfo.Text = BackupService.LastBackupTime(AppServices.BudgetDirectory) is { } last
+        BackupInfo.Text = BackupService.LastBackupTime(AppServices.DataDirectory) is { } last
             ? $"Last backup: {last:d MMM yyyy, HH:mm}"
             : "No backup has been made yet.";
 
@@ -110,8 +110,8 @@ public sealed partial class SettingsPage : Page
         var confirm = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = $"Reset {AppServices.CurrentBudget.Name}?",
-            Content = "This deletes everything in this budget: all accounts, budget items, transactions, counterparties and settings. " +
+            Title = "Reset the app?",
+            Content = "This deletes everything: all accounts, budget items, transactions, counterparties and settings. " +
                       "The app starts again from a clean slate and the setup wizard runs." + Environment.NewLine + Environment.NewLine +
                       "A backup of your data is saved first, in the backups folder, but this cannot be undone from inside the app.",
             PrimaryButtonText = "Reset everything",
@@ -122,7 +122,7 @@ public sealed partial class SettingsPage : Page
 
         try
         {
-            BackupService.CreateBackup(AppServices.Db, AppServices.BudgetDirectory);
+            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
             await AppServices.Store.ResetAllAsync();
         }
         catch (Exception ex)
@@ -205,7 +205,7 @@ public sealed partial class SettingsPage : Page
         try
         {
             // Backups are cheap and the update replaces the program, so take one first.
-            BackupService.CreateBackup(AppServices.Db, AppServices.BudgetDirectory);
+            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
             await AppUpdates.DownloadAndRestartAsync(info, percent => DispatcherQueue.TryEnqueue(() => UpdateProgress.Value = percent));
         }
         catch (Exception ex)
@@ -228,7 +228,7 @@ public sealed partial class SettingsPage : Page
     {
         try
         {
-            var path = BackupService.CreateBackup(AppServices.Db, AppServices.BudgetDirectory, method: BackupMethod.Manual);
+            var path = BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory, method: BackupMethod.Manual);
             ShowBackupInfo();
             Report($"Backed up to {path}", InfoBarSeverity.Success);
         }
@@ -237,7 +237,7 @@ public sealed partial class SettingsPage : Page
 
     private async void Restore_Click(object sender, RoutedEventArgs e)
     {
-        var backups = BackupService.List(AppServices.BudgetDirectory);
+        var backups = BackupService.List(AppServices.DataDirectory);
         if (backups.Count == 0) { Report("There are no backups to restore yet.", InfoBarSeverity.Informational); return; }
 
         var list = new ListView { SelectionMode = ListViewSelectionMode.Single, MaxHeight = 360 };
@@ -275,7 +275,7 @@ public sealed partial class SettingsPage : Page
 
         try
         {
-            BackupService.StageRestore(AppServices.BudgetDirectory, chosen.Path);
+            BackupService.StageRestore(AppServices.DataDirectory, chosen.Path);
             var exe = Environment.ProcessPath;
             if (exe is null) throw new InvalidOperationException("The program could not be found to restart it.");
             Diagnostics.Note($"restore {Path.GetFileName(chosen.Path)}");
@@ -284,14 +284,14 @@ public sealed partial class SettingsPage : Page
         }
         catch (Exception ex)
         {
-            try { File.Delete(BackupService.PendingRestorePath(AppServices.BudgetDirectory)); } catch { }
+            try { File.Delete(BackupService.PendingRestorePath(AppServices.DataDirectory)); } catch { }
             Report($"The restore failed: {ex.Message}", InfoBarSeverity.Error);
         }
     }
 
     private void OpenBackups_Click(object sender, RoutedEventArgs e)
     {
-        var folder = BackupService.BackupsDirectory(AppServices.BudgetDirectory);
+        var folder = BackupService.BackupsDirectory(AppServices.DataDirectory);
         Directory.CreateDirectory(folder);
         Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
     }

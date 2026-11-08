@@ -415,7 +415,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 /// A "Let's start a new month" line in the list, or the heading of the first month, which has no entity and
 /// can't be dragged. The line is a point in time: everything after it belongs to the month it starts.
 /// </summary>
-public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, string label)
+public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, string label, TransactionsViewModel owner)
     : ObservableObject
 {
     public MonthMarkerEntity? Entity { get; } = entity;
@@ -866,10 +866,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var entries = new List<(SortKey Key, int Rank, Guid Id, object Row)>();
         if (showLines)
         {
-            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot)) { LineBelow = SortIndex == 1, StartDate = _budgetStart, StartMonth = _budgetStartMonth };
+            var first = new MarkerRow(null, BudgetEngine.FirstMonthId, BudgetEngine.FirstMonthLabelFor(snapshot), this) { LineBelow = SortIndex == 1, StartDate = _budgetStart, StartMonth = _budgetStartMonth };
             entries.Add((new SortKey(DateOnly.MinValue, int.MinValue), 0, Guid.Empty, first));
             foreach (var m in await _store.GetMarkersAsync())
-                entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label) { LineBelow = SortIndex == 1 }));
+                entries.Add((new SortKey(m.Date, m.DayOrder), 0, m.Id, new MarkerRow(m, m.Id, m.Label, this) { LineBelow = SortIndex == 1 }));
         }
         IReadOnlySet<Guid>? behind = null;
         if (_drill is { } drill)
@@ -1289,6 +1289,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
         return true;
     }
+
+    /// <summary>Budget accounts need an item on every line; tracked accounts may leave lines unassigned.</summary>
+    public bool RequiresItem(TransactionRow row) => false;   // an item is never required; a split can leave lines unassigned too
 
     public Task<List<SplitLineEntity>> GetLinesAsync(TransactionRow row) => _store.GetSplitLinesAsync(row.Entity.Id);
 

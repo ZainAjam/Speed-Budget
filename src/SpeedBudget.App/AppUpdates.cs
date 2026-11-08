@@ -21,13 +21,9 @@ public static class AppUpdates
     public const string DefaultSource = "https://github.com/ZainAjam/Speed-Budget";
 
     public static async Task<string> GetSourceAsync() =>
-        (AppSettings.Get(SourceKey) ?? await AppServices.Store.GetLocalSettingAsync(SourceKey)) is { } saved && !string.IsNullOrWhiteSpace(saved) ? saved : DefaultSource;
+        await AppServices.Store.GetLocalSettingAsync(SourceKey) is { } saved && !string.IsNullOrWhiteSpace(saved) ? saved : DefaultSource;
 
-    public static Task SetSourceAsync(string source)
-    {
-        AppSettings.Set(SourceKey, source.Trim());
-        return Task.CompletedTask;
-    }
+    public static Task SetSourceAsync(string source) => AppServices.Store.SetLocalSettingAsync(SourceKey, source.Trim());
 
     /// <summary>A GitHub repository address uses that repository's Releases, pre-releases included while the app is below 1.0; anything else is a web address or a folder.</summary>
     private static UpdateManager Open(string source)
@@ -43,14 +39,8 @@ public static class AppUpdates
     {
         get
         {
-            // Development runs (a Debug build, or a run on test data) never ask GitHub for updates: every start and every timer tick would count against its rate limit.
-#if DEBUG
-            return false;
-#else
-            if (Environment.GetEnvironmentVariable("SPEEDBUDGET_DATA") is { Length: > 0 }) return false;
             try { return new UpdateManager("https://localhost/none").IsInstalled; }
             catch { return false; }
-#endif
         }
     }
 

@@ -87,6 +87,9 @@ public sealed partial class PayeePicker : UserControl
     /// <summary>Puts the keyboard focus on the picker's button, so Enter or Space opens the list.</summary>
     public void FocusPicker() => PickerButton.Focus(FocusState.Keyboard);
 
+    /// <summary>Opens the list, ready to type in, so a payee can be chosen without touching the mouse.</summary>
+    public void ShowFlyout() => PickerFlyout.ShowAt(PickerButton);
+
     private string WithIcon(string name) =>
         Icons is not null && Icons.TryGetValue(name, out var icon) && icon != "" ? $"{icon} {name}" : name;
 

@@ -17,6 +17,7 @@ public sealed class SplitDialog : ContentDialog
     private int _sign;
     private readonly bool _openEnded;
     private readonly RadioButtons _direction = new() { Header = "This transaction is", MaxColumns = 2 };
+    private readonly bool _requiresItem;
     private readonly StackPanel _lines = new() { Spacing = 8 };
     private readonly TextBlock _remaining = new();
     private readonly TextBlock _error = new() { TextWrapping = TextWrapping.Wrap, Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"] };
@@ -25,7 +26,7 @@ public sealed class SplitDialog : ContentDialog
     /// <summary>Splits a transaction that is already saved; the lines are saved straight to it.</summary>
     public static SplitDialog ForRow(TransactionsViewModel vm, TransactionRow row, IReadOnlyList<SplitLineEntity> existing) =>
         new(vm, $"{row.Payee}   ·   total {AppServices.ToRands(Math.Abs(row.Entity.Amount)):N2}", Math.Abs(row.Entity.Amount),
-            row.Entity.Amount < 0 ? -1 : 1,
+            row.Entity.Amount < 0 ? -1 : 1, vm.RequiresItem(row),
             existing.Select(l => (l.BudgetItemId, l.Amount, l.Memo)).ToList(), lines => vm.SaveSplitsAsync(row, lines));
 
     /// <param name="heading">The line above the split lines: who the transaction is with and its total.</param>
@@ -33,7 +34,7 @@ public sealed class SplitDialog : ContentDialog
     /// <param name="sign">-1 when the money goes out, 1 when it comes in.</param>
     /// <param name="save">Takes the lines (signed) and returns an error sentence, or null when they were accepted.</param>
     /// <param name="openEnded">No total yet: the lines are typed first (with money out or in chosen here) and the total is their sum.</param>
-    public SplitDialog(TransactionsViewModel vm, string heading, long total, int sign,
+    public SplitDialog(TransactionsViewModel vm, string heading, long total, int sign, bool requiresItem,
         IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> existing,
         Func<IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>, Task<string?>> save, bool openEnded = false)
     {
@@ -42,6 +43,7 @@ public sealed class SplitDialog : ContentDialog
         _save = save;
         _sign = sign;
         _total = total;
+        _requiresItem = requiresItem;
 
         Title = "Split transaction";
         Resources["ContentDialogMaxWidth"] = 720.0;
@@ -154,6 +156,7 @@ public sealed class SplitDialog : ContentDialog
             var cents = Cents(amount);
             var itemId = item.SelectedItem?.Id;
             if (cents <= 0) { error = "Every line needs an amount above zero. Remove lines you don't need."; break; }
+            if (_requiresItem && itemId is null) { error = "Choose a budget item for every line."; break; }
             lines.Add((itemId, cents * _sign, string.IsNullOrWhiteSpace(memo.Text) ? null : memo.Text.Trim()));
         }
         error ??= await _save(lines);

@@ -20,63 +20,6 @@ public sealed partial class MainWindow : Window
     private Guid? _accountPage;
     private readonly HashSet<Guid> _trackedAccounts = [];
 
-    // The account sits at the bottom of the left panel, below App Settings. Clicking it opens a menu with the budgets under that
-    // account. Until there are accounts to sign in to, they are the budgets kept on this computer.
-    // The account item sits below App Settings. The panel closes itself when one of its items is invoked, which is wrong for something
-    // that only opens a menu, so the menu is opened on the press itself and the item cannot be invoked while the menu is showing.
-    private readonly NavigationViewItem _accountItem = new() { Tag = "account", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Contact) };
-    private bool _accountMenuOpen;
-    private readonly StackPanel _accountText = new() { VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock _accountBudget = new() { FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
-
-    /// <summary>Shows which budget is open, in the account item and in the title of the window.</summary>
-    private void ShowBudgetName()
-    {
-        var name = AppServices.CurrentBudget.Name;
-        _accountBudget.Text = name;
-        Title = $"Speed Budget - {name}";
-        ToolTipService.SetToolTip(_accountItem, $"On this computer. {name} is open. Click to switch budget, make a new one or sign in.");
-    }
-
-    /// <summary>
-    /// The account menu: the budgets under the account (a tick on the open one; click another to open it), then making and managing
-    /// budgets, then signing in. Signing in and out arrive with cloud sync, so for now that entry only says so.
-    /// </summary>
-    private void ShowAccountMenu()
-    {
-        var menu = new MenuFlyout();
-        // The left panel stays open while the menu is showing, and closes again (if the pointer is not over it) once a choice is made or the menu is dismissed.
-        if (_accountMenuOpen) return;
-        _accountMenuOpen = true;
-        _paneHeld = true;
-        _accountItem.IsHitTestVisible = false;
-        menu.Closed += (_, _) =>
-        {
-            _accountMenuOpen = false;
-            _accountItem.IsHitTestVisible = true;
-            _paneHeld = false;
-            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
-        };
-        menu.Items.Add(new MenuFlyoutItem { Text = "On this computer", IsEnabled = false });
-        foreach (var budget in AppServices.Registry.Budgets)
-        {
-            var id = budget.Id;
-            var item = new MenuFlyoutItem { Text = budget.Name, Icon = new FontIcon { Glyph = id == AppServices.CurrentBudget.Id ? "" : "" } };   // a tick on the open one
-            item.Click += (_, _) => { if (id != AppServices.CurrentBudget.Id) AppServices.SwitchBudget(id); };
-            menu.Items.Add(item);
-        }
-        menu.Items.Add(new MenuFlyoutSeparator());
-        var create = new MenuFlyoutItem { Text = "New budget…", Icon = new SymbolIcon(Symbol.Add) };
-        create.Click += (_, _) => _ = BudgetsDialog.NewAsync(Nav.XamlRoot);
-        var manage = new MenuFlyoutItem { Text = "Manage budgets…", Icon = new SymbolIcon(Symbol.Edit) };
-        manage.Click += (_, _) => _ = BudgetsDialog.ShowAsync(Nav.XamlRoot, ShowBudgetName);
-        menu.Items.Add(create);
-        menu.Items.Add(manage);
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(new MenuFlyoutItem { Text = "Sign in… (coming with cloud sync)", Icon = new SymbolIcon(Symbol.Permissions), IsEnabled = false });
-        menu.ShowAt(_accountItem, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.RightEdgeAlignedBottom });
-    }
-
     public WatcherService Watcher => AppServices.Watcher;
 
     public MainWindow()
@@ -89,10 +32,6 @@ public sealed partial class MainWindow : Window
         var budget = new NavigationViewItem { Content = "Plan your spending", Tag = "budget", Icon = new SymbolIcon(Symbol.Calculator) };
 
         _transactions.Content = HeadingLabel("Transactions");
-        _accountText.Children.Add(_accountBudget);
-        _accountText.Children.Add(new TextBlock { Text = "On this computer", FontSize = 11, Opacity = 0.7 });
-        _accountItem.Content = _accountText;
-        ShowBudgetName();
         Nav.MenuItems.Add(Heading("Budget"));
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
@@ -102,7 +41,6 @@ public sealed partial class MainWindow : Window
         {
             var tag = args.InvokedItemContainer?.Tag as string;
             if (tag == "add-account") _ = AddAccountAsync();
-            else if (tag == "account") ShowAccountMenu();   // from the keyboard; a mouse press has already opened the menu
             else if (tag == "zoom" && !Nav.IsPaneOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
 
@@ -112,8 +50,6 @@ public sealed partial class MainWindow : Window
         Nav.FooterMenuItems.Add(_zoomItem);
         Nav.FooterMenuItems.Add(new NavigationViewItemSeparator());   // a line sets App Settings apart from the zoom
         Nav.FooterMenuItems.Add(new NavigationViewItem { Content = "App Settings", Tag = "settings", Icon = new SymbolIcon(Symbol.Setting) });
-        Nav.FooterMenuItems.Add(_accountItem);
-        _accountItem.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ShowAccountMenu()), true);
 
         // The available balance beside each account follows every change to the data.
         _balanceTimer = DispatcherQueue.CreateTimer();
@@ -177,16 +113,7 @@ public sealed partial class MainWindow : Window
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
-            if (_zoomHold || _paneHeld)
-            {
-                args.Cancel = true;
-                if (_accountMenuOpen)
-                {
-                    // Cancelling the close leaves the panel reporting that it is closed while it is still drawn half shut; opening it again puts it back in one piece.
-                    DispatcherQueue.TryEnqueue(() => { if (!Nav.IsPaneOpen) Nav.IsPaneOpen = true; });
-                }
-                return;
-            }
+            if (_zoomHold || _paneHeld) { args.Cancel = true; return; }
             ShowHeadings(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
@@ -299,7 +226,7 @@ public sealed partial class MainWindow : Window
         try
         {
             UpdateBar.Message = "Downloading the update. Speed Budget will restart when it is ready.";
-            BackupService.CreateBackup(AppServices.Db, AppServices.BudgetDirectory);
+            BackupService.CreateBackup(AppServices.Db, AppServices.DataDirectory);
             await AppUpdates.DownloadAndRestartAsync(info);
         }
         catch (Exception ex)
@@ -395,7 +322,6 @@ public sealed partial class MainWindow : Window
     private void ShowHeadings(bool open)
     {
         foreach (var label in _headingLabels) label.Opacity = open || AppServices.PanelMode == "show" ? 1 : 0;
-        _accountText.Visibility = open || AppServices.PanelMode == "show" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private readonly List<NavigationViewItem> _accountItems = [];
@@ -608,7 +534,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            using var reader = AppServices.OpenReader();
+            using var reader = LocalDatabase.OpenForReading();
             var store = new BudgetStore(reader);
             foreach (var (id, block) in _balanceBlocks.ToList())
                 ShowBalance(block, (await store.GetBalancesAsync(id)).BookBalance);
@@ -625,7 +551,7 @@ public sealed partial class MainWindow : Window
         var balances = new Dictionary<Guid, long>();
         try
         {
-            using var reader = AppServices.OpenReader();
+            using var reader = LocalDatabase.OpenForReading();
             var readStore = new BudgetStore(reader);
             // Budget accounts come first, then tracked ones; within each, in the order the user has dragged them into.
             // Open accounts first (budget accounts, then tracked ones, in the order they were dragged into), closed ones after them.

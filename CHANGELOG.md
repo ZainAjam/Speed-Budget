@@ -4,10 +4,6 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
-## 0.9.21
-
-- **You can now keep several budgets.** The account icon at the bottom of the left panel (below App Settings) opens a menu of your budgets (for now, the ones "On this computer"): click one to open it, or choose New budget or Manage budgets to make, rename or remove one. Each budget has its own accounts, items, transactions and backups. Opening another budget restarts Speed Budget. Your current budget becomes "My budget" the first time you start this version, with its data and backups moved into a folder of its own; nothing in it changes. A removed budget is moved aside, not deleted. Zoom, the left panel's behaviour and the update source are now the same for every budget.
-
 ## 0.9.20
 
 - **Budget items and groups can only be deleted if they have never been used, and nothing is archived any more.** Right-click a budget item or group and choose Delete: if it has budget or transactions on it (or an expected transaction, or sub-items), a message says why straight away, without asking you to confirm anything; only one that has never been used asks for confirmation and is deleted. A group is only deleted if none of its items has been used. An item whose budget was typed and cleared back to zero still counts as unused. Items that an earlier version had hidden are shown again, and the "(archived)" label is gone.
