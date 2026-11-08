@@ -15,10 +15,19 @@ public sealed class HoldDialog : ContentDialog
 
     public long AmountCents => AppServices.ToCents(_amount.Value);
 
+    /// <summary>Holds back some of one income line.</summary>
     public HoldDialog(IncomeCell cell)
+        : this($"Hold {cell.Name} for next month", cell.AvailableCents,
+               $"{Format.Money(cell.AvailableCents)} is available now. Whatever you hold stays out of this month's budget and appears as released income next month.")
     {
-        _available = cell.AvailableCents;
-        Title = $"Hold {cell.Name} for next month";
+    }
+
+    /// <summary>Holds back some of what is available to budget in a month (taken from its income lines).</summary>
+    /// <param name="largest">The most that can be held.</param>
+    public HoldDialog(string title, long largest, string explanation)
+    {
+        _available = largest;
+        Title = title;
         PrimaryButtonText = "Hold";
         CloseButtonText = "Cancel";
         DefaultButton = ContentDialogButton.Primary;
@@ -35,7 +44,7 @@ public sealed class HoldDialog : ContentDialog
                 new TextBlock
                 {
                     TextWrapping = TextWrapping.Wrap, Opacity = 0.8,
-                    Text = $"{Format.Money(_available)} is available now. Whatever you hold stays out of this month's budget and appears as released income next month.",
+                    Text = explanation,
                 },
                 _amount,
             },

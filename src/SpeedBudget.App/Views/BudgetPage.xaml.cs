@@ -489,6 +489,12 @@ public sealed partial class BudgetPage : Page, IReloadable
             var give = new MenuFlyoutItem { Text = "Allocate some of this to a budget item…", Icon = new FontIcon { Glyph = "\uE710" } };
             give.Click += async (_, _) => await AllocateAvailableAsync(cell);
             menu.Items.Add(give);
+
+            // Money that is available now can be set aside so it only becomes available next month.
+            var holdable = ViewModel.HoldableFromAvailable(cell.MonthId, cell.Cents);
+            var hold = new MenuFlyoutItem { Text = "Hold for next month…", Icon = new FontIcon { Glyph = "" }, IsEnabled = holdable > 0 };
+            hold.Click += async (_, _) => await HoldAvailableAsync(cell, holdable);
+            menu.Items.Add(hold);
         }
         else
         {
@@ -526,6 +532,18 @@ public sealed partial class BudgetPage : Page, IReloadable
     {
         if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
         else menu.ShowAt(target);
+    }
+
+    /// <summary>Holds part of a month's available budget for next month: it leaves this month's available budget and appears in the next month's.</summary>
+    private async Task HoldAvailableAsync(SummaryCell cell, long holdable)
+    {
+        var note = holdable < cell.Cents
+            ? $" Only {Format.Money(holdable)} of the {Format.Money(cell.Cents)} available can be held, because the rest did not come from this month's income."
+            : "";
+        var dialog = new HoldDialog("Hold for next month", holdable,
+            $"{Format.Money(cell.Cents)} is available to budget. Whatever you hold leaves this month's available budget and becomes available next month instead.{note}") { XamlRoot = XamlRoot };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        await ViewModel.HoldFromAvailableAsync(cell.MonthId, dialog.AmountCents);
     }
 
     /// <summary>Gives part of a month's available budget to an item: its budgeted amount goes up by that much.</summary>

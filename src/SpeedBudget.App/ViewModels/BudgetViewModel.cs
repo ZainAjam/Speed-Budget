@@ -629,6 +629,37 @@ public sealed partial class BudgetViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>How much of a month's available budget can be held for next month: it comes out of the income lines, so it can't be more than they still have.</summary>
+    public long HoldableFromAvailable(Guid monthId, long available) =>
+        Math.Min(available, Columns.FirstOrDefault(c => c.MonthId == monthId)?.Income.Where(i => i.Line.IsItem).Sum(i => Math.Max(0, i.AvailableCents)) ?? 0);
+
+    /// <summary>
+    /// Holds part of a month's available budget for next month. The amount is taken from the month's income lines, largest first,
+    /// the same as holding each of them by hand. Next month it comes back as released income.
+    /// </summary>
+    public async Task HoldFromAvailableAsync(Guid monthId, long cents)
+    {
+        if (cents <= 0) return;
+        await _gate.WaitAsync();
+        try
+        {
+            var column = Columns.FirstOrDefault(c => c.MonthId == monthId);
+            if (column is null) return;
+            var left = cents;
+            foreach (var income in column.Income.Where(i => i.Line.IsItem && i.AvailableCents > 0).OrderByDescending(i => i.AvailableCents))
+            {
+                if (left <= 0) break;
+                var take = Math.Min(left, income.AvailableCents);
+                await _store.SetIncomeHoldAsync(monthId, income.ItemId, income.HeldCents + take);
+                left -= take;
+            }
+            Message = left == 0 ? "" : $"Only {Format.Money(cents - left)} could be held: the rest of what is available is not from this month's income.";
+            await RecalculateAsync();
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>Makes everything held back available to budget this month again.</summary>
     public async Task ReleaseAsync(IncomeCell cell)
     {
