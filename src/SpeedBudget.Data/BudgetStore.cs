@@ -47,10 +47,11 @@ public static class LocalDatabase
         {
             Directory.CreateDirectory(result);
             var readme = Path.Combine(result, "README.txt");
-            if (!File.Exists(readme))
+            // The note from before there were several budgets said the budget was in this folder; it is replaced by the current one.
+            if (!File.Exists(readme) || File.ReadAllText(readme).Contains("your budget is the file budget.db", StringComparison.Ordinal))
                 File.WriteAllLines(readme,
                 [
-                    "This folder holds your Speed Budget data. Each budget has its own folder inside \"budgets\" (the budget itself is the file budget.db) with its backups.",
+                    "This folder holds your Speed Budget data. Each budget has its own folder inside \"budgets\", and the budget itself is the file budget.db in it, next to its backups.",
                     "Please do not delete it. The Speed Budget program itself is kept in the SpeedBudget-App folder next to this one,",
                     "so installing, updating or uninstalling the program never touches this data.",
                 ]);

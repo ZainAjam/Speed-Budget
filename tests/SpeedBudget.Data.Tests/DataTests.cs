@@ -1007,6 +1007,26 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public void The_readme_from_before_there_were_several_budgets_is_brought_up_to_date_and_a_changed_one_is_left_alone()
+    {
+        var local = Directory.CreateTempSubdirectory("sb-local").FullName;
+        try
+        {
+            var folder = Directory.CreateDirectory(Path.Combine(local, "SpeedBudget-Data")).FullName;
+            var readme = Path.Combine(folder, "README.txt");
+            File.WriteAllText(readme, "This folder holds your Speed Budget data (your budget is the file budget.db) and its backups.");
+
+            LocalDatabase.ResolveDirectory(local);
+            Assert.Contains("\"budgets\"", File.ReadAllText(readme));
+
+            File.WriteAllText(readme, "my own note");
+            LocalDatabase.ResolveDirectory(local);
+            Assert.Equal("my own note", File.ReadAllText(readme));
+        }
+        finally { Directory.Delete(local, recursive: true); }
+    }
+
+    [Fact]
     public async Task Balances_cover_one_account_or_all_of_them()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true, openingBalance: 1_000_00);
