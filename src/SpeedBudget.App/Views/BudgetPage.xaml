@@ -258,7 +258,7 @@
                             IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}" AutomationProperties.Name="Later months" ToolTipService.ToolTip="Later months" />
                     <Grid Width="36">
                         <Button Visibility="{x:Bind ViewModel.ShowJumpToCurrent, Mode=OneWay}" Click="JumpToCurrent_Click" Padding="8"
-                                AutomationProperties.Name="Back to the current month" ToolTipService.ToolTip="Back to the current month">
+                                AutomationProperties.Name="Back to the month being recorded" ToolTipService.ToolTip="Back to the month transactions are being recorded for">
                             <FontIcon Glyph="&#xE787;" FontSize="14" />
                         </Button>
                     </Grid>

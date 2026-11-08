@@ -394,11 +394,8 @@ public sealed partial class BudgetViewModel : ObservableObject
             // Open on the latest real month, with the planned months after it, rather than on the far future.
             if (_firstLoad)
             {
-                // Open on the current calendar month when the budget has one, else on the latest month that has a line.
-                var current = MonthLabels.For(DateOnly.FromDateTime(DateTime.Today));
-                var list = _months.ToList();
-                var index = list.FindIndex(m => m.Label == current);
-                _start = index >= 0 ? index : list.FindLastIndex(m => !m.IsPlanned);
+                // Open on the month transactions are being recorded for now: the latest month that has started (the one after the last month line).
+                _start = Math.Max(0, RecordingMonthIndex);
                 _firstLoad = false;
             }
             _start = Math.Clamp(_start, 0, MaxStart);
@@ -453,12 +450,23 @@ public sealed partial class BudgetViewModel : ObservableObject
         RebuildColumns();
     }
 
-    private static string CurrentMonthLabel => MonthLabels.For(DateOnly.FromDateTime(DateTime.Today));
+    /// <summary>
+    /// The month new transactions are being recorded for: the latest one that has been started (anything after the last month line
+    /// belongs to it). Months after it are only planned. -1 when there are no months.
+    /// </summary>
+    private int RecordingMonthIndex => _months.ToList().FindLastIndex(m => !m.IsPlanned);
 
     private int IndexOfMonth(string label) => _months.ToList().FindIndex(m => m.Label == label);
 
-    /// <summary>Brings the current calendar month to the leftmost column. False if the budget has no such month.</summary>
-    public bool JumpToCurrentMonth() => JumpToMonth(DateOnly.FromDateTime(DateTime.Today));
+    /// <summary>Brings the month transactions are being recorded for to the leftmost column.</summary>
+    public bool JumpToCurrentMonth()
+    {
+        var index = RecordingMonthIndex;
+        if (index < 0) return false;
+        _start = Math.Clamp(index, 0, MaxStart);
+        RebuildColumns();
+        return true;
+    }
 
     /// <summary>Brings the given calendar month to the leftmost column. False if the budget does not (yet) include that month.</summary>
     public bool JumpToMonth(DateOnly month)
@@ -489,7 +497,7 @@ public sealed partial class BudgetViewModel : ObservableObject
 
         CanGoBack = _start > 0 || CanAddEarlierMonth;
         CanGoForward = _start < MaxStart;
-        var currentAt = IndexOfMonth(CurrentMonthLabel);
+        var currentAt = RecordingMonthIndex;
         ShowJumpToCurrent = currentAt >= 0 && _start != Math.Clamp(currentAt, 0, MaxStart);
         RangeText = Columns.Count == 0 ? "" : Columns.Count == 1 ? Columns[0].Label : $"{Columns[0].Label} to {Columns[^1].Label}";
         ApplyVisibility();
