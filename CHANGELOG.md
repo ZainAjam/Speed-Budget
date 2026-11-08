@@ -6,7 +6,7 @@ into the release.
 
 ## 0.9.21
 
-- **You can now keep several budgets.** Your budgets are listed under the account at the top of the left panel (for now, "On this computer"): click one to open it, or choose New budget or Manage budgets to make, rename or remove one. Each budget has its own accounts, items, transactions and backups. Opening another budget restarts Speed Budget. Your current budget becomes "My budget" the first time you start this version, with its data and backups moved into a folder of its own; nothing in it changes. A removed budget is moved aside, not deleted. Zoom, the left panel's behaviour and the update source are now the same for every budget.
+- **You can now keep several budgets.** The account icon at the bottom of the left panel (below App Settings) opens a menu of your budgets (for now, the ones "On this computer"): click one to open it, or choose New budget or Manage budgets to make, rename or remove one. Each budget has its own accounts, items, transactions and backups. Opening another budget restarts Speed Budget. Your current budget becomes "My budget" the first time you start this version, with its data and backups moved into a folder of its own; nothing in it changes. A removed budget is moved aside, not deleted. Zoom, the left panel's behaviour and the update source are now the same for every budget.
 
 ## 0.9.20
 

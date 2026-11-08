@@ -17,6 +17,12 @@ Decided with Zain on 8 Nov 2026. Nothing here is built yet. This replaces the "M
 - `AppServices` opens and closes the database and store per budget instead of once for the whole run.
 - **Migration:** the first launch of the new version moves the current database and backups into `budgets\<new id>\` as "My budget". The data is untouched, so existing row stamps keep working for sync.
 
+### Account menu (bottom-left of the side panel, below App Settings)
+- **Signed out:** the budgets on this computer, New budget, Manage budgets, and **Sign in**. Local budgets stay usable offline.
+- **Signed in:** the account's name and email, the budgets it can open (**owned** and **shared with me**, each marked), **New budget** (local or in the cloud), and **Sign out**.
+- **Switching user** is signing out, then signing in as someone else. Signing out forgets that account's keys and sign-in token on this computer; budgets already downloaded stay on disk but can only be opened by that account again.
+- Built now: the icon, the menu and the budget list. The Sign in entry is disabled until the sync service exists (step 2).
+
 ## 2. Accounts and keys (option A: the password unlocks everything)
 - From the password, the app derives two things with Argon2id (slow on purpose), using different salts:
   1. a **sign-in code** sent to the server; the server stores only a hash of it;
