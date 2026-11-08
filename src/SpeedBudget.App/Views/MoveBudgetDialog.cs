@@ -16,13 +16,9 @@ public sealed record BudgetChoice(Guid ItemId, string Label, long LeftCents)
 /// </summary>
 public sealed class MoveBudgetDialog : ContentDialog
 {
-    // Type to narrow the list down, or pick from it.
-    private readonly AutoSuggestBox _item = new()
-    {
-        HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Type to search, or choose from the list",
-        DisplayMemberPath = nameof(BudgetChoice.Display), TextMemberPath = nameof(BudgetChoice.Label),
-    };
-    private IReadOnlyList<BudgetChoice> _all = [];
+    // A drop-down with a search box inside it, and what is left on each item shown on the right (green when there is money left).
+    private readonly ItemPicker _item = new() { AllowCreate = false, ValueOverride = "Choose a budget item" };
+    private readonly Dictionary<Guid, BudgetChoice> _byId = [];
     private BudgetChoice? _chosen;
     private readonly NumberBox _amount = new() { Header = "Amount (R)", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden };
     private readonly TextBlock _limit = new() { Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
@@ -47,54 +43,22 @@ public sealed class MoveBudgetDialog : ContentDialog
         IsPrimaryButtonEnabled = false;
 
         _item.Header = itemHeader;
-        _all = choices;
-        _item.ItemsSource = choices;
-        Money.Apply(_amount);
-
-        // The list opens when the box is clicked or Down is pressed, not when the dialog appears.
-        void ShowAll()
+        foreach (var c in choices) _byId[c.ItemId] = c;
+        _item.ItemsSource = choices.Select(c => new ItemOption(c.ItemId, c.Label, null, null, c.Label, c.Label) { Balance = c.LeftCents }).ToList();
+        _item.RegisterPropertyChangedCallback(ItemPicker.SelectedItemProperty, (_, _) =>
         {
-            if (_chosen is not null || _item.Text.Trim() != "") return;
-            _item.ItemsSource = _all;
-            _item.IsSuggestionListOpen = true;
-        }
-        _item.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, _) => ShowAll()), true);
-        _item.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
-        {
-            if (e.Key == Windows.System.VirtualKey.Down) ShowAll();
-        }), true);
-        _item.TextChanged += (s, e) =>
-        {
-            if (e.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
-            _chosen = null;
-            var text = s.Text.Trim();
-            _item.ItemsSource = text == "" ? _all : _all.Where(c => c.Label.Contains(text, StringComparison.CurrentCultureIgnoreCase)).ToList();
-            Validate();
-        };
-        _item.SuggestionChosen += (_, e) => { _chosen = e.SelectedItem as BudgetChoice; ChoiceChanged(); };
-        // Enter on what was typed picks the first match.
-        _item.QuerySubmitted += (_, e) =>
-        {
-            var pick = e.ChosenSuggestion as BudgetChoice ?? (_item.ItemsSource as IEnumerable<BudgetChoice>)?.FirstOrDefault();
-            if (pick is null) return;
-            _chosen = pick;
-            _item.Text = pick.Label;
+            _chosen = _item.SelectedItem?.Id is { } id && _byId.TryGetValue(id, out var picked) ? picked : null;
+            _item.ValueOverride = "";
             ChoiceChanged();
-        };
+        });
+        Money.Apply(_amount);
         _amount.ValueChanged += (_, _) => Validate();
 
         var body = new StackPanel
         {
-            Spacing = 12, MinWidth = 420, Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Spacing = 12, MinWidth = 420,
             Children = { new TextBlock { Text = intro, TextWrapping = TextWrapping.Wrap, Opacity = 0.8 }, _item, _amount, _limit },
         };
-        // Pressing anywhere else in the dialog closes the open list (the list itself sits outside this panel).
-        body.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler((_, e) =>
-        {
-            for (var node = e.OriginalSource as DependencyObject; node is not null; node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
-                if (node == _item) return;
-            _item.IsSuggestionListOpen = false;
-        }), true);
         Content = body;
         if (choices.Count == 0)
             _limit.Text = "There is no other budget item this can be used with.";

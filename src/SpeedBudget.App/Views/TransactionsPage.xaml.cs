@@ -507,11 +507,26 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (row.IsNew) return;   // a row still being added has its own tick and bin
 
         var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" }, IsEnabled = !row.IsEditing };
-        edit.Click += (_, _) => ViewModel.BeginEdit(row);
         var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
         delete.Click += async (_, _) => await DeleteRowAsync(row);
-        menu.Items.Add(edit);
+        if (row.IsEditing)
+        {
+            // A row being edited offers to save it (the same as the tick on the row), instead of Edit.
+            var save = new MenuFlyoutItem { Text = "Save", Icon = new FontIcon { Glyph = "\uE73E" } };
+            save.Click += (_, _) =>
+            {
+                if (!ReferenceEquals(row, ViewModel.Selected)) return;
+                EntryList.Focus(FocusState.Programmatic);   // the box being typed in hands over what was typed
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+            };
+            menu.Items.Add(save);
+        }
+        else
+        {
+            var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
+            edit.Click += (_, _) => ViewModel.BeginEdit(row);
+            menu.Items.Add(edit);
+        }
         menu.Items.Add(delete);
 
         if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);

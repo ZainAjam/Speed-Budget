@@ -4,6 +4,11 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.20
+
+- **Right-click a transaction that is being edited** and the menu now offers **Save** and **Delete** (instead of Edit and Delete), so you can save it without reaching for the tick.
+- **Moving or covering budget (right-click a Left figure on the Budget screen):** the "Move it to" and "Take it from" boxes are now ordinary drop-downs with the search inside the list. Beside each item the list shows what is left on it, in green when there is money left.
+
 ## 0.9.19
 
 - **Even table lines at every zoom.** Every line between rows and between columns in the transactions table is now one screen pixel wide and the same brightness as at 100%, at every zoom level (before, some looked thicker or bolder than others).
