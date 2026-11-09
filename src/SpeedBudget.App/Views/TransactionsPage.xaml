@@ -233,8 +233,8 @@
         </Grid>
         </local:ShrinkBox>
 
-        <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, this area scrolls sideways. -->
-        <local:ZoomBox Grid.Row="3">
+        <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, the whole table shrinks to fit (down to half size; below that, this area scrolls sideways). -->
+        <local:ZoomBox Grid.Row="3" NaturalWidth="{x:Bind Layout.FixedTotal, Mode=OneWay}">
         <ScrollViewer x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
         <Grid x:Name="TableRegion">
