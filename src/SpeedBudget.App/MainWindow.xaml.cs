@@ -628,7 +628,7 @@ public sealed partial class MainWindow : Window
         var choices = new List<PinChoice>();
         foreach (var group in groups)
             foreach (var item in items.Where(i => i.GroupId == group.Id && !i.IsPinned))
-                choices.Add(new PinChoice(item.Id, $"{group.Name} › {item.DisplayName}    {Format.Money(left.GetValueOrDefault(item.Id))}"));
+                choices.Add(new PinChoice(item.Id, item.DisplayName, left.GetValueOrDefault(item.Id)));
 
         var dialog = new PinItemDialog(choices) { XamlRoot = Nav.XamlRoot };
         await dialog.ShowAsync();
