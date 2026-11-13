@@ -1467,4 +1467,19 @@ public sealed class DataTests : IDisposable
         Assert.Equal(new DateOnly(2027, 3, 31), left.Single(e => e.Payee == "Rent").ExpectedDate);   // back on the 31st
         Assert.Equal(0, await _store.RecordDueExpectedAsync(new DateOnly(2027, 3, 15)));   // nothing is recorded twice
     }
+
+    [Fact]
+    public async Task Watcher_strip_keeps_the_order_items_were_dragged_into()
+    {
+        var a = AddItem("Rent", ItemKind.Expense);
+        var b = AddItem("Fuel", ItemKind.Expense);
+        var c = AddItem("Food", ItemKind.Expense);
+        await _store.SetPinnedAsync(b.Id, true);
+        await _store.SetPinnedAsync(a.Id, true);
+        await _store.SetPinnedAsync(c.Id, true);
+        Assert.Equal([b.Id, a.Id, c.Id], await _store.GetPinnedItemIdsAsync());   // newest pins go last
+
+        await _store.SetPinOrderAsync([c.Id, a.Id, b.Id]);
+        Assert.Equal([c.Id, a.Id, b.Id], await _store.GetPinnedItemIdsAsync());
+    }
 }

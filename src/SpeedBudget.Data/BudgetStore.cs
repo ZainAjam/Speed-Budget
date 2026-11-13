@@ -356,16 +356,27 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         var item = await db.Items.SingleAsync(i => i.Id == itemId, ct);
         if (item.IsPinned == pinned) return;
         item.IsPinned = pinned;
+        // A newly pinned item goes at the end of the strip.
+        if (pinned) item.PinOrder = (await db.Items.Where(i => i.IsPinned).Select(i => (int?)i.PinOrder).MaxAsync(ct) ?? 0) + 1;
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>Ids of items pinned to the watcher strip, in the order they were set up.</summary>
+    /// <summary>Puts the items on the watcher strip in the given order (the order they were dragged into).</summary>
+    public async Task SetPinOrderAsync(IReadOnlyList<Guid> itemIds, CancellationToken ct = default)
+    {
+        var items = await db.Items.Where(i => itemIds.Contains(i.Id)).ToListAsync(ct);
+        for (var n = 0; n < itemIds.Count; n++)
+            if (items.FirstOrDefault(i => i.Id == itemIds[n]) is { } item && item.PinOrder != n + 1) item.PinOrder = n + 1;
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>The watcher strip shows at most this many budget items.</summary>
     public const int MaxPinnedItems = 5;
 
+    /// <summary>Ids of items pinned to the watcher strip, in the order they were dragged into (new ones last).</summary>
     public async Task<List<Guid>> GetPinnedItemIdsAsync(CancellationToken ct = default) =>
         await db.Items.AsNoTracking().Where(i => i.IsPinned && i.Kind == ItemKind.Expense)
-            .OrderBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => i.Id).Take(MaxPinnedItems).ToListAsync(ct);
+            .OrderBy(i => i.PinOrder).ThenBy(i => i.SortOrder).ThenBy(i => i.Name).Select(i => i.Id).Take(MaxPinnedItems).ToListAsync(ct);
 
     /// <summary>Replaces a transaction's split lines. They must add up to the transaction's amount.</summary>
     public async Task SetSplitsAsync(Guid transactionId, IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)> lines, CancellationToken ct = default)

@@ -258,6 +258,9 @@ namespace SpeedBudget.Data.Migrations
                     b.Property<int>("PaymentMethod")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("PinOrder")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ReportHeading")
                         .HasColumnType("TEXT");
 

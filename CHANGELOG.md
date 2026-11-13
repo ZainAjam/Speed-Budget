@@ -7,6 +7,7 @@ into the release.
 ## 0.9.21
 
 - **Expected transactions can now have a date.** When you add one in the Expected transactions panel under a bank account, a new **When** box lets you choose **Unknown future date** (it stays on the list until you press the tick and give the date it happened), **Specific future date** (it is added to the transactions table by itself on that day), or **Specific recurring future date** (it is added by itself every week, two weeks, month, three months or year, and then moves on to its next date). The list shows when each one is due. If the app was not open on the day, whatever was due is added, on its own date, the next time you open it. For a repeating one that starts on the 29th, 30th or 31st, shorter months use their last day and it goes back to the original day after.
+- **The watcher strip can be put in your own order.** Press an item on the strip and drag it to a different place; the order is remembered. Pressing an item still opens it on the Budget screen, and right-clicking still removes it. New items go at the end.
 
 ## 0.9.20
 

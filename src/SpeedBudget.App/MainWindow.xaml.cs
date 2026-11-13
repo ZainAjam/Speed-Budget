@@ -635,6 +635,13 @@ public sealed partial class MainWindow : Window
         if (dialog.Chosen is { } itemId) await store.SetPinnedAsync(itemId, true);
     }
 
+    /// <summary>A chip was dragged to a new place: remember the order the strip is now in.</summary>
+    private async void ChipList_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        try { await AppServices.Store.SetPinOrderAsync(Watcher.Chips.Select(c => c.ItemId).ToList()); }
+        catch { /* the strip keeps the order it shows until the next refresh */ }
+    }
+
     /// <summary>Right-click (or the menu key) on a chip: offer to take it off the strip.</summary>
     private void Chip_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
@@ -653,7 +660,7 @@ public sealed partial class MainWindow : Window
     private bool _suppressSelection;
 
     /// <summary>A pinned-item chip was pressed: show that item on the Budget screen, in the current month.</summary>
-    private void Chip_Click(object sender, RoutedEventArgs e)
+    private void Chip_Tapped(object sender, TappedRoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.Tag is Guid itemId) NavigateTo("budget", itemId);
     }

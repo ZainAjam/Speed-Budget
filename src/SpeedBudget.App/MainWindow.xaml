@@ -31,27 +31,40 @@
                 <!-- The chips shrink together to fit a narrow window, and keep their places (see ShrinkBox). -->
                 <views:ShrinkBox>
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ItemsControl x:Name="ChipList" ItemsSource="{x:Bind Watcher.Chips}">
-                            <ItemsControl.ItemsPanel>
+                        <ListView x:Name="ChipList" ItemsSource="{x:Bind Watcher.Chips}" SelectionMode="None" CanReorderItems="True" AllowDrop="True" CanDragItems="True"
+                                  IsItemClickEnabled="False" DragItemsCompleted="ChipList_DragItemsCompleted"
+                                  ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled" Padding="0">
+                            <ListView.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" Spacing="8" />
                                 </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
+                            </ListView.ItemsPanel>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="MinWidth" Value="0" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="app:WatcherChip">
                                     <!-- Pressing a chip opens that item on the Budget screen; right-click removes it from the strip. -->
-                                    <Button Click="Chip_Click" ContextRequested="Chip_ContextRequested" Tag="{x:Bind ItemId}" Padding="12,6" CornerRadius="14"
+                                    <!-- A Border rather than a Button, so that pressing and dragging it moves it instead of the button taking the press. -->
+                                    <Border Tapped="Chip_Tapped" ContextRequested="Chip_ContextRequested" Tag="{x:Bind ItemId}" Padding="12,6" CornerRadius="14"
                                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                            ToolTipService.ToolTip="Show this item in the budget. Right-click to remove it from this strip.">
+                                            ToolTipService.ToolTip="Show this item in the budget. Drag to put it in a different place, or right-click to remove it from this strip.">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <TextBlock Text="{x:Bind Name}" Opacity="0.8" VerticalAlignment="Center" />
                                             <TextBlock Text="{x:Bind RemainingText}" Foreground="{x:Bind Brush}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
                                         </StackPanel>
-                                    </Button>
+                                    </Border>
                                 </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                            </ListView.ItemTemplate>
+                        </ListView>
                         <!-- Offered until the strip holds three items. -->
                         <Button x:Name="AddChipButton" Click="AddChip_Click" Padding="12,6" CornerRadius="14"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
