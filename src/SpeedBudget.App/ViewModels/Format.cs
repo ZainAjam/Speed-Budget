@@ -5,6 +5,8 @@ namespace SpeedBudget.App.ViewModels;
 
 internal static class Format
 {
+    public static string Date(DateOnly? date) => date?.ToString("d MMM yyyy", System.Globalization.CultureInfo.CurrentCulture) ?? "";
+
     public static string Money(long cents) => AppServices.ToRands(cents).ToString("N2");
 
     public static Brush Theme(string key) => (Brush)Application.Current.Resources[key];

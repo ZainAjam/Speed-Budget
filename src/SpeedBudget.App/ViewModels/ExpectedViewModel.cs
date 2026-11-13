@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Media;
+using SpeedBudget.Core;
 using SpeedBudget.Data;
 
 namespace SpeedBudget.App.ViewModels;
@@ -16,6 +17,26 @@ public sealed class ExpectedRow(ExpectedTransactionEntity entity, ExpectedViewMo
     public string ItemText => Entity.BudgetItemId is { } id ? owner.Owner.ItemOptions.FirstOrDefault(o => o.Id == id)?.Label ?? "" : "";
     public string OutflowText => Entity.Amount < 0 ? Format.Money(-Entity.Amount) : "";
     public string InflowText => Entity.Amount > 0 ? Format.Money(Entity.Amount) : "";
+    public bool IsDated => Entity.Kind != ExpectedKind.Someday;
+
+    /// <summary>Which of the three kinds it is, and when: "Some day", "On 12 Dec 2026", "Every month, next 25 Dec 2026".</summary>
+    public string WhenText => Entity.Kind switch
+    {
+        ExpectedKind.Once => $"On {Format.Date(Entity.ExpectedDate)}",
+        ExpectedKind.Repeating => $"{ExpectedSchedule.Describe(Entity.Repeat)}, next {Format.Date(Entity.ExpectedDate)}",
+        _ => "Some day",
+    };
+
+    public string WhenTip => Entity.Kind switch
+    {
+        ExpectedKind.Once => "Recorded automatically on this date.",
+        ExpectedKind.Repeating => "Recorded automatically on each of these dates.",
+        _ => "No date: press the tick when it happens.",
+    };
+
+    /// <summary>A calendar for the two that are recorded by themselves, a repeat arrow for the repeating, a clock for those with no date.</summary>
+    public string WhenGlyph => Entity.Kind switch { ExpectedKind.Once => "", ExpectedKind.Repeating => "", _ => "" };
+
     public Brush OutflowBrush => Format.Theme("SystemFillColorCriticalBrush");
     public Brush InflowBrush => Format.Theme("SystemFillColorSuccessBrush");
 }
@@ -42,10 +63,31 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
     [ObservableProperty] public partial double FormOutflow { get; set; } = double.NaN;
     [ObservableProperty] public partial double FormInflow { get; set; } = double.NaN;
     [ObservableProperty] public partial ItemOption? FormItem { get; set; }
+    [ObservableProperty] public partial int FormKind { get; set; }   // 0 some day, 1 once, 2 repeating
+    [ObservableProperty] public partial DateTimeOffset? FormDate { get; set; }
+    [ObservableProperty] public partial int FormRepeat { get; set; } = (int)ExpectedRepeat.Monthly;
     [ObservableProperty] public partial string SaveText { get; set; } = "Add";
     [ObservableProperty] public partial string CountText { get; set; } = "Expected transactions";
 
     public bool HasMessage => Message != "";
+    public bool ShowDate => FormKind != 0;
+    public bool ShowRepeat => FormKind == 2;
+    public string DateHeader => FormKind == 2 ? "First date" : "Date";
+    public string[] KindNames { get; } =
+    [
+        "Some day (by hand)",
+        "On a date (automatic)",
+        "Repeating (automatic)",
+    ];
+    public string[] RepeatNames { get; } = Enum.GetValues<ExpectedRepeat>().Select(ExpectedSchedule.Describe).ToArray();
+
+    partial void OnFormKindChanged(int value)
+    {
+        OnPropertyChanged(nameof(ShowDate));
+        OnPropertyChanged(nameof(ShowRepeat));
+        OnPropertyChanged(nameof(DateHeader));
+        if (value != 0 && FormDate is null) FormDate = DateTimeOffset.Now.AddDays(1);
+    }
     public bool CanCancelEdit => _editing is not null;
 
     /// <summary>Expected transactions belong to one account, so there is no flyout when looking at all accounts.</summary>
@@ -94,6 +136,9 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
         FormOutflow = double.NaN;
         FormInflow = double.NaN;
         FormItem = Owner.NoItem;
+        FormKind = 0;
+        FormDate = null;
+        FormRepeat = (int)ExpectedRepeat.Monthly;
         SaveText = "Add";
         Raise();
     }
@@ -108,6 +153,9 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
         FormOutflow = e.Amount < 0 ? (double)AppServices.ToRands(-e.Amount) : double.NaN;
         FormInflow = e.Amount > 0 ? (double)AppServices.ToRands(e.Amount) : double.NaN;
         FormItem = e.BudgetItemId is { } id ? Owner.ItemOptions.FirstOrDefault(o => o.Id == id) ?? Owner.NoItem : Owner.NoItem;
+        FormKind = (int)e.Kind;
+        FormDate = e.ExpectedDate is { } d ? new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue)) : null;
+        FormRepeat = (int)e.Repeat;
         SaveText = "Save";
         Message = "";
         Raise();
@@ -126,6 +174,17 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
 
         Guid? itemId = ShowItem ? FormItem?.Id : null;
 
+        var kind = (ExpectedKind)FormKind;
+        DateOnly? date = null;
+        if (kind != ExpectedKind.Someday)
+        {
+            if (FormDate is not { } picked) { Message = "Choose the date it is expected."; return; }
+            date = DateOnly.FromDateTime(picked.DateTime);
+            // A new dated one must be in the future (today counts): a past date would be recorded the moment it is saved. Changing one that is already due is left alone.
+            if (_editing is null && date < DateOnly.FromDateTime(DateTime.Today)) { Message = "Choose today or a later date, or use 'Some day' for something that has already happened."; return; }
+        }
+        var repeat = (ExpectedRepeat)FormRepeat;
+
         await Owner.Gate.WaitAsync();
         try
         {
@@ -133,6 +192,7 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
             {
                 var e = row.Entity;
                 e.Payee = FormPayee; e.Memo = FormMemo; e.Amount = cents; e.BudgetItemId = itemId;
+                e.Kind = kind; e.ExpectedDate = date; e.Repeat = repeat; e.AnchorDay = date?.Day ?? 0;
                 await _store.UpdateExpectedAsync(e);
             }
             else
@@ -140,6 +200,7 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
                 await _store.AddExpectedAsync(new ExpectedTransactionEntity
                 {
                     AccountId = accountId, Payee = FormPayee, Memo = FormMemo, Amount = cents, BudgetItemId = itemId,
+                    Kind = kind, ExpectedDate = date, Repeat = repeat, AnchorDay = date?.Day ?? 0,
                 });
             }
             if (FormPayee.Trim() != "") await _store.EnsurePayeeAsync(FormPayee);

@@ -696,6 +696,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         await _gate.WaitAsync();
         try
         {
+            try { await _store.RecordDueExpectedAsync(DateOnly.FromDateTime(DateTime.Today)); }
+            catch (Exception ex) { Message = $"Could not record the expected transactions that came due: {ex.Message}"; }
             _accounts = await _store.GetAccountsAsync();
             var groups = await _store.GetGroupsAsync();
             var items = await _store.GetItemsAsync();
@@ -1284,7 +1286,18 @@ public sealed partial class TransactionsViewModel : ObservableObject
         if (!await CommitNewAsync(row)) return false;
 
         await _gate.WaitAsync();
-        try { await _store.DeleteExpectedAsync(expected); }
+        try
+        {
+            // A repeating one stays on the list and moves on to its next date after the date it was recorded on (never backwards).
+            if (expected.Kind == ExpectedKind.Repeating)
+            {
+                var next = expected.ExpectedDate ?? date;
+                while (next <= date) next = ExpectedSchedule.Next(next, expected.Repeat, expected.AnchorDay);
+                expected.ExpectedDate = next;
+                await _store.UpdateExpectedAsync(expected);
+            }
+            else await _store.DeleteExpectedAsync(expected);
+        }
         catch (Exception ex) { Message = $"The transaction was recorded, but it could not be taken off the expected list: {ex.Message}"; return false; }
         finally { _gate.Release(); }
         return true;

@@ -110,6 +110,8 @@ public static class AppServices
         }
         catch { /* the summary just starts open */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
+        try { Store.RecordDueExpectedAsync(DateOnly.FromDateTime(DateTime.Today)).GetAwaiter().GetResult(); }
+        catch { /* anything due is picked up the next time a transactions page opens */ }
         Store.StartRecordingUndo();   // from here on, what the user does can be undone with Ctrl+Z
 
         // The full icon collection downloads once in the background; until then a short built-in list is used.

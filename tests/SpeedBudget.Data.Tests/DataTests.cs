@@ -1440,4 +1440,31 @@ public sealed class DataTests : IDisposable
         Assert.Single(await _store.GetGroupsAsync());      // nothing was deleted
         Assert.Equal(2, (await _store.GetItemsAsync()).Count);   // not even the item that was never used
     }
+
+    [Fact]
+    public async Task Dated_expected_transactions_are_recorded_by_themselves_and_repeating_ones_move_on()
+    {
+        var account = AddAccount("Cheque", true);
+        await _store.AddExpectedAsync(new ExpectedTransactionEntity { AccountId = account.Id, Payee = "Someday", Amount = -100 });
+        await _store.AddExpectedAsync(new ExpectedTransactionEntity { AccountId = account.Id, Payee = "Once", Amount = -200, Kind = ExpectedKind.Once, ExpectedDate = new DateOnly(2027, 3, 10) });
+        await _store.AddExpectedAsync(new ExpectedTransactionEntity { AccountId = account.Id, Payee = "Later", Amount = -300, Kind = ExpectedKind.Once, ExpectedDate = new DateOnly(2027, 3, 16) });
+        await _store.AddExpectedAsync(new ExpectedTransactionEntity
+        {
+            AccountId = account.Id, Payee = "Rent", Amount = -400, Kind = ExpectedKind.Repeating, Repeat = ExpectedRepeat.Monthly,
+            ExpectedDate = new DateOnly(2027, 1, 31), AnchorDay = 31,
+        });
+
+        var added = await _store.RecordDueExpectedAsync(new DateOnly(2027, 3, 15));
+
+        Assert.Equal(3, added);   // the once-off one, and the rent of 31 Jan and 28 Feb
+        var recorded = (await _store.GetTransactionsAsync(account.Id)).Select(t => (t.Transaction.Payee, t.Transaction.Date)).Order().ToList();
+        Assert.Equal(
+            [("Once", new DateOnly(2027, 3, 10)), ("Rent", new DateOnly(2027, 1, 31)), ("Rent", new DateOnly(2027, 2, 28))],
+            recorded);
+
+        var left = await _store.GetExpectedAsync(account.Id);
+        Assert.Equal(["Later", "Rent", "Someday"], left.Select(e => e.Payee).Order());
+        Assert.Equal(new DateOnly(2027, 3, 31), left.Single(e => e.Payee == "Rent").ExpectedDate);   // back on the 31st
+        Assert.Equal(0, await _store.RecordDueExpectedAsync(new DateOnly(2027, 3, 15)));   // nothing is recorded twice
+    }
 }

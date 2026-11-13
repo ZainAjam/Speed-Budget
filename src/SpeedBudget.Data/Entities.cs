@@ -121,8 +121,18 @@ public class ExpectedTransactionEntity : SyncEntity
     public long Amount { get; set; }
     public Guid? BudgetItemId { get; set; }
 
-    /// <summary>When it is expected, if known. Only a guide: the real date is given when it is recorded.</summary>
+    /// <summary>Someday (recorded by hand), Once (recorded by itself on its date) or Repeating (recorded by itself on each date).</summary>
+    public ExpectedKind Kind { get; set; }
+
+    /// <summary>
+    /// The date it is due. For a repeating one, the next date it will be recorded on. Empty for a someday one.
+    /// </summary>
     public DateOnly? ExpectedDate { get; set; }
+
+    public ExpectedRepeat Repeat { get; set; }
+
+    /// <summary>The day of the month a monthly, quarterly or yearly series started on, so a short month does not drag it earlier for good.</summary>
+    public int AnchorDay { get; set; }
 }
 
 public class TransactionEntity : SyncEntity

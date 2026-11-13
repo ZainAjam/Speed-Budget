@@ -107,6 +107,9 @@ namespace SpeedBudget.Data.Migrations
                     b.Property<long>("Amount")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AnchorDay")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid?>("BudgetItemId")
                         .HasColumnType("TEXT");
 
@@ -116,12 +119,18 @@ namespace SpeedBudget.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Memo")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Payee")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Repeat")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("UpdatedAt")
                         .IsRequired()

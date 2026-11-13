@@ -6,7 +6,7 @@ into the release.
 
 ## 0.9.21
 
-- **The transactions table now shrinks to fit a narrow window.** When the window is made narrower, the whole table of a bank account's transactions gets smaller, down to half size, with every column staying in place, instead of needing a sideways scroll. At full width it looks as before.
+- **Expected transactions now come in three kinds.** When you add one in the Expected transactions panel under a bank account, a new **When** box says which kind it is: **Some day (by hand)** for something you expect but cannot date, which stays on the list until you press the tick and give the date it happened; **On a date (automatic)** for something expected on one future date, which is added to the transactions table by itself on that day; and **Repeating (automatic)** for something that comes round every week, two weeks, month, three months or year, which is added by itself on each of those days and then moves on to its next date. The list shows which kind each one is and when it is due. If the app was not open on the day, whatever was due is added, on its own date, the next time you open it. For a repeating one that starts on the 29th, 30th or 31st, shorter months use their last day and it goes back to the original day after.
 
 ## 0.9.20
 

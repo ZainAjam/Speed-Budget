@@ -479,6 +479,48 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// An expected transaction has happened: it becomes a real transaction on the given date and leaves the expected list.
     /// The transaction is saved with its budget item when it has one.
     /// </summary>
+    /// <summary>
+    /// Records every dated expected transaction that has come due (on or before <paramref name="today"/>) as a real transaction on its
+    /// date. A once-off one then leaves the list; a repeating one moves on to its next date, and if several dates were missed (the app
+    /// was not opened) each is recorded on its own date. Housekeeping, so it cannot be undone. Returns how many transactions were added.
+    /// </summary>
+    public async Task<int> RecordDueExpectedAsync(DateOnly today, CancellationToken ct = default)
+    {
+        var due = await db.Expected.Where(e => e.Kind != ExpectedKind.Someday && e.ExpectedDate != null).ToListAsync(ct);
+        due = due.Where(e => e.ExpectedDate <= today).ToList();
+        if (due.Count == 0) return 0;
+
+        var recording = db.Undo.Recording;
+        db.Undo.Recording = false;
+        var added = 0;
+        try
+        {
+            foreach (var e in due)
+            {
+                if (!await db.Accounts.AnyAsync(a => a.Id == e.AccountId, ct)) continue;
+                var guard = 0;
+                while (e.ExpectedDate is { } date && date <= today && guard++ < 1000)
+                {
+                    await using var scope = await db.Database.BeginTransactionAsync(ct);
+                    var transaction = new TransactionEntity
+                    {
+                        AccountId = e.AccountId, Date = date, Payee = e.Payee, Memo = e.Memo, Amount = e.Amount,
+                        DayOrder = await NextDayOrderAsync(date, ct),
+                    };
+                    await AddTransactionAsync(transaction, [new SplitLineEntity { BudgetItemId = e.BudgetItemId, Amount = e.Amount }], ct);
+                    if (e.Kind == ExpectedKind.Repeating) e.ExpectedDate = ExpectedSchedule.Next(date, e.Repeat, e.AnchorDay);
+                    else db.Expected.Remove(e);
+                    await db.SaveChangesAsync(ct);
+                    await scope.CommitAsync(ct);
+                    added++;
+                    if (e.Kind != ExpectedKind.Repeating) break;
+                }
+            }
+        }
+        finally { db.Undo.Recording = recording; }
+        return added;
+    }
+
     public async Task<TransactionEntity> RecordExpectedAsync(ExpectedTransactionEntity expected, DateOnly date, int? dayOrder = null, CancellationToken ct = default)
     {
         var transaction = new TransactionEntity
