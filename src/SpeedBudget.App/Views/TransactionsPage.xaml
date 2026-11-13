@@ -337,7 +337,7 @@
                     <StackPanel Spacing="2">
                         <TextBlock Text="{x:Bind ViewModel.Expected.CountText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
-                                   Text="Things you expect that have not happened yet. They do not change any balance or budget. Some day: press the tick when it happens. On a date or repeating: it is recorded by itself on the day." />
+                                   Text="Things you expect that have not happened yet. They do not change any balance or budget. When one has no known date, press the tick when it happens and give the date." />
                     </StackPanel>
                     <Button Grid.Column="1" Click="ExpectedToggle_Click" Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
                             AutomationProperties.Name="Close expected transactions" ToolTipService.ToolTip="Close">

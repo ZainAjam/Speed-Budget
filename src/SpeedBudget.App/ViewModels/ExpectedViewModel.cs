@@ -24,7 +24,7 @@ public sealed class ExpectedRow(ExpectedTransactionEntity entity, ExpectedViewMo
     {
         ExpectedKind.Once => $"On {Format.Date(Entity.ExpectedDate)}",
         ExpectedKind.Repeating => $"{ExpectedSchedule.Describe(Entity.Repeat)}, next {Format.Date(Entity.ExpectedDate)}",
-        _ => "Some day",
+        _ => "Unknown future date",
     };
 
     public string WhenTip => Entity.Kind switch
@@ -75,9 +75,9 @@ public sealed partial class ExpectedViewModel(TransactionsViewModel owner) : Obs
     public string DateHeader => FormKind == 2 ? "First date" : "Date";
     public string[] KindNames { get; } =
     [
-        "Some day (by hand)",
-        "On a date (automatic)",
-        "Repeating (automatic)",
+        "Unknown future date",
+        "Specific future date",
+        "Specific recurring future date",
     ];
     public string[] RepeatNames { get; } = Enum.GetValues<ExpectedRepeat>().Select(ExpectedSchedule.Describe).ToArray();
 
