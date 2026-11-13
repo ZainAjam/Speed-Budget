@@ -316,10 +316,9 @@
 
             <!-- Expected transactions: a flyout that rises from the bar along the bottom. Things that are coming but have not happened yet are kept
                  here, and each moves into the table, with the date it happened, when it does. -->
-            <Grid x:Name="ExpectedHost" Grid.Row="3" Grid.RowSpan="2" VerticalAlignment="Bottom" Height="400" Margin="-32,0,-32,-24" Padding="32,16,32,16"
+            <Grid x:Name="ExpectedHost" Grid.Row="3" Grid.RowSpan="2" VerticalAlignment="Bottom" Height="340" Margin="-32,0,-32,-24" Padding="32,16,32,16"
                   Visibility="Collapsed" RowSpacing="10">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -327,8 +326,8 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <!-- The panel's solid background is a shape of its own: a Grid's or Border's own Background lets the table show through at some zoom levels below 100%. -->
-                <Rectangle Grid.RowSpan="6" Margin="-32,-16,-32,-16" Fill="{ThemeResource SolidBackgroundFillColorSecondaryBrush}" RadiusX="8" RadiusY="8" IsHitTestVisible="False" />
-                <Border Grid.RowSpan="6" Margin="-32,-16,-32,-16" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" CornerRadius="8,8,0,0" IsHitTestVisible="False" />
+                <Rectangle Grid.RowSpan="5" Margin="-32,-16,-32,-16" Fill="{ThemeResource SolidBackgroundFillColorSecondaryBrush}" RadiusX="8" RadiusY="8" IsHitTestVisible="False" />
+                <Border Grid.RowSpan="5" Margin="-32,-16,-32,-16" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" CornerRadius="8,8,0,0" IsHitTestVisible="False" />
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -349,10 +348,11 @@
                 <!-- Headings, then the boxes for a new expected transaction, then the list. All three share the same columns. -->
                 <Grid Grid.Row="2" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="190" />
                             <ColumnDefinition Width="*" MinWidth="120" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="245" />
+                            <ColumnDefinition Width="285" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="170" />
@@ -361,16 +361,17 @@
                     <TextBlock Grid.Column="1" Text="Memo" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Grid.Column="2" Text="Budget item" Width="200" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
                                Visibility="{x:Bind ViewModel.Expected.ShowItem, Mode=OneWay}" />
-                    <TextBlock Grid.Column="3" Text="When" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="4" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="5" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="When" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock Grid.Column="5" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock Grid.Column="6" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                 </Grid>
                 <Grid Grid.Row="3" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="190" />
                             <ColumnDefinition Width="*" MinWidth="120" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="245" />
+                            <ColumnDefinition Width="285" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="170" />
@@ -383,22 +384,22 @@
                                       Visibility="{x:Bind ViewModel.Expected.ShowItem, Mode=OneWay}" />
                     <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Expected.KindNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormKind, Mode=TwoWay}"
                               AutomationProperties.Name="When it is expected" />
-                    <NumberBox Grid.Column="4" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormOutflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+                        <CalendarDatePicker Width="125" Date="{x:Bind ViewModel.Expected.FormDate, Mode=TwoWay}" PlaceholderText="Date" DateFormat="{}{day.integer} {month.abbreviated} {year.full}"
+                                            Visibility="{x:Bind ViewModel.Expected.ShowDate, Mode=OneWay}" AutomationProperties.Name="Expected date" />
+                        <ComboBox Width="150" ItemsSource="{x:Bind ViewModel.Expected.RepeatNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormRepeat, Mode=TwoWay}"
+                                  Visibility="{x:Bind ViewModel.Expected.ShowRepeat, Mode=OneWay}" AutomationProperties.Name="How often it repeats" />
+                    </StackPanel>
+                    <NumberBox Grid.Column="5" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormOutflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
                                PlaceholderText="0.00" AutomationProperties.Name="Outflow" />
-                    <NumberBox Grid.Column="5" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormInflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
+                    <NumberBox Grid.Column="6" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormInflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
                                PlaceholderText="0.00" AutomationProperties.Name="Inflow" />
-                    <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="8">
+                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="8">
                         <Button Content="{x:Bind ViewModel.Expected.SaveText, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" Click="ExpectedSave_Click" />
                         <Button Content="Cancel" Click="ExpectedCancel_Click" Visibility="{x:Bind ViewModel.Expected.CanCancelEdit, Mode=OneWay}" />
                     </StackPanel>
                 </Grid>
-                <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.Expected.ShowDate, Mode=OneWay}">
-                    <CalendarDatePicker Date="{x:Bind ViewModel.Expected.FormDate, Mode=TwoWay}" Header="{x:Bind ViewModel.Expected.DateHeader, Mode=OneWay}" DateFormat="{}{day.integer} {month.abbreviated} {year.full}"
-                                        AutomationProperties.Name="Expected date" />
-                    <ComboBox Header="Repeats" Width="200" ItemsSource="{x:Bind ViewModel.Expected.RepeatNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormRepeat, Mode=TwoWay}"
-                              Visibility="{x:Bind ViewModel.Expected.ShowRepeat, Mode=OneWay}" AutomationProperties.Name="How often it repeats" />
-                </StackPanel>
-                <ListView Grid.Row="5" ItemsSource="{x:Bind ViewModel.Expected.Rows}" SelectionMode="None">
+                <ListView Grid.Row="4" ItemsSource="{x:Bind ViewModel.Expected.Rows}" SelectionMode="None">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="Padding" Value="0" />
@@ -410,10 +411,11 @@
                         <DataTemplate x:DataType="vm:ExpectedRow">
                             <Grid ColumnSpacing="8" Padding="0,4" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                                 <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="190" />
                             <ColumnDefinition Width="*" MinWidth="120" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="245" />
+                            <ColumnDefinition Width="285" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="170" />
@@ -422,13 +424,13 @@
                                 <TextBlock Grid.Column="1" Text="{x:Bind MemoText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                                 <TextBlock Grid.Column="2" Text="{x:Bind ItemText}" Width="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85"
                                            Visibility="{x:Bind ShowItem}" />
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind WhenTip}">
+                                <StackPanel Grid.Column="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind WhenTip}">
                                     <FontIcon Glyph="{x:Bind WhenGlyph}" FontSize="12" Opacity="0.8" />
                                     <TextBlock Text="{x:Bind WhenText}" TextTrimming="CharacterEllipsis" Opacity="0.85" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="4" Text="{x:Bind OutflowText}" Foreground="{x:Bind OutflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="5" Text="{x:Bind InflowText}" Foreground="{x:Bind InflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="2">
+                                <TextBlock Grid.Column="5" Text="{x:Bind OutflowText}" Foreground="{x:Bind OutflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="6" Text="{x:Bind InflowText}" Foreground="{x:Bind InflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="2">
                                     <Button Click="ExpectedHappened_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
                                             AutomationProperties.Name="It happened: move it to the recorded transactions" ToolTipService.ToolTip="It happened: move it to the recorded transactions">
                                         <FontIcon Glyph="&#xE8DE;" FontSize="14" Foreground="#2FB36D" />
