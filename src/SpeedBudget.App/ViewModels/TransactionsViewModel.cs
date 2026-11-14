@@ -438,6 +438,11 @@ public sealed partial class MarkerRow(MonthMarkerEntity? entity, Guid monthId, s
 
     public string Heading => $"{Label} starts here";
 
+    /// <summary>What the side panel says while it is only showing the line, not editing it.</summary>
+    public string ViewText => IsFirst
+        ? $"Your budget starts on {StartDateText}. The transactions that follow belong to the budget month of {Label}."
+        : $"This month starts on {StartDateText}. Everything after this line belongs to it.";
+
     /// <summary>The date the month starts on, written out, for the line's sentence. For the first month it is the date the budget starts on.</summary>
     public string StartDateText => (Entity?.Date ?? StartDate) is { } d ? d.ToString("d MMMM yyyy", CultureInfo.CurrentCulture) : "";
 
@@ -509,6 +514,19 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public MarkerRow? SelectedMarker => SelectedEntry as MarkerRow;
     public bool HasMarkerSelected => SelectedMarker is not null;
     public bool CanChangeSelectedMarker => SelectedMarker is { IsFirst: false };
+
+    /// <summary>The side panel for a month line only shows it until the pencil is pressed; then its boxes open until Save or Cancel.</summary>
+    [ObservableProperty] public partial bool IsMarkerEditing { get; set; }
+    public bool ShowMarkerView => !IsMarkerEditing;
+    public bool ShowMarkerEditButton => HasMarkerSelected && !IsMarkerEditing;
+    public bool ShowMarkerDateEdit => IsMarkerEditing && CanChangeSelectedMarker;
+    public bool ShowFirstEdit => IsMarkerEditing && SelectedMarker is { IsFirst: true };
+    partial void OnIsMarkerEditingChanged(bool value) => RaiseMarkerPanel();
+    private void RaiseMarkerPanel()
+    {
+        foreach (var name in new[] { nameof(ShowMarkerView), nameof(ShowMarkerEditButton), nameof(ShowMarkerDateEdit), nameof(ShowFirstEdit) })
+            OnPropertyChanged(name);
+    }
 
     private TransactionRow? _editing;
 
@@ -589,8 +607,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
             _editing.IsEditing = false;
             _editing = null;
         }
+        IsMarkerEditing = false;   // a month line is always looked at first
         foreach (var name in new[] { nameof(Selected), nameof(SelectedMarker), nameof(HasSelection), nameof(HasMarkerSelected), nameof(CanChangeSelectedMarker) })
             OnPropertyChanged(name);
+        RaiseMarkerPanel();
     }
 
     /// <summary>0 = newest first, 1 = oldest first.</summary>

@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.23
+
+- **Month lines open in a read-only side panel.** Clicking a "starts here" line in the transactions table shows the month and its start date. Press the pencil to change it; nothing is saved until you press Save (Cancel drops your changes). The same goes for the first month, where the budget starts.
+
 ## 0.9.22
 
 - **Moving between months on the Budget screen no longer adds "new month" lines to your transactions.** The Budget screen only shows and budgets; it never changes your transaction tables. The earlier-months arrow stops at the first month. To start the budget earlier, change the budget start on the Transactions page.

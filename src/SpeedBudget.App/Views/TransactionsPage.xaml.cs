@@ -378,10 +378,22 @@ public sealed partial class TransactionsPage : Page, IReloadable
         _showingMarkerDate = false;
     }
 
-    private async void MarkerDate_Changed(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
+    private void EditMarker_Click(object sender, RoutedEventArgs e)
     {
-        if (_showingMarkerDate || args.NewDate is not { } date) return;
-        await ViewModel.MoveSelectedMarkerToDateAsync(DateOnly.FromDateTime(date.DateTime));
+        ShowMarkerDate();
+        ShowStartDate();
+        ViewModel.IsMarkerEditing = true;
+    }
+
+    private void CancelMarkerEdit_Click(object sender, RoutedEventArgs e) => ViewModel.IsMarkerEditing = false;
+
+    /// <summary>Save: only now does what was typed in the panel reach the month line (or the budget start).</summary>
+    private async void SaveMarker_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.SelectedMarker is not { } marker) return;
+        if (marker.IsFirst) await ApplyStartAsync();
+        else if (MarkerDateBox.Date is { } date) await ViewModel.MoveSelectedMarkerToDateAsync(DateOnly.FromDateTime(date.DateTime));
+        ViewModel.IsMarkerEditing = false;
     }
 
     // ---- The date the budget starts on ----
@@ -399,29 +411,18 @@ public sealed partial class TransactionsPage : Page, IReloadable
         _showingStart = false;
     }
 
-    private async void StartDate_Changed(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs args)
+    private async Task ApplyStartAsync()
     {
-        if (_showingStart || args.NewDate is not { } picked) return;
+        if (StartDateBox.Date is not { } picked || StartMonthBox.SelectedIndex < 0 || double.IsNaN(StartYearBox.Value)) return;
         if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } current, StartMonth: { } currentMonth }) return;
         var date = DateOnly.FromDateTime(picked.DateTime);
-        if (date == current) return;
-
-        // While the first month simply follows the date, it keeps following it; once the user has chosen another month, that stays.
-        var follows = currentMonth.Year == current.Year && currentMonth.Month == current.Month;
-        await ViewModel.SetBudgetStartAsync(date, follows ? new DateOnly(date.Year, date.Month, 1) : currentMonth);
-    }
-
-    private async void StartMonth_Changed(object sender, SelectionChangedEventArgs e) => await ApplyStartMonthAsync();
-
-    private async void StartYear_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args) => await ApplyStartMonthAsync();
-
-    private async Task ApplyStartMonthAsync()
-    {
-        if (_showingStart || StartMonthBox.SelectedIndex < 0 || double.IsNaN(StartYearBox.Value)) return;
-        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } start, StartMonth: { } current }) return;
         var month = new DateOnly((int)StartYearBox.Value, StartMonthBox.SelectedIndex + 1, 1);
-        if (month == current) return;
-        await ViewModel.SetBudgetStartAsync(start, month);
+        if (date == current && month == currentMonth) return;
+
+        // While the first month simply follows the date, it keeps following it, unless the month was changed in the boxes too.
+        var follows = currentMonth.Year == current.Year && currentMonth.Month == current.Month;
+        if (month == currentMonth && follows) month = new DateOnly(date.Year, date.Month, 1);
+        await ViewModel.SetBudgetStartAsync(date, month);
     }
 
     /// <summary>

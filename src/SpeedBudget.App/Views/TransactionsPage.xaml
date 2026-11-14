@@ -466,11 +466,17 @@
             <Border Margin="-20,-16,-20,-16" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0" IsHitTestVisible="False" />
             <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.HasMarkerSelected, Mode=OneWay}">
                 <TextBlock Text="Month line" Style="{StaticResource SubtitleTextBlockStyle}" />
-                <CalendarDatePicker x:Name="MarkerDateBox" Header="This month starts on" DateChanged="MarkerDate_Changed"
-                                    Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}" />
-                <TextBlock TextWrapping="Wrap" Opacity="0.8" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}"
-                           Text="Everything after this line belongs to this month. Drag the line, or use the buttons, to change where the month starts." />
-                <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}">
+                <!-- Looking: nothing here changes anything. The pencil switches to editing. -->
+                <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.ShowMarkerView, Mode=OneWay}">
+                    <TextBlock Text="{x:Bind ViewModel.SelectedMarker.Label, Mode=OneWay, FallbackValue=''}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock Text="{x:Bind ViewModel.SelectedMarker.ViewText, Mode=OneWay, FallbackValue=''}" TextWrapping="Wrap" Opacity="0.8" />
+                </StackPanel>
+
+                <!-- Editing: the boxes change nothing until Save is pressed. -->
+                <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.ShowMarkerDateEdit, Mode=OneWay}">
+                    <CalendarDatePicker x:Name="MarkerDateBox" Header="This month starts on" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                               Text="Everything after this line belongs to this month. Drag the line, or use the buttons, to change where the month starts." />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Move up" Click="MoveLineUp_Click" />
                         <Button Content="Move down" Click="MoveLineDown_Click" />
@@ -478,16 +484,25 @@
                     <Button Content="Delete this line" Click="DeleteLine_Click" />
                 </StackPanel>
                 <!-- The first month is where the budget starts. Its date can be moved earlier (adding the months in between) or a little later. -->
-                <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.SelectedMarker.IsFirst, Mode=OneWay, FallbackValue=Collapsed}">
-                    <CalendarDatePicker x:Name="StartDateBox" Header="Your budget starts on" DateChanged="StartDate_Changed" />
+                <StackPanel Spacing="10" Visibility="{x:Bind ViewModel.ShowFirstEdit, Mode=OneWay}">
+                    <CalendarDatePicker x:Name="StartDateBox" Header="Your budget starts on" />
                     <TextBlock Text="The transactions that follow belong to the budget month of" TextWrapping="Wrap" />
-                    <ComboBox x:Name="StartMonthBox" Header="Month" HorizontalAlignment="Stretch" SelectionChanged="StartMonth_Changed" />
+                    <ComboBox x:Name="StartMonthBox" Header="Month" HorizontalAlignment="Stretch" />
                     <NumberBox x:Name="StartYearBox" Header="Year" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
-                               SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="StartYear_Changed" />
+                               SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" />
                     <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
                                Text="The date is where the budget starts in the list, and nothing can be dated before it. The month is the budget month it counts as: a budget that starts on 24 October can be the start of November. Choose an earlier date or month to bring in older transactions: the months in between are added and what you have already budgeted stays where it is. The date can only move later while no transaction or month line comes before it." />
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsMarkerEditing, Mode=OneWay}">
+                    <Button Content="Save" Style="{StaticResource AccentButtonStyle}" Click="SaveMarker_Click" />
+                    <Button Content="Cancel" Click="CancelMarkerEdit_Click" />
+                </StackPanel>
             </StackPanel>
+            <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,32,0" Padding="8" Click="EditMarker_Click"
+                    Visibility="{x:Bind ViewModel.ShowMarkerEditButton, Mode=OneWay}"
+                    Background="Transparent" BorderThickness="0" AutomationProperties.Name="Edit this month line" ToolTipService.ToolTip="Edit">
+                <FontIcon Glyph="&#xE70F;" FontSize="12" />
+            </Button>
             <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-8,0" Padding="8" Click="CloseDetail_Click"
                     Background="Transparent" BorderThickness="0" AutomationProperties.Name="Close the edit panel" ToolTipService.ToolTip="Close">
                 <FontIcon Glyph="&#xE711;" FontSize="12" />
