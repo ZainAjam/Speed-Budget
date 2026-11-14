@@ -507,12 +507,10 @@ public sealed partial class TransactionsViewModel : ObservableObject
     [ObservableProperty] public partial bool IsMarkerEditing { get; set; }
     public bool ShowMarkerView => !IsMarkerEditing;
     public bool ShowMarkerEditButton => HasMarkerSelected && !IsMarkerEditing;
-    public bool ShowMarkerDateEdit => IsMarkerEditing && CanChangeSelectedMarker;
-    public bool ShowFirstEdit => IsMarkerEditing && SelectedMarker is { IsFirst: true };
     partial void OnIsMarkerEditingChanged(bool value) => RaiseMarkerPanel();
     private void RaiseMarkerPanel()
     {
-        foreach (var name in new[] { nameof(ShowMarkerView), nameof(ShowMarkerEditButton), nameof(ShowMarkerDateEdit), nameof(ShowFirstEdit) })
+        foreach (var name in new[] { nameof(ShowMarkerView), nameof(ShowMarkerEditButton) })
             OnPropertyChanged(name);
     }
 

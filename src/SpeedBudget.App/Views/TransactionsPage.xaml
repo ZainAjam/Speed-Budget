@@ -481,7 +481,7 @@
                     <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
                                Text="Everything after this line, down to the next month line, counts towards this month. The line's place in the list decides that, not a date." />
                 </StackPanel>
-                <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.ShowMarkerDateEdit, Mode=OneWay}">
+                <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.CanChangeSelectedMarker, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Move up" Click="MoveLineUp_Click" />
                         <Button Content="Move down" Click="MoveLineDown_Click" />
