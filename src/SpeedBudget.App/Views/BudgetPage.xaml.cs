@@ -19,6 +19,7 @@ public sealed partial class BudgetPage : Page, IReloadable
     public BudgetViewModel ViewModel { get; } = new();
 
     private Guid? _revealItem;
+    private bool _shownBefore;
 
     /// <summary>The navigation parameter, when there is one, is a budget item to bring into view (from a pinned-item chip).</summary>
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e) =>
@@ -27,8 +28,16 @@ public sealed partial class BudgetPage : Page, IReloadable
     public BudgetPage()
     {
         InitializeComponent();
+        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;   // kept built between visits, so coming back is quick
         SummaryLabelList.ItemsSource = BudgetViewModel.SummaryLabels;
-        Loaded += async (_, _) => { AppServices.ZoomChanged += ZoomChanged; await RefreshAsync(); };
+        Loaded += async (_, _) =>
+        {
+            AppServices.ZoomChanged += ZoomChanged;
+            await RefreshAsync();
+            // The page is kept between visits, so it opens on the current month each time, as a fresh page would.
+            if (_shownBefore) ViewModel.JumpToCurrentMonth();
+            _shownBefore = true;
+        };
         Unloaded += (_, _) => AppServices.ZoomChanged -= ZoomChanged;
 
         // Pressing anywhere that is not another control ends the edit in the budget cell being typed in. Handled

@@ -287,6 +287,7 @@ public sealed partial class BudgetViewModel : ObservableObject
     private int _start;
     private int _fitCapacity = 1;
     private bool _firstLoad = true;
+    private string _structureKey = "";
 
     public ObservableCollection<BudgetLine> IncomeLines { get; } = new();
     public ObservableCollection<BudgetLine> OutflowLines { get; } = new();
@@ -378,6 +379,17 @@ public sealed partial class BudgetViewModel : ObservableObject
         {
             var groups = await _store.GetGroupsAsync();
             var items = await _store.GetItemsAsync();
+
+            // Coming back to a page that is already built with the same groups and items: only the figures need refreshing, which
+            // is far quicker than building every row and column again.
+            var structure = string.Join("|", groups.Select(g => $"{g.Id}:{g.Name}:{g.Kind}")) + "#"
+                + string.Join("|", items.Select(i => $"{i.Id}:{i.DisplayName}:{i.GroupId}:{i.ParentItemId}:{i.SortOrder}"));
+            if (!_firstLoad && structure == _structureKey && Columns.Count > 0)
+            {
+                await RecalculateAsync();
+                return;
+            }
+            _structureKey = structure;
 
             _incomeLines.Clear();
             _outflowLines.Clear();

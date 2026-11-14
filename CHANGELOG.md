@@ -6,6 +6,7 @@ into the release.
 
 ## 0.9.23
 
+- **Opening the Budget screen is much quicker.** The screen is kept ready between visits, so going back to it only refreshes the figures instead of drawing every row and month again (about a third of a second instead of over a second). It still opens on the current month.
 - **Dragging a month line no longer opens the side panel.** The panel opens when you click a line, not when you start dragging it.
 - **Moving between months on the Budget screen is quicker.** Stepping along a month now only builds the month that comes into view instead of redrawing every column.
 - **Month lines no longer have a date.** Every transactions table starts with a line for the first month of your budget, and you only choose which month each line is for. Everything after a line, down to the next one, counts towards its month; where the line sits in the list decides that, not a date. **Start a new month** now asks only for the month, and the side panel changes just the month. Transactions can no longer be refused for being dated before the budget start, because the first line always comes first.
