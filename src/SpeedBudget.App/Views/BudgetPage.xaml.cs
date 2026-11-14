@@ -137,7 +137,7 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     private void JumpToCurrent_Click(object sender, RoutedEventArgs e) => ViewModel.JumpToCurrentMonth();
 
-    private async void Back_Click(object sender, RoutedEventArgs e) => await ViewModel.GoBackAsync();
+    private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.GoBack();
 
     private void Forward_Click(object sender, RoutedEventArgs e) => ViewModel.GoForward();
 

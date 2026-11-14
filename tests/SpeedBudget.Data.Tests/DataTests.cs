@@ -891,16 +891,6 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
-    public async Task Going_back_stops_at_the_earliest_month()
-    {
-        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
-        await AddTx(cheque, new(1950, 1, 5), -10_00);
-        await _store.SetFirstMonthLabelAsync("January 1950");
-
-        Assert.Null(await _store.AddEarlierMonthAsync());
-    }
-
-    [Fact]
     public async Task Starting_a_month_moves_the_budget_already_set_for_that_month_to_its_line()
     {
         var food = AddItem("Food", ItemKind.Expense);
@@ -1089,32 +1079,6 @@ public sealed class DataTests : IDisposable
         var reloaded = (await _store.GetItemsAsync()).Single();
         Assert.Equal(PaymentMethod.Eft, reloaded.PaymentMethod);
         Assert.Equal("Utilities", reloaded.ReportHeading);
-    }
-
-    [Fact]
-    public async Task Going_back_a_month_keeps_the_old_first_month_intact_and_adds_an_empty_one_before_it()
-    {
-        await _store.SetFirstMonthLabelAsync("March 2024");
-        var cheque = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
-        var food = AddItem("Food", ItemKind.Expense);
-        await _store.SetAllocationAsync(BudgetEngine.FirstMonthId, food.Id, 800_00);
-        var tx = await AddTx(cheque, new(2024, 3, 12), -50_00, food.Id);
-
-        var marker = await _store.AddEarlierMonthAsync();
-
-        Assert.NotNull(marker);
-        var snapshot = await _store.LoadSnapshotAsync();
-        var months = BudgetEngine.Calculate(snapshot);
-        Assert.Equal(new[] { "February 2024", "March 2024" }, months.Take(2).Select(m => m.Label));
-        // The 800 budgeted and the 50 spent stay with March; the new February is empty.
-        Assert.Equal(0, months[0].Items.Sum(i => i.Budgeted + i.Activity));
-        Assert.Equal(800_00, months[1].Items.Single(i => i.ItemId == food.Id).Budgeted);
-        Assert.Equal(-50_00, months[1].Items.Single(i => i.ItemId == food.Id).Activity);
-        Assert.Equal(marker!.Id, BudgetEngine.MonthOf(BudgetEngine.SortMarkers(snapshot.Markers), tx.Date, tx.DayOrder));
-
-        // And it can keep going back, a month at a time.
-        await _store.AddEarlierMonthAsync();
-        Assert.Equal("January 2024", (await _store.GetFirstMonthLabelAsync()));
     }
 
     [Fact]

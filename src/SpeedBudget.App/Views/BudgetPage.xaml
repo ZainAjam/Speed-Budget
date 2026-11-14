@@ -240,7 +240,7 @@
                 <!-- Month navigation, centred along the top of the page -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Button Content="&#xE76B;" FontFamily="{StaticResource SymbolThemeFontFamily}" Click="Back_Click"
-                            IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Earlier months" ToolTipService.ToolTip="Earlier months. At the first month this adds an earlier month." />
+                            IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" AutomationProperties.Name="Earlier months" ToolTipService.ToolTip="Earlier months. To start the budget earlier, change the budget start on the Transactions page." />
                     <!-- Pressing the months opens a month and year picker to jump straight to one -->
                     <Button x:Name="RangeButton" MinWidth="240" Padding="8,4" Background="Transparent" BorderThickness="0"
                             AutomationProperties.Name="Jump to a month" ToolTipService.ToolTip="Jump to a month">

@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.22
+
+- **Moving between months on the Budget screen no longer adds "new month" lines to your transactions.** The Budget screen only shows and budgets; it never changes your transaction tables. The earlier-months arrow stops at the first month. To start the budget earlier, change the budget start on the Transactions page.
+
 ## 0.9.21
 
 - **Expected transactions can now have a date.** When you add one in the Expected transactions panel under a bank account, a new **When** box lets you choose **Unknown future date** (it stays on the list until you press the tick and give the date it happened), **Specific future date** (it is added to the transactions table by itself on that day), or **Specific recurring future date** (it is added by itself every week, two weeks, month, three months or year, and then moves on to its next date). The list shows when each one is due. If the app was not open on the day, whatever was due is added, on its own date, the next time you open it. For a repeating one that starts on the 29th, 30th or 31st, shorter months use their last day and it goes back to the original day after.

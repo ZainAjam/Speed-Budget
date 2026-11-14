@@ -285,28 +285,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// <summary>The earliest month the budget can be moved back to.</summary>
     public static readonly DateOnly EarliestMonth = new(1950, 1, 1);
 
-    /// <summary>
-    /// Adds an empty month before the first one, so the budget can go back in time. The old first month keeps all its
-    /// transactions and budgeted amounts: it becomes a month started by a line. Returns that line, or null if the budget
-    /// already reaches back as far as it can.
-    /// </summary>
-    public async Task<MonthMarkerEntity?> AddEarlierMonthAsync(CancellationToken ct = default)
-    {
-        var start = await EnsureBudgetStartAsync(ct);
-        var oldMonth = await GetBudgetStartMonthAsync(ct);
-        var newMonth = oldMonth.AddMonths(-1);
-        if (newMonth < EarliestMonth) return null;
-        var newStart = FirstOf(start).AddMonths(-1);
-        if (newStart >= start) newStart = start.AddDays(-1);
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var line = await AddLinesForEarlierStartAsync(start, oldMonth, newStart, newMonth, ct);
-        await SetSettingAsync(BudgetStartKey, Iso(newStart), ct);
-        await SetSettingAsync(BudgetStartMonthKey, newMonth == FirstOf(newStart) ? null : Iso(newMonth), ct);
-        await transaction.CommitAsync(ct);
-        return line;
-    }
-
     /// <summary>The balance printed on the account's latest bank statement, in cents, if one was entered.</summary>
     public async Task<long?> GetStatementBalanceAsync(Guid accountId, CancellationToken ct = default) =>
         long.TryParse(await GetSettingAsync($"statement:{accountId}", ct), out var cents) ? cents : null;
