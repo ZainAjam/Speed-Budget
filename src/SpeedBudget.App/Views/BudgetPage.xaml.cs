@@ -33,6 +33,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         Loaded += async (_, _) =>
         {
             AppServices.ZoomChanged += ZoomChanged;
+            ViewModel.SetSummaryExpanded(false);   // always folded when the screen is opened
             await RefreshAsync();
             // The page is kept between visits, so it opens on the current month each time, as a fresh page would.
             if (_shownBefore) ViewModel.JumpToCurrentMonth();
@@ -166,14 +167,11 @@ public sealed partial class BudgetPage : Page, IReloadable
         if (ViewModel.ShowManyMonths) ManyButton.IsChecked = true;
     }
 
-    /// <summary>The arrow beside "Available to budget": shows or hides the monthly figures above it. Folding them is remembered and stops scrolling from opening them; opening them lets scrolling fold and open them again.</summary>
-    private async void SummaryToggle_Click(object sender, RoutedEventArgs e)
+    /// <summary>The arrow beside "Available to budget": opens the monthly figures above it to look at them, or folds them away again. They also fold away by themselves once the page is scrolled.</summary>
+    private void SummaryToggle_Click(object sender, RoutedEventArgs e)
     {
-        var expanded = !SummaryView.Expanded;
-        ViewModel.SetSummaryExpanded(expanded);
-        SummaryView.UserCollapsed = !expanded;   // folding it is a choice that scrolling never undoes; opening it hands it back to scrolling
-        try { await AppServices.Store.SetLocalSettingAsync("budgetSummary", expanded ? "1" : "0"); }
-        catch { /* the choice still applies for this run */ }
+        if (SummaryView.Expanded) ViewModel.SetSummaryExpanded(false);
+        else OpenSummaryAtTop();
     }
 
     // ---- Editing budgeted amounts from the keyboard ----
@@ -202,23 +200,33 @@ public sealed partial class BudgetPage : Page, IReloadable
     }
 
     /// <summary>
-    /// The monthly summary is open at the top of the page and folds away once it has scrolled out of sight (leaving "Available to
-    /// budget" frozen under the month headings), and opens again on returning to the top. The page is moved up by the block's height as
-    /// it goes, so what is on screen does not jump.
+    /// The monthly summary stays folded unless the user opens it to look at it. Once it is open, scrolling down folds it away again (leaving
+    /// "Available to budget" frozen under the month headings), and it stays folded until it is opened again. The page is moved up by the
+    /// block's height as it goes, so what is on screen does not jump.
     /// </summary>
     private void AutoSummary()
     {
-        if (SummaryView.UserCollapsed) return;
         var offset = BudgetScroll.VerticalOffset;
-        if (SummaryView.Expanded)
-        {
-            var height = SummaryBlock.ActualHeight + 16;   // the block and the gap after it
-            if (height <= 16 || offset <= height + 8) return;
-            ViewModel.SetSummaryExpanded(false);
-            BudgetScroll.UpdateLayout();
-            BudgetScroll.ChangeView(null, offset - height, null, disableAnimation: true);
-        }
-        else if (offset < 1) ViewModel.SetSummaryExpanded(true);
+        var scrolledDown = offset > _lastOffset;
+        _lastOffset = offset;
+        if (!SummaryView.Expanded || !scrolledDown || offset <= 8) return;
+
+        var height = SummaryBlock.ActualHeight + 16;   // the block and the gap after it
+        ViewModel.SetSummaryExpanded(false);
+        BudgetScroll.UpdateLayout();
+        _lastOffset = Math.Max(0, offset - height);
+        BudgetScroll.ChangeView(null, _lastOffset, null, disableAnimation: true);
+    }
+
+    private double _lastOffset;
+
+    /// <summary>Opening the summary brings the top of the page into view, where it is, so it can be looked at straight away.</summary>
+    private void OpenSummaryAtTop()
+    {
+        ViewModel.SetSummaryExpanded(true);
+        BudgetScroll.UpdateLayout();
+        _lastOffset = 0;
+        BudgetScroll.ChangeView(null, 0, null, disableAnimation: true);
     }
 
     private void UpdateFrozenTitles()

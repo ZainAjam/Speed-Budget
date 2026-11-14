@@ -4,6 +4,11 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.24
+
+- **The Expected transactions table now zooms with the recorded transactions table.** Changing the zoom with the buttons at the bottom left changes both.
+- **The monthly figures at the top of the Budget stay folded.** Only **Available to budget** shows until you press its arrow to open the rest. They fold away again as soon as you scroll down, and every time you open the Budget screen, until you open them again.
+
 ## 0.9.23
 
 - **Opening the Budget screen is much quicker.** The screen is kept ready between visits, so going back to it only refreshes the figures instead of drawing every row and month again (about a third of a second instead of over a second). It still opens on the current month.

@@ -346,7 +346,9 @@
                 <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.Expected.HasMessage, Mode=OneWay}" Severity="Warning" IsClosable="False"
                          Message="{x:Bind ViewModel.Expected.Message, Mode=OneWay}" />
                 <!-- Headings, then the boxes for a new expected transaction, then the list. All three share the same columns. -->
-                <Grid Grid.Row="2" ColumnSpacing="8">
+                <!-- The headings, the boxes and the list zoom with the recorded transactions table, and share its zoom controls. -->
+                <local:ZoomBox Grid.Row="2">
+                <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="190" />
                             <ColumnDefinition Width="*" MinWidth="120" />
@@ -365,7 +367,9 @@
                     <TextBlock Grid.Column="5" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Grid.Column="6" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                 </Grid>
-                <Grid Grid.Row="3" ColumnSpacing="8">
+                </local:ZoomBox>
+                <local:ZoomBox Grid.Row="3">
+                <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="190" />
                             <ColumnDefinition Width="*" MinWidth="120" />
@@ -399,7 +403,9 @@
                         <Button Content="Cancel" Click="ExpectedCancel_Click" Visibility="{x:Bind ViewModel.Expected.CanCancelEdit, Mode=OneWay}" />
                     </StackPanel>
                 </Grid>
-                <ListView Grid.Row="4" ItemsSource="{x:Bind ViewModel.Expected.Rows}" SelectionMode="None">
+                </local:ZoomBox>
+                <local:ZoomBox Grid.Row="4">
+                <ListView ItemsSource="{x:Bind ViewModel.Expected.Rows}" SelectionMode="None">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="Padding" Value="0" />
@@ -448,6 +454,7 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
+                </local:ZoomBox>
             </Grid>
 
             <!-- The bar along the bottom of an account's page that opens the Expected transactions flyout -->

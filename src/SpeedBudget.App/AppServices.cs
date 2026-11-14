@@ -102,13 +102,6 @@ public static class AppServices
             TransactionsZoom = int.TryParse(Store.GetLocalSettingAsync("zoomTransactions").GetAwaiter().GetResult(), out var t) && t is >= 50 and <= 200 ? t / 100.0 : legacy;
         }
         catch { /* the app just opens at 100% */ }
-        // A summary the user folded on purpose stays folded; otherwise it opens at the top of the page and folds as it is scrolled.
-        try
-        {
-            if (Store.GetLocalSettingAsync("budgetSummary").GetAwaiter().GetResult() == "0")
-                SpeedBudget.App.ViewModels.SummaryView.UserCollapsed = SpeedBudget.App.ViewModels.SummaryView.Expanded = false;
-        }
-        catch { /* the summary just starts open */ }
         Watcher = new WatcherService(Db, LocalDatabase.OpenForReading());
         try { Store.RecordDueExpectedAsync(DateOnly.FromDateTime(DateTime.Today)).GetAwaiter().GetResult(); }
         catch { /* anything due is picked up the next time a transactions page opens */ }

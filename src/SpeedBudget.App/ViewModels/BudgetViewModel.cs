@@ -151,13 +151,13 @@ public sealed partial class OutflowCell : LineCell
 }
 
 /// <summary>A label in the summary block. The emphasised one is taller, to match its larger figures.</summary>
-/// <summary>Whether the monthly figures above "Available to budget" are showing. They are open at the top of the page and fold away as it is scrolled.</summary>
+/// <summary>
+/// Whether the monthly figures above "Available to budget" are showing. They are folded away unless the user opens them, and fold away
+/// again as soon as the page is scrolled or left.
+/// </summary>
 public static class SummaryView
 {
-    public static bool Expanded { get; set; } = true;
-
-    /// <summary>True when the user folded the summary on purpose: it then stays folded, and is never opened or closed by scrolling.</summary>
-    public static bool UserCollapsed { get; set; }
+    public static bool Expanded { get; set; }
 
     /// <summary>The arrow on the "Available to budget" row: down while the figures are hidden (they open downwards), up while they show.</summary>
     public static string Arrow(bool expanded) => expanded ? "\uE70E" : "\uE70D";
