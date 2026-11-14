@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.23
 
+- **Dragging a month line no longer opens the side panel.** The panel opens when you click a line, not when you start dragging it.
+- **Moving between months on the Budget screen is quicker.** Stepping along a month now only builds the month that comes into view instead of redrawing every column.
 - **Month lines no longer have a date.** Every transactions table starts with a line for the first month of your budget, and you only choose which month each line is for. Everything after a line, down to the next one, counts towards its month; where the line sits in the list decides that, not a date. **Start a new month** now asks only for the month, and the side panel changes just the month. Transactions can no longer be refused for being dated before the budget start, because the first line always comes first.
 
 - **Month lines open in a read-only side panel.** Clicking a "starts here" line in the transactions table shows the month and its start date. Press the pencil to change it; nothing is saved until you press Save (Cancel drops your changes). The same goes for the first month, where the budget starts.

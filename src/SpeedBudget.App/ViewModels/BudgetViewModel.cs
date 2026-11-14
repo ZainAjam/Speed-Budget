@@ -488,12 +488,27 @@ public sealed partial class BudgetViewModel : ObservableObject
     /// <summary>The month at the left of the screen, which the month picker starts from.</summary>
     public DateOnly? LeftmostMonth => Columns.Count > 0 && MonthLabels.TryParse(Columns[0].Label, out var month) ? month : null;
 
+    /// <summary>
+    /// Shows the months from the left-most one. A month that is already on show keeps its column, so stepping along one month builds
+    /// just the one that comes into view instead of every column again (building a column is what makes moving about slow).
+    /// </summary>
     private void RebuildColumns()
     {
-        Columns.Clear();
-        for (var i = _start; i < Math.Min(_months.Count, _start + _capacity); i++)
-            Columns.Add(new MonthColumn(_months[i].MonthId, hasPrevious: i > 0, _incomeLines, _outflowLines, this, ShowSingleMonth ? SingleMonthWidth : MonthWidth));
-        ApplyData();
+        var width = ShowSingleMonth ? SingleMonthWidth : MonthWidth;
+        var shown = Enumerable.Range(_start, Math.Max(0, Math.Min(_months.Count, _start + _capacity) - _start)).ToList();
+        var wanted = shown.Select(i => _months[i].MonthId).ToHashSet();
+        for (var i = Columns.Count - 1; i >= 0; i--)
+            if (!wanted.Contains(Columns[i].MonthId) || Columns[i].Width != width) Columns.RemoveAt(i);
+
+        for (var k = 0; k < shown.Count; k++)
+        {
+            var month = _months[shown[k]];
+            if (k < Columns.Count && Columns[k].MonthId == month.MonthId) continue;
+            var column = new MonthColumn(month.MonthId, hasPrevious: shown[k] > 0, _incomeLines, _outflowLines, this, width);
+            column.Apply(month);
+            Columns.Insert(k, column);
+        }
+        ApplyNavigation();
     }
 
     /// <summary>Pushes the calculated numbers into the existing cells, so editing never disturbs focus.</summary>
@@ -501,7 +516,11 @@ public sealed partial class BudgetViewModel : ObservableObject
     {
         foreach (var column in Columns)
             column.Apply(_months.First(m => m.MonthId == column.MonthId));
+        ApplyNavigation();
+    }
 
+    private void ApplyNavigation()
+    {
         CanGoBack = _start > 0;
         CanGoForward = _start < MaxStart;
         var currentAt = RecordingMonthIndex;

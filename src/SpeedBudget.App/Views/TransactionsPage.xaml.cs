@@ -53,7 +53,13 @@ public sealed partial class TransactionsPage : Page, IReloadable
         {
             if (e.PropertyName is nameof(TransactionsViewModel.SortIndex)) EntryList.Opacity = 0;
             if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
-            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) ShowMarkerMonth();
+            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker))
+            {
+                // Choosing a different line closes the panel until the line is clicked; reloading the same line after a save leaves it be.
+                var key = ViewModel.SelectedMarker is { } marker ? marker.Entity?.Id ?? Guid.Empty : (Guid?)null;
+                if (key != _panelFor) { _panelFor = key; _panelRequested = false; UpdateDetailPanel(); }
+                ShowMarkerMonth();
+            }
         };
     }
 
@@ -140,7 +146,18 @@ public sealed partial class TransactionsPage : Page, IReloadable
         DispatcherQueue.TryEnqueue(ClearEditing);
     }
 
-    private bool DetailOpen => ViewModel.HasMarkerSelected;   // only month lines use the side panel; transactions are edited in their rows
+    // A press on a month line selects it, and so does the start of a drag; the panel should only come out for a click, which is
+    // what Tapped is (it does not fire when the press became a drag).
+    private bool _panelRequested;
+    private Guid? _panelFor;
+
+    private void Marker_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        _panelRequested = true;
+        UpdateDetailPanel();
+    }
+
+    private bool DetailOpen => ViewModel.HasMarkerSelected && _panelRequested;   // only month lines use the side panel; transactions are edited in their rows
 
     /// <summary>Slides the edit panel in from the right edge, or back out of sight when nothing is selected.</summary>
     private void UpdateDetailPanel()
