@@ -4,10 +4,9 @@
     Title="Let's start a new month" PrimaryButtonText="Start new month" CloseButtonText="Cancel" DefaultButton="Primary">
     <StackPanel Spacing="12" MinWidth="420">
         <TextBlock TextWrapping="Wrap" Opacity="0.8"
-                   Text="A line is drawn in your transactions. Everything after it counts towards the new month. You can drag the line later. The month's budget is the one you planned ahead on the Budget screen." />
-        <CalendarDatePicker x:Name="DateBox" Header="The new month starts on" />
+                   Text="A line is drawn in your transactions. Everything after it counts towards the month you choose. The month's budget is the one you planned ahead on the Budget screen." />
         <StackPanel Orientation="Horizontal" Spacing="12">
-            <ComboBox x:Name="MonthBox" Header="The month it belongs to" Width="200" SelectionChanged="MonthBox_SelectionChanged" />
+            <ComboBox x:Name="MonthBox" Header="The month this line starts" Width="200" SelectionChanged="MonthBox_SelectionChanged" />
             <NumberBox x:Name="YearBox" Header="Year" Width="140" Minimum="1950" Maximum="2100" SmallChange="1" LargeChange="1"
                        SpinButtonPlacementMode="Inline" ValidationMode="InvalidInputOverwritten" ValueChanged="YearBox_ValueChanged" />
         </StackPanel>

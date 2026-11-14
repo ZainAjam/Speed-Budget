@@ -206,73 +206,65 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>
-    /// Moves the start of the budget, and says which month it starts. The date is where the first month begins in the list of
-    /// transactions; the month is the one it counts as, which is the month the date falls in unless another is given (a budget
-    /// can start on 24 October and be the start of November).
-    /// Starting earlier is always possible: months in between are added as month lines, and the old first month keeps its
-    /// transactions and budgeted amounts. A later date is refused while a transaction or month line sits before it. Returns a
-    /// sentence saying why it was refused, or null when it was done.
+    /// Sets the month the budget starts in, which is the month the first line in the transactions stands for. The line has no date:
+    /// everything after it counts towards that month. Refused (a sentence saying why is returned) when it would not come before the
+    /// month of the next line. Returns null when it was done.
     /// </summary>
-    public async Task<string?> SetBudgetStartAsync(DateOnly newStart, DateOnly? newMonth = null, CancellationToken ct = default)
+    public async Task<string?> SetFirstMonthAsync(DateOnly month, CancellationToken ct = default)
     {
-        var oldStart = await EnsureBudgetStartAsync(ct);
-        var oldMonth = await GetBudgetStartMonthAsync(ct);
-        var month = FirstOf(newMonth ?? newStart);
-        if (newStart == oldStart && month == oldMonth) return null;
-        if (newStart < EarliestMonth || month < EarliestMonth) return $"The budget can't start before {EarliestMonth:MMMM yyyy}.";
+        month = FirstOf(month);
+        if (month < EarliestMonth) return $"The budget can't start before {EarliestMonth:MMMM yyyy}.";
+        var firstLine = BudgetEngine.SortMarkers((await GetMarkersAsync(ct)).Select(ToCore)).FirstOrDefault();
+        if (firstLine is not null && MonthLabels.TryParse(firstLine.Label, out var lineMonth) && month >= lineMonth)
+            return $"The first month has to come before {firstLine.Label}, the month of the next line.";
 
-        var snapshot = await LoadSnapshotAsync(ct);
-        var firstLine = BudgetEngine.SortMarkers(snapshot.Markers).FirstOrDefault();
-        if (firstLine is not null)
-        {
-            if (newStart >= firstLine.Date)
-                return $"{firstLine.Label} starts on {firstLine.Date:d MMM yyyy}. The budget has to start before its first month line.";
-            if (MonthLabels.TryParse(firstLine.Label, out var lineMonth) && month >= lineMonth)
-                return $"The first month has to come before {firstLine.Label}, the month of the next line.";
-        }
-        if (newStart > oldStart)
-        {
-            var onBudget = snapshot.Accounts.Where(a => a.IsOnBudget).Select(a => a.Id).ToHashSet();
-            var earliest = snapshot.Transactions.Where(t => onBudget.Contains(t.AccountId)).Select(t => (DateOnly?)t.Date).Min();
-            if (earliest is { } first && first < newStart)
-                return $"There is a transaction on {first:d MMM yyyy}, before that date. Move or delete it first, or choose a date on or before it.";
-        }
-
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        if (newStart < oldStart && month < oldMonth) await AddLinesForEarlierStartAsync(oldStart, oldMonth, newStart, month, ct);
-        await SetSettingAsync(BudgetStartKey, Iso(newStart), ct);
-        await SetSettingAsync(BudgetStartMonthKey, month == FirstOf(newStart) ? null : Iso(month), ct);   // nothing to remember when it follows the date
-        await transaction.CommitAsync(ct);
+        await SetSettingAsync(BudgetStartKey, Iso(month), ct);
+        await SetSettingAsync(BudgetStartMonthKey, null, ct);
         return null;
     }
 
     /// <summary>
-    /// The start moves earlier, and so does the first month. Every month from the new first month up to the old one gets a
-    /// line (the new first month needs none), and what was budgeted in the old first month moves to its line. Returns that line.
+    /// Changes which month a line stands for. The line keeps its place in the list, so the transactions after it now count towards
+    /// the new month. Refused when the month does not fit between the months of the lines either side of it.
     /// </summary>
-    private async Task<MonthMarkerEntity> AddLinesForEarlierStartAsync(DateOnly oldStart, DateOnly oldMonth, DateOnly newStart, DateOnly newMonth, CancellationToken ct)
+    public async Task<string?> SetMarkerMonthAsync(MonthMarkerEntity marker, DateOnly month, CancellationToken ct = default)
     {
-        var transactionOrders = await db.Transactions.Where(t => t.Date == oldStart).Select(t => t.DayOrder).ToListAsync(ct);
-        MonthMarkerEntity? oldMonthLine = null;
-        var index = 0;
-        for (var month = newMonth.AddMonths(1); month <= oldMonth; month = month.AddMonths(1), index++)
-        {
-            // The old first month's line sits where it started, so its transactions stay in it. The others sit within the range the
-            // new start adds, in order, after the new start (so what is dated on the new start stays in the new first month).
-            var isOld = month == oldMonth;
-            var date = isOld ? oldStart : new[] { newStart.AddDays(1), new[] { month, oldStart }.Min() }.Max();
-            var line = new MonthMarkerEntity
-            {
-                Date = date,
-                DayOrder = isOld ? Math.Min(0, transactionOrders.Count > 0 ? transactionOrders.Min() : 0) : int.MinValue / 2 + index,
-                Label = MonthLabels.For(month),
-            };
-            await MoveBudgetAsync(isOld ? BudgetEngine.FirstMonthId : BudgetEngine.VirtualMonthId(month), line.Id, ct);
-            db.Markers.Add(line);
-            if (isOld) oldMonthLine = line;
-        }
+        month = FirstOf(month);
+        if (month < EarliestMonth) return $"A month can't be before {EarliestMonth:MMMM yyyy}.";
+        var snapshot = await LoadSnapshotAsync(ct);
+        var lines = BudgetEngine.SortMarkers(snapshot.Markers).ToList();
+        var index = lines.FindIndex(m => m.Id == marker.Id);
+        var before = index > 0 ? lines[index - 1].Label : BudgetEngine.FirstMonthLabelFor(snapshot);
+        if (MonthLabels.TryParse(before, out var beforeMonth) && month <= beforeMonth)
+            return $"This month has to come after {before}, the month of the line above it.";
+        if (index >= 0 && index < lines.Count - 1 && MonthLabels.TryParse(lines[index + 1].Label, out var afterMonth) && month >= afterMonth)
+            return $"This month has to come before {lines[index + 1].Label}, the month of the line below it.";
+
+        marker.Label = MonthLabels.For(month);
         await db.SaveChangesAsync(ct);
-        return oldMonthLine!;
+        return null;
+    }
+
+    /// <summary>
+    /// Starts a new month: adds a line for it. The line has no date of its own; it is put where the month begins in the list (before
+    /// anything dated on the first of the month), and everything after it counts towards the month. Refused when the month is not after
+    /// the first month, or already has a line. Returns the line, or a sentence saying why not.
+    /// </summary>
+    public async Task<(MonthMarkerEntity? Line, string? Error)> AddMonthAsync(DateOnly month, CancellationToken ct = default)
+    {
+        month = FirstOf(month);
+        var snapshot = await LoadSnapshotAsync(ct);
+        var first = BudgetEngine.FirstMonthLabelFor(snapshot);
+        if (MonthLabels.TryParse(first, out var firstMonth) && month <= firstMonth)
+            return (null, $"The budget starts in {first}. Choose a month after it, or change the first month.");
+        if (snapshot.Markers.Any(m => m.Label == MonthLabels.For(month)))
+            return (null, $"There is already a line for {MonthLabels.For(month)}.");
+
+        // At the very start of that day, so what is dated on the first of the month falls after the line.
+        var onDate = await db.Transactions.Where(t => t.Date == month).Select(t => t.DayOrder).ToListAsync(ct);
+        var order = (onDate.Count > 0 ? Math.Min(0, onDate.Min()) : 0) - 1;
+        var line = await AddMarkerAsync(MonthLabels.For(month), month, false, ct, order);
+        return (line, null);
     }
 
     /// <summary>The user gave the first month a name of their own, which is then kept as typed.</summary>
@@ -563,11 +555,9 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// Adds a "Let's start a new month" line at the end of the given date, so everything entered after it
     /// belongs to the new month. Optionally copies the budgeted amounts of the month it interrupts.
     /// </summary>
-    public async Task<MonthMarkerEntity> AddMarkerAsync(string label, DateOnly date, bool copyPreviousBudget, CancellationToken ct = default)
+    public async Task<MonthMarkerEntity> AddMarkerAsync(string label, DateOnly date, bool copyPreviousBudget, CancellationToken ct = default, int? dayOrder = null)
     {
-        if (await GetBudgetStartSettingAsync(ct) is { } start && date <= start)
-            throw new ArgumentException($"A month can't start before the budget does ({start:d MMM yyyy}). Move the start of the budget back first.");
-        var order = await NextDayOrderAsync(date, ct);
+        var order = dayOrder ?? await NextDayOrderAsync(date, ct);
         var existing = BudgetEngine.SortMarkers((await GetMarkersAsync(ct)).Select(ToCore));
         var previousMonth = BudgetEngine.MonthOf(existing, date, order);
 
@@ -628,7 +618,6 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     /// </summary>
     public async Task<bool> MoveMarkerAsync(MonthMarkerEntity marker, SortKey key, CancellationToken ct = default)
     {
-        if (await GetBudgetStartSettingAsync(ct) is { } start && key.Date <= start) return false;   // a month can't start before the budget does
         var others = (await GetMarkersAsync(ct)).Where(m => m.Id != marker.Id).Select(m => new SortKey(m.Date, m.DayOrder));
         if (!MarkerPlacement.FitsBetweenOtherLines(key, new SortKey(marker.Date, marker.DayOrder), others)) return false;
         marker.Date = key.Date;

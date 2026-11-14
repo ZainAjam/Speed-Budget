@@ -6,7 +6,7 @@ using SpeedBudget.Core;
 namespace SpeedBudget.App.Views;
 
 /// <summary>
-/// Starts a new month. The user picks the date it starts and which calendar month it belongs to; its name is then
+/// Starts a new month. The user only says which calendar month it is for; the line goes at the end of the list and has no date; its name is then
 /// that month and year (such as "March 2027"), never typed.
 /// </summary>
 public sealed partial class NewMonthDialog : ContentDialog
@@ -16,16 +16,15 @@ public sealed partial class NewMonthDialog : ContentDialog
 
     /// <summary>The new month's name: the chosen month and year.</summary>
     public string MonthName => MonthLabels.For(new DateOnly(_year, _month, 1));
-    public DateTimeOffset StartDate => DateBox.Date ?? DateTimeOffset.Now;
+    public DateOnly Month => new(_year, _month, 1);
 
     public NewMonthDialog(TransactionsViewModel vm)
     {
         InitializeComponent();
-        DateBox.Date = DateTimeOffset.Now;
 
         // Start from the month after the last one.
-        var suggested = vm.SuggestMonthLabel(StartDate);
-        var first = MonthLabels.TryParse(suggested, out var parsed) ? parsed : new DateOnly(StartDate.Year, StartDate.Month, 1);
+        var suggested = vm.SuggestMonthLabel(DateTimeOffset.Now);
+        var first = MonthLabels.TryParse(suggested, out var parsed) ? parsed : new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1);
         _month = first.Month;
         _year = first.Year;
 

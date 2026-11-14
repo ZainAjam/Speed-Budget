@@ -27,8 +27,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
         Loaded += (_, _) => AppServices.ZoomChanged += OnZoomForRows;
         Unloaded += (_, _) => AppServices.ZoomChanged -= OnZoomForRows;
         StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
-        ViewModel.AskMonthAsync = AskMonthAsync;
-        ViewModel.AskStartEarlierAsync = AskStartEarlierAsync;
         Loaded += async (_, _) =>
         {
             await LoadLayoutAsync();
@@ -55,7 +53,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         {
             if (e.PropertyName is nameof(TransactionsViewModel.SortIndex)) EntryList.Opacity = 0;
             if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
-            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) { ShowStartDate(); ShowMarkerDate(); }
+            if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker)) ShowMarkerMonth();
         };
     }
 
@@ -366,83 +364,30 @@ public sealed partial class TransactionsPage : Page, IReloadable
         await ViewModel.SaveColumnLayoutAsync(Layout.Serialize());
     }
 
-    // ---- The date a month line sits at ----
+    // ---- The month a line stands for ----
 
-    private bool _showingMarkerDate;
-
-    private void ShowMarkerDate()
+    /// <summary>Puts the selected line's month in the boxes. A line has no date: only its month, and its place in the list.</summary>
+    private void ShowMarkerMonth()
     {
-        if (ViewModel.SelectedMarker is not { Entity: { } line }) return;
-        _showingMarkerDate = true;
-        MarkerDateBox.Date = new DateTimeOffset(line.Date.ToDateTime(TimeOnly.MinValue));
-        _showingMarkerDate = false;
+        if (ViewModel.SelectedMarker is not { Month: { } month }) return;
+        StartMonthBox.SelectedIndex = month.Month - 1;
+        StartYearBox.Value = month.Year;
     }
 
     private void EditMarker_Click(object sender, RoutedEventArgs e)
     {
-        ShowMarkerDate();
-        ShowStartDate();
+        ShowMarkerMonth();
         ViewModel.IsMarkerEditing = true;
     }
 
     private void CancelMarkerEdit_Click(object sender, RoutedEventArgs e) => ViewModel.IsMarkerEditing = false;
 
-    /// <summary>Save: only now does what was typed in the panel reach the month line (or the budget start).</summary>
+    /// <summary>Save: only now does the month chosen in the panel reach the line.</summary>
     private async void SaveMarker_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.SelectedMarker is not { } marker) return;
-        if (marker.IsFirst) await ApplyStartAsync();
-        else if (MarkerDateBox.Date is { } date) await ViewModel.MoveSelectedMarkerToDateAsync(DateOnly.FromDateTime(date.DateTime));
+        if (StartMonthBox.SelectedIndex >= 0 && !double.IsNaN(StartYearBox.Value))
+            await ViewModel.SetSelectedMarkerMonthAsync(new DateOnly((int)StartYearBox.Value, StartMonthBox.SelectedIndex + 1, 1));
         ViewModel.IsMarkerEditing = false;
-    }
-
-    // ---- The date the budget starts on ----
-
-    private bool _showingStart;
-
-    /// <summary>Shows the budget's start date and first month in the boxes when the first-month row is selected.</summary>
-    private void ShowStartDate()
-    {
-        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } start, StartMonth: { } month }) return;
-        _showingStart = true;
-        StartDateBox.Date = new DateTimeOffset(start.ToDateTime(TimeOnly.MinValue));
-        StartMonthBox.SelectedIndex = month.Month - 1;
-        StartYearBox.Value = month.Year;
-        _showingStart = false;
-    }
-
-    private async Task ApplyStartAsync()
-    {
-        if (StartDateBox.Date is not { } picked || StartMonthBox.SelectedIndex < 0 || double.IsNaN(StartYearBox.Value)) return;
-        if (ViewModel.SelectedMarker is not { IsFirst: true, StartDate: { } current, StartMonth: { } currentMonth }) return;
-        var date = DateOnly.FromDateTime(picked.DateTime);
-        var month = new DateOnly((int)StartYearBox.Value, StartMonthBox.SelectedIndex + 1, 1);
-        if (date == current && month == currentMonth) return;
-
-        // While the first month simply follows the date, it keeps following it, unless the month was changed in the boxes too.
-        var follows = currentMonth.Year == current.Year && currentMonth.Month == current.Month;
-        if (month == currentMonth && follows) month = new DateOnly(date.Year, date.Month, 1);
-        await ViewModel.SetBudgetStartAsync(date, month);
-    }
-
-    /// <summary>
-    /// Something was dated before the budget starts. Offers to start the budget from that date's month, which adds the
-    /// months in between to the budget.
-    /// </summary>
-    private async Task<bool> AskStartEarlierAsync(DateOnly date, DateOnly start)
-    {
-        var month = MonthLabels.For(date);
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Before the start of your budget",
-            Content = $"This is dated {date:d MMM yyyy}, but your budget starts on {start:d MMM yyyy}. " +
-                      $"Start the budget from {month} instead? The months in between are added to your budget, and nothing already in it changes.",
-            PrimaryButtonText = $"Start from {month}",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     // ---- Crisp lines when the table is zoomed ----
@@ -778,38 +723,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
         return null;
     }
 
-    /// <summary>
-    /// A new row dated on a month line's date could be in the month that ends that day or the one that starts it, so ask
-    /// which. Nothing is asked for any other date.
-    /// </summary>
-    private async Task<(bool Ok, int? DayOrder)> AskMonthAsync(DateOnly date)
-    {
-        var options = await MonthLineChoices.ForDateAsync(date);
-        if (options.Count == 0) return (true, null);
-
-        var choices = new RadioButtons();
-        foreach (var option in options) choices.Items.Add(option.Label);
-        choices.SelectedIndex = options.Count - 1;   // by default it goes in the month that starts that day
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Which month?",
-            PrimaryButtonText = "Save",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 8,
-                Children =
-                {
-                    new TextBlock { Text = "A month starts on this date. Which month does this transaction belong to?", TextWrapping = TextWrapping.Wrap },
-                    choices,
-                },
-            },
-        };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary ? (true, options[choices.SelectedIndex].DayOrder) : (false, null);
-    }
-
     private async void NewMonth_Click(object sender, RoutedEventArgs e) => await StartNewMonthAsync();
 
     private async void NewMonth_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
@@ -823,7 +736,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         var dialog = new NewMonthDialog(ViewModel) { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            await ViewModel.AddMonthAsync(dialog.MonthName, dialog.StartDate);
+            await ViewModel.AddMonthAsync(dialog.Month);
     }
 
     // Only a month line may be dragged; transactions stay where their date puts them.
