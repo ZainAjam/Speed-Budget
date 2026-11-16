@@ -117,7 +117,7 @@
 
                     <Grid x:Name="DailyHeading">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="46" />
                             <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.TotalChange, Mode=OneWay}" />
@@ -127,8 +127,8 @@
                             <ColumnDefinition Width="*" MinWidth="{x:Bind Columns.CommentMin, Mode=OneWay}" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource HeadingBorder}" Padding="8,0,0,0">
-                            <CheckBox x:Name="SelectAllBox" MinWidth="0" Padding="0" Click="SelectAll_Click" AutomationProperties.Name="Select all lines"
+                        <Border Style="{StaticResource HeadingBorder}" Padding="0">
+                            <CheckBox x:Name="SelectAllBox" MinWidth="0" Padding="0" HorizontalAlignment="Center" Click="SelectAll_Click" AutomationProperties.Name="Select all lines"
                                       ToolTipService.ToolTip="Tick all the lines, or none" />
                         </Border>
                         <!-- What each heading means is in its tooltip -->
@@ -165,7 +165,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BalanceLine">
                                 <!-- Pressing the pencil turns this line's own cells into boxes (Enter saves, Esc leaves it as it was) -->
-                                <Grid Margin="8,0,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown">
+                                <Grid Margin="18,0,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />
