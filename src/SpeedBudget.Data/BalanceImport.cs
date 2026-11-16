@@ -3,7 +3,7 @@ using ClosedXML.Excel;
 
 namespace SpeedBudget.Data;
 
-/// <summary>One line read from the filled-in template. Amounts are in cents; the withdrawal is a positive amount.</summary>
+/// <summary>One line read from the file. Amounts are in cents; the withdrawal is a positive amount.</summary>
 public sealed record ImportRow(int Line, DateOnly Date, long Balance, long Withdrawal, string? Comment);
 
 /// <summary>A line that could not be used, with the spreadsheet row it was on and why.</summary>
@@ -15,56 +15,14 @@ public sealed record BalanceImportFile(IReadOnlyList<ImportRow> Rows, IReadOnlyL
 public sealed record BalanceImportResult(int Added, int Updated);
 
 /// <summary>
-/// The Excel template for importing balances into an account kept by its balances, and the reader for it once it is filled in.
-/// The columns are Date, Balance, Withdrawal and Comment.
+/// Reads an Excel file of balances for an account kept by its balances (an export from the app, or a sheet of your own).
+/// The headings in the first row are Date, Balance, Withdrawal and Comment.
 /// </summary>
 public static class BalanceImport
 {
     private const string SheetName = "Balances";
 
-    /// <summary>Writes an empty template: the column headings, set up to take dates and amounts, and a second sheet saying how to fill it in.</summary>
-    public static void CreateTemplate(string path)
-    {
-        using var book = new XLWorkbook();
-        var sheet = book.AddWorksheet(SheetName);
-        string[] headings = ["Date", "Balance", "Withdrawal", "Comment"];
-        for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
-
-        var header = sheet.Range(1, 1, 1, 4);
-        header.Style.Font.Bold = true;
-        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E7F5");
-        sheet.SheetView.FreezeRows(1);
-
-        sheet.Column(1).Width = 14;
-        sheet.Column(2).Width = 18;
-        sheet.Column(3).Width = 16;
-        sheet.Column(4).Width = 40;
-        sheet.Range(2, 1, 5000, 1).Style.DateFormat.Format = "yyyy-mm-dd";
-        sheet.Range(2, 2, 5000, 3).Style.NumberFormat.Format = "#,##0.00";
-        sheet.Range(2, 2, 5000, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-
-        var help = book.AddWorksheet("How to fill in");
-        string[] lines =
-        [
-            "Fill in the Balances sheet, one line for each date, then import the file in Speed Budget.",
-            "",
-            "Date: the date of the balance, such as 2024-01-29 (a real Excel date, or written as year-month-day).",
-            "Balance: the balance of the fund on that date, such as 1582539.55. Required.",
-            "Withdrawal: the amount taken out of the fund on that date, as a positive amount, such as 8700. Leave it empty when nothing was taken out.",
-            "Comment: anything you want to remember about that line. Optional.",
-            "",
-            "The daily changes, total changes, gains and losses are worked out by Speed Budget; do not add them here.",
-            "A date that is already in the tracker is updated with the figures in the file; other dates are added.",
-            "Keep the headings in the first row of the Balances sheet.",
-        ];
-        for (var i = 0; i < lines.Length; i++) help.Cell(i + 1, 1).Value = lines[i];
-        help.Cell(1, 1).Style.Font.Bold = true;
-        help.Column(1).Width = 120;
-
-        book.SaveAs(path);
-    }
-
-    /// <summary>Reads a filled-in template (or any sheet with Date, Balance, Withdrawal and Comment columns). Lines that cannot be used are reported, not imported.</summary>
+    /// <summary>Reads a sheet with Date, Balance, Withdrawal and Comment columns. Lines that cannot be used are reported, not imported.</summary>
     public static BalanceImportFile Read(string path)
     {
         var rows = new List<ImportRow>();
@@ -94,7 +52,7 @@ public static class BalanceImport
         }
         if (headingRow == 0)
         {
-            problems.Add(new ImportProblem(1, "The Date and Balance headings were not found. Use the template, with its headings in the first row."));
+            problems.Add(new ImportProblem(1, "The Date and Balance headings were not found. Put the headings Date, Balance, Withdrawal and Comment in the first row (an export from Speed Budget has them)."));
             return new BalanceImportFile(rows, problems);
         }
 

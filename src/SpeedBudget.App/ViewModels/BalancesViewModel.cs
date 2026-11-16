@@ -182,6 +182,7 @@ public sealed partial class BalancesViewModel : ObservableObject
     public ObservableCollection<BalanceMonthLine> Months { get; } = new();
 
     [ObservableProperty] public partial string Title { get; set; } = "";
+    [ObservableProperty] public partial string OriginalText { get; set; } = "";
     [ObservableProperty] public partial string BalanceText { get; set; } = "";
     [ObservableProperty] public partial string ChangeText { get; set; } = "";
     [ObservableProperty] public partial Brush? ChangeBrush { get; set; }
@@ -244,6 +245,7 @@ public sealed partial class BalancesViewModel : ObservableObject
             foreach (var month in report.Months.Reverse()) Months.Add(new BalanceMonthLine(month));
 
             _latestDate = report.Rows.LastOrDefault()?.Date;
+            OriginalText = report.Rows.FirstOrDefault() is { } original ? Format.Money(original.Balance) : "";
             BalanceText = report.Rows.LastOrDefault() is { } latest ? Format.Money(latest.Balance) : "";
             ChangeText = Format.Money(report.Totals.DailyChanges);
             ChangeBrush = Format.Signed(report.Totals.DailyChanges);

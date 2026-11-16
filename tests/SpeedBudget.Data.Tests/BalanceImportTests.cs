@@ -19,12 +19,18 @@ public class BalanceImportTests : IDisposable
     private string Template()
     {
         var path = Path.Combine(_dir, "template.xlsx");
-        BalanceImport.CreateTemplate(path);
+        using (var book = new XLWorkbook())
+        {
+            var sheet = book.AddWorksheet("Balances");
+            string[] headings = ["Date", "Balance", "Withdrawal", "Comment"];
+            for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
+            book.SaveAs(path);
+        }
         return path;
     }
 
     [Fact]
-    public void The_template_is_blank_with_the_four_headings()
+    public void A_file_with_only_the_headings_has_no_lines()
     {
         using var book = new XLWorkbook(Template());
         var sheet = book.Worksheet("Balances");

@@ -614,25 +614,13 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private void TickAll_Click(object sender, RoutedEventArgs e) => ViewModel.SetAllTicked(TickAllBox.IsChecked == true);
 
-    /// <summary>In selection mode the Delete selected and Done buttons show; Delete selected works once something is ticked. The box in the heading keeps in step.</summary>
+    /// <summary>Keeps the box in the heading in step with the ticks: ticked when every transaction is.</summary>
     private void UpdateTicks(object? sender, EventArgs e)
     {
         var count = ViewModel.TickedRows().Count;
-        var selecting = ViewModel.IsSelecting;
-        DeleteTickedButton.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
-        DeleteTickedButton.IsEnabled = count > 0;
-        SelectDoneButton.Visibility = DeleteTickedButton.Visibility;
-        ToolTipService.SetToolTip(DeleteTickedButton, count > 0 ? $"Delete selected ({count})" : "Delete selected");
         TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
     }
 
-    private void SelectDone_Click(object sender, RoutedEventArgs e) => ViewModel.IsSelecting = false;
-
-    private async void DeleteTicked_Click(object sender, RoutedEventArgs e)
-    {
-        var rows = ViewModel.TickedRows();
-        if (rows.Count > 0) await DeleteManyAsync(rows);
-    }
 
     private async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)
     {
@@ -649,21 +637,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(rows);
     }
 
-    // ---- Excel: a blank template to fill in, importing it, and exporting the table ----
+    // ---- Excel: importing a file, and exporting the table ----
 
     private bool ImportWithAccount => ViewModel.AccountId is null;
-
-    private async void GetTemplate_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var path = await ExcelFiles.PickSaveAsync("transactions-template");
-            if (path is null) return;
-            TransactionImport.CreateTemplate(path, ImportWithAccount);
-            await ExcelFiles.ShowAsync(XamlRoot, "Template saved", $"Saved to {path}. Fill it in, then choose Import from Excel, Import a filled-in template.");
-        }
-        catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The template could not be saved", ex.Message); }
-    }
 
     private async void ImportExcel_Click(object sender, RoutedEventArgs e)
     {
@@ -675,7 +651,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
             var read = await Task.Run(() => TransactionImport.Read(path, ImportWithAccount));
             if (read.Rows.Count == 0)
             {
-                await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", read.Problems.Count == 0 ? "There are no lines with a date, a counterparty and an amount in the file." : ExcelFiles.ProblemText(read.Problems));
+                await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", read.Problems.Count == 0 ? "There are no lines with a date, a counterparty and an amount in the file. The first row needs the headings Date, Counterparty, Memo, Budget item, Outflow, Inflow and Cleared (and Account, for all accounts); an export from Speed Budget has them." : ExcelFiles.ProblemText(read.Problems));
                 return;
             }
 

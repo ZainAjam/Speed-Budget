@@ -228,15 +228,6 @@
                 </Button>
                 <Button Content="New Transfer" Click="Transfer_Click" />
                 <Button Content="New Month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
-                <!-- Shown while transactions are ticked -->
-                <Button x:Name="DeleteTickedButton" Click="DeleteTicked_Click" Visibility="Collapsed" IsEnabled="False" ToolTipService.ToolTip="Delete all the ticked transactions in one go">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                    </StackPanel>
-                </Button>
-                <Button x:Name="SelectDoneButton" Click="SelectDone_Click" Visibility="Collapsed" ToolTipService.ToolTip="Done" AutomationProperties.Name="Done selecting">
-                    <FontIcon Glyph="&#xE711;" FontSize="14" />
-                </Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                 <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
@@ -254,9 +245,6 @@
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
                             <MenuFlyoutItem Text="Import from Excel…" Click="ImportExcel_Click">
                                 <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE896;" /></MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutItem Text="Get a blank Excel template…" Click="GetTemplate_Click">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8A5;" /></MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                             <MenuFlyoutSeparator />
                             <MenuFlyoutItem Text="Export to Excel…" Click="ExportExcel_Click">

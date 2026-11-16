@@ -107,15 +107,10 @@ public sealed partial class BalancesPage : Page, IReloadable
 
     private void Lines_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSelection();
 
-    /// <summary>In selection mode the Delete selected and Done buttons show; Delete selected works once something is ticked.</summary>
+    /// <summary>Keeps the box in the heading in step with the ticks: ticked when every line is.</summary>
     private void UpdateSelection()
     {
         var count = LinesList.SelectedItems.Count;
-        var selecting = ViewModel.IsSelecting;
-        DeleteSelectedButton.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
-        DeleteSelectedButton.IsEnabled = count > 0;
-        SelectDoneButton.Visibility = DeleteSelectedButton.Visibility;
-        ToolTipService.SetToolTip(DeleteSelectedButton, count > 0 ? $"Delete selected ({count})" : "Delete selected");
         SelectAllBox.IsChecked = count > 0 && count == ViewModel.Lines.Count;
     }
 
@@ -127,8 +122,6 @@ public sealed partial class BalancesPage : Page, IReloadable
         ViewModel.IsSelecting = selecting;
         UpdateSelection();
     }
-
-    private void SelectDone_Click(object sender, RoutedEventArgs e) => SetSelecting(false);
 
     private async void DeleteSelected_Click(object sender, RoutedEventArgs e)
     {
@@ -266,24 +259,7 @@ public sealed partial class BalancesPage : Page, IReloadable
     private static void StartWithWindow(object picker) =>
         WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));
 
-    /// <summary>Saves an empty Excel file with the right columns, for the user to fill in.</summary>
-    private async void GetTemplate_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var picker = new FileSavePicker { SuggestedFileName = "balances-template" };
-            picker.FileTypeChoices.Add("Excel workbook", new List<string> { ".xlsx" });
-            StartWithWindow(picker);
-            var file = await picker.PickSaveFileAsync();
-            if (file is null) return;
-
-            BalanceImport.CreateTemplate(file.Path);
-            ViewModel.Tell($"Saved the template to {file.Path}. Fill it in, then choose Excel import, Import a filled-in template.");
-        }
-        catch (Exception ex) { await ShowAsync("The template could not be saved", ex.Message); }
-    }
-
-    /// <summary>Reads a filled-in template, shows what it would do, and brings the lines in when the user agrees.</summary>
+    /// <summary>Reads an Excel file, shows what it would do, and brings the lines in when the user agrees.</summary>
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -297,7 +273,7 @@ public sealed partial class BalancesPage : Page, IReloadable
             var read = await Task.Run(() => BalanceImport.Read(file.Path));
             if (read.Rows.Count == 0)
             {
-                var why = read.Problems.Count == 0 ? "There are no lines with a date and a balance in the file." : ProblemText(read.Problems);
+                var why = read.Problems.Count == 0 ? "There are no lines with a date and a balance in the file. The first row needs the headings Date, Balance, Withdrawal and Comment (an export from Speed Budget has them)." : ProblemText(read.Problems);
                 await ShowAsync("Nothing to import", why);
                 return;
             }

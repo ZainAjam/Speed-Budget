@@ -4,7 +4,7 @@ using SpeedBudget.Core;
 
 namespace SpeedBudget.Data;
 
-/// <summary>One usable line of a filled-in transactions template. Amount is signed: money in is positive, money out is negative.</summary>
+/// <summary>One usable line of a transactions file. Amount is signed: money in is positive, money out is negative.</summary>
 public sealed record TransactionImportRow(int Line, DateOnly Date, string Payee, string? Memo, string? ItemName, string? AccountName, long Amount, bool Cleared, string? MonthLabel = null)
 {
     /// <summary>A "New Month" line rather than a transaction: it starts the month named by <see cref="MonthLabel"/>.</summary>
@@ -17,7 +17,7 @@ public sealed record TransactionImportFile(IReadOnlyList<TransactionImportRow> R
 public sealed record TransactionImportResult(int Added, IReadOnlyList<ImportProblem> Skipped, IReadOnlyList<string> Notes, int MonthLines = 0);
 
 /// <summary>
-/// The Excel template for importing transactions, the reader for it once it is filled in, and the export of a table of transactions.
+/// Reads an Excel file of transactions (an export from the app, or a sheet of your own), and exports a table of transactions.
 /// The columns are Date, Counterparty, Memo, Budget item, Account (only when importing into all accounts), Outflow, Inflow and Cleared.
 /// </summary>
 public static class TransactionImport
@@ -27,56 +27,7 @@ public static class TransactionImport
     /// <summary>The Counterparty of a line that starts a month (its Memo names the month).</summary>
     public const string MonthRowName = "New Month";
 
-    /// <summary>Writes an empty template with the column headings, and a second sheet saying how to fill it in. The Account column is for the all-accounts table.</summary>
-    public static void CreateTemplate(string path, bool withAccount)
-    {
-        using var book = new XLWorkbook();
-        var sheet = book.AddWorksheet(SheetName);
-        var headings = withAccount
-            ? new[] { "Date", "Counterparty", "Memo", "Budget item", "Account", "Outflow", "Inflow", "Cleared" }
-            : new[] { "Date", "Counterparty", "Memo", "Budget item", "Outflow", "Inflow", "Cleared" };
-        for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
-
-        var header = sheet.Range(1, 1, 1, headings.Length);
-        header.Style.Font.Bold = true;
-        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E7F5");
-        sheet.SheetView.FreezeRows(1);
-
-        var money = Array.IndexOf(headings, "Outflow") + 1;
-        sheet.Range(2, 1, 5000, 1).Style.DateFormat.Format = "yyyy-mm-dd";
-        sheet.Range(2, money, 5000, money + 1).Style.NumberFormat.Format = "#,##0.00";
-        sheet.Range(2, money, 5000, money + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-        for (var i = 0; i < headings.Length; i++) sheet.Column(i + 1).Width = headings[i] switch { "Date" => 14, "Counterparty" => 28, "Memo" => 30, "Budget item" => 24, "Account" => 22, _ => 14 };
-
-        var help = book.AddWorksheet("How to fill in");
-        var lines = new List<string>
-        {
-            "Fill in the Transactions sheet, one line for each transaction, then import the file in Speed Budget.",
-            "",
-            "Date: the date of the transaction, such as 2024-01-29 (a real Excel date, or written as year-month-day). Required.",
-            "Counterparty: who you paid, or who paid you. Required.",
-            "Memo: a note to help you remember what it was for. Optional.",
-            "Budget item: the name of one of your budget items, written as it is in Speed Budget. Optional; a name that is not found leaves the transaction without an item.",
-        };
-        if (withAccount) lines.Add("Account: the name of the bank account, written as it is in Speed Budget. Required.");
-        lines.AddRange(
-        [
-            "Outflow: money that left the account, as a positive amount, such as 249.99. Leave it empty for money that came in.",
-            "Inflow: money that came into the account, such as 15000. Leave it empty for money that went out.",
-            "Cleared: write Yes once it shows on your bank statement. Optional.",
-            "",
-            "New month: a line with New Month as its Counterparty and the month in the Memo, such as December 2026, starts that month at that place in the list. Leave the other cells empty.",
-            "Transfers between accounts are not imported; add those in Speed Budget.",
-            "Keep the headings in the first row of the Transactions sheet.",
-        ]);
-        for (var i = 0; i < lines.Count; i++) help.Cell(i + 1, 1).Value = lines[i];
-        help.Cell(1, 1).Style.Font.Bold = true;
-        help.Column(1).Width = 130;
-
-        book.SaveAs(path);
-    }
-
-    /// <summary>Reads a filled-in template (or any sheet with these headings). Lines that cannot be used are reported, not imported.</summary>
+    /// <summary>Reads a sheet with the headings below. Lines that cannot be used are reported, not imported.</summary>
     public static TransactionImportFile Read(string path, bool withAccount)
     {
         var rows = new List<TransactionImportRow>();
@@ -108,12 +59,12 @@ public static class TransactionImport
         }
         if (headingRow == 0)
         {
-            problems.Add(new ImportProblem(1, "The Date, Counterparty and Outflow or Inflow headings were not found. Use the template, with its headings in the first row."));
+            problems.Add(new ImportProblem(1, "The Date, Counterparty and Outflow or Inflow headings were not found. Put the headings in the first row (an export from Speed Budget has them)."));
             return new TransactionImportFile(rows, problems);
         }
         if (withAccount && !columns.ContainsKey("account"))
         {
-            problems.Add(new ImportProblem(1, "The Account heading was not found. For all accounts, use the template from the all-accounts table, which has an Account column."));
+            problems.Add(new ImportProblem(1, "The Account heading was not found. For all accounts, use a sheet with an Account column, such as an export from the all-accounts table."));
             return new TransactionImportFile(rows, problems);
         }
 
@@ -170,7 +121,7 @@ public static class TransactionImport
 public sealed partial class BudgetStore
 {
     /// <summary>
-    /// Brings transactions read from an Excel template in, all in one save (so Ctrl+Z takes the whole import back). Into one account when
+    /// Brings transactions read from an Excel file in, all in one save (so Ctrl+Z takes the whole import back). Into one account when
     /// <paramref name="accountId"/> is given; otherwise each line names its account. An account or budget item is found by its name.
     /// A line whose account is not found is skipped; a budget item that is not found is left empty. With <paramref name="apply"/> false nothing is saved.
     /// </summary>

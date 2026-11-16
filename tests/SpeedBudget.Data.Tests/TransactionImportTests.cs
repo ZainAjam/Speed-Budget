@@ -29,18 +29,27 @@ public class TransactionImportTests : IDisposable
         try { Directory.Delete(_dir, recursive: true); } catch { /* a temp folder left behind is harmless */ }
     }
 
-    [Fact]
-    public void The_template_has_the_headings_and_the_all_accounts_one_has_an_account_column()
+    /// <summary>A file with only the headings, as a sheet of the user's own (or an export with nothing in it) would be.</summary>
+    private string HeadingsOnly(string name, bool withAccount)
     {
-        var one = Path.Combine(_dir, "one.xlsx");
-        var all = Path.Combine(_dir, "all.xlsx");
-        TransactionImport.CreateTemplate(one, withAccount: false);
-        TransactionImport.CreateTemplate(all, withAccount: true);
-        using (var book = new XLWorkbook(one))
-            Assert.Equal(new[] { "Date", "Counterparty", "Memo", "Budget item", "Outflow", "Inflow", "Cleared" }, Enumerable.Range(1, 7).Select(c => book.Worksheet("Transactions").Cell(1, c).GetString()));
-        using (var book = new XLWorkbook(all))
-            Assert.Equal("Account", book.Worksheet("Transactions").Cell(1, 5).GetString());
-        Assert.Empty(TransactionImport.Read(one, false).Rows);
+        var path = Path.Combine(_dir, name);
+        using var book = new XLWorkbook();
+        var sheet = book.AddWorksheet("Transactions");
+        var headings = withAccount
+            ? new[] { "Date", "Counterparty", "Memo", "Budget item", "Account", "Outflow", "Inflow", "Cleared" }
+            : new[] { "Date", "Counterparty", "Memo", "Budget item", "Outflow", "Inflow", "Cleared" };
+        for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
+        book.SaveAs(path);
+        return path;
+    }
+
+    [Fact]
+    public void A_file_with_only_headings_has_no_lines_and_all_accounts_needs_an_account_column()
+    {
+        Assert.Empty(TransactionImport.Read(HeadingsOnly("all.xlsx", withAccount: true), true).Rows);
+        var missing = TransactionImport.Read(HeadingsOnly("one.xlsx", withAccount: false), withAccount: true);
+        Assert.Empty(missing.Rows);
+        Assert.Single(missing.Problems);
     }
 
     [Fact]
@@ -51,7 +60,7 @@ public class TransactionImportTests : IDisposable
         var groceries = await _store.AddItemAsync(group.Id, null, "Groceries", ItemKind.Expense);
 
         var path = Path.Combine(_dir, "tx.xlsx");
-        TransactionImport.CreateTemplate(path, withAccount: false);
+        path = HeadingsOnly("tx.xlsx", withAccount: false);
         using (var book = new XLWorkbook(path))
         {
             var sheet = book.Worksheet("Transactions");

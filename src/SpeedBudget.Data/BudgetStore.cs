@@ -322,7 +322,7 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>
-    /// Brings lines read from an Excel template into an account kept by its balances, all at once (so Ctrl+Z takes the whole import back).
+    /// Brings lines read from an Excel file into an account kept by its balances, all at once (so Ctrl+Z takes the whole import back).
     /// A date the account already has is updated with the figures in the file (a comment is only replaced when the file has one); other dates are added.
     /// When the file has the same date twice, the later line wins. With <paramref name="apply"/> false nothing is saved and the result only says what would happen.
     /// </summary>
