@@ -543,6 +543,11 @@ public sealed class DataTests : IDisposable
         await _store.DeleteBalanceEntryAsync(withdrawal.Id);
         Assert.Equal(1_020_000, (await _store.GetBalancesAsync(fund.Id)).BookBalance);
 
+        // Several lines can be deleted in one go.
+        var rows = (await _store.GetBalanceReportAsync(fund.Id)).Rows;
+        await _store.DeleteBalanceEntriesAsync(rows.Select(r => r.Id));
+        Assert.Empty((await _store.GetBalanceReportAsync(fund.Id)).Rows);
+
         // Only a tracking account can be kept this way; a budget account never is.
         await _store.UpdateAccountAsync(fund.Id, "Retirement", AccountType.Investment, isOnBudget: true, 0, isClosed: false, trackBalances: true);
         Assert.False((await _store.GetAccountsAsync()).Single(a => a.Id == fund.Id).TrackBalances);

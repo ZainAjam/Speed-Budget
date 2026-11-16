@@ -10,6 +10,7 @@ into the release.
 
 - **Balances can be brought in from Excel.** On the screen of an account kept by its balances, **Excel import** offers **Get a blank Excel template**, which saves a file with the columns Date, Balance, Withdrawal and Comment (and a sheet saying how to fill it in). Fill it in, then choose **Import a filled-in template**. You are shown how many lines are new, how many are for dates the account already has (they take the figures in the file, so the same file can be imported again safely) and which lines will be skipped and why, before anything is brought in. Importing can be undone with Ctrl+Z.
 - **A line of a balance account is added and changed in place.** **Add Entry** (top left) puts a new line at the top of the list with its cells open, ready for the balance; pressing a line's pencil does the same for an existing line. A tick (or Enter) saves it and a cross (or Esc) leaves it as it was, and the table stays where it is. What each heading means is in its tooltip, so there are no explanation notes on the screen. **By month**, **Daily balances** and **Excel import** sit on the right.
+- **Several lines of a balance account can be deleted at once.** Each line has a tick box, and the box in the heading ticks all of them (or none). While lines are ticked, **Delete selected** appears beside Add Entry; one Ctrl+Z brings them all back.
 
 ## 0.9.24
 

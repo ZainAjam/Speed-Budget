@@ -222,6 +222,22 @@ public sealed partial class BalancesViewModel : ObservableObject
         catch (Exception ex) { Warn($"Could not delete: {ex.Message}"); }
     }
 
+    /// <summary>Deletes all the selected lines in one go.</summary>
+    public async Task DeleteManyAsync(IReadOnlyList<BalanceLine> lines)
+    {
+        var saved = lines.Where(l => !l.IsNew).ToList();
+        try
+        {
+            if (saved.Count > 0) await _store.DeleteBalanceEntriesAsync(saved.Select(l => l.Id));
+            if (_editing is { } e && lines.Contains(e)) _editing = null;
+            foreach (var unsaved in lines.Where(l => l.IsNew)) Lines.Remove(unsaved);
+            await LoadAsync(AccountId);
+            AppServices.RaiseBalancesChanged();
+            Tell($"Deleted {saved.Count} balance{(saved.Count == 1 ? "" : "s")}.");
+        }
+        catch (Exception ex) { Warn($"Could not delete: {ex.Message}"); }
+    }
+
     // ---- Import from Excel ----
 
     /// <summary>What importing the lines would do: how many dates are new and how many the account already has.</summary>

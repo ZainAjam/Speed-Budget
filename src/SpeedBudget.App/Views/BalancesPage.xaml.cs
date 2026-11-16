@@ -50,6 +50,38 @@ public sealed partial class BalancesPage : Page, IReloadable
             box.DispatcherQueue.TryEnqueue(() => box.Focus(FocusState.Programmatic));
     }
 
+    // ---- Ticking lines, to delete them in one go ----
+
+    private void SelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectAllBox.IsChecked == true) LinesList.SelectAll();
+        else LinesList.SelectedItems.Clear();
+    }
+
+    private void Lines_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var count = LinesList.SelectedItems.Count;
+        DeleteSelectedButton.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DeleteSelectedText.Text = $"Delete selected ({count})";
+        SelectAllBox.IsChecked = count > 0 && count == ViewModel.Lines.Count;
+    }
+
+    private async void DeleteSelected_Click(object sender, RoutedEventArgs e)
+    {
+        var lines = LinesList.SelectedItems.OfType<BalanceLine>().ToList();
+        if (lines.Count == 0) return;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = lines.Count == 1 ? "Delete this balance?" : $"Delete these {lines.Count} balances?",
+            Content = "They are removed, and the changes, gains and losses are worked out again without them. Ctrl+Z brings them back.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(lines);
+    }
+
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: BalanceLine line }) ViewModel.BeginChange(line);

@@ -313,6 +313,14 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Deletes several balance lines in one save, so Ctrl+Z brings them all back together.</summary>
+    public async Task DeleteBalanceEntriesAsync(IEnumerable<Guid> entryIds, CancellationToken ct = default)
+    {
+        var ids = entryIds.ToList();
+        db.BalanceEntries.RemoveRange(await db.BalanceEntries.Where(e => ids.Contains(e.Id)).ToListAsync(ct));
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>
     /// Brings lines read from an Excel template into an account kept by its balances, all at once (so Ctrl+Z takes the whole import back).
     /// A date the account already has is updated with the figures in the file (a comment is only replaced when the file has one); other dates are added.
