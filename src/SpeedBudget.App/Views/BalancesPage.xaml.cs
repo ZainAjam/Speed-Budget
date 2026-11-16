@@ -40,7 +40,15 @@ public sealed partial class BalancesPage : Page, IReloadable
         DailyButton.IsChecked = false;
     }
 
-    private async void Save_Click(object sender, RoutedEventArgs e) => await ViewModel.SaveAsync();
+    /// <summary>Add Entry: a new line opens at the top of the list, ready to be filled in.</summary>
+    private void AddEntry_Click(object sender, RoutedEventArgs e) => ViewModel.BeginAdd();
+
+    /// <summary>The balance box of a line that has just been added takes the cursor, so the amount can be typed straight away.</summary>
+    private void BalanceBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is NumberBox { DataContext: BalanceLine { IsNew: true } } box)
+            box.DispatcherQueue.TryEnqueue(() => box.Focus(FocusState.Programmatic));
+    }
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
@@ -70,15 +78,6 @@ public sealed partial class BalancesPage : Page, IReloadable
             DefaultButton = ContentDialogButton.Close,
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteAsync(line);
-    }
-
-    /// <summary>Enter adds the balance, once the box being typed in has taken what was typed.</summary>
-    private void Form_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key != VirtualKey.Enter) return;
-        e.Handled = true;
-        CommitBox();
-        DispatcherQueue.TryEnqueue(async () => await ViewModel.SaveAsync());
     }
 
     /// <summary>

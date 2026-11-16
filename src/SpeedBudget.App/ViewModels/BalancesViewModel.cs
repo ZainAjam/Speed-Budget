@@ -30,6 +30,10 @@ public sealed partial class BalanceLine(BalanceRow row) : ObservableObject
     public Brush GainBrush { get; } = Format.Signed(row.GainLoss);
     public string CommentText { get; } = row.Comment ?? "";
 
+    /// <summary>A line that was just added with Add Entry and is not saved yet: it has no id, and no changes or gains to show.</summary>
+    public bool IsNew => Id == Guid.Empty;
+    public bool HasFigures => !IsNew;
+
     /// <summary>True while the line's own cells are boxes to type in.</summary>
     [ObservableProperty] public partial bool IsEditing { get; set; }
     public bool IsViewing => !IsEditing;
@@ -72,26 +76,19 @@ public sealed partial class BalancesViewModel : ObservableObject
 
     [ObservableProperty] public partial string Title { get; set; } = "";
     [ObservableProperty] public partial string BalanceText { get; set; } = "";
-    [ObservableProperty] public partial string SinceText { get; set; } = "";
     [ObservableProperty] public partial string ChangeText { get; set; } = "";
     [ObservableProperty] public partial Brush? ChangeBrush { get; set; }
     [ObservableProperty] public partial string WithdrawalsText { get; set; } = "";
     [ObservableProperty] public partial string GainsText { get; set; } = "";
     [ObservableProperty] public partial Brush? GainsBrush { get; set; }
-    [ObservableProperty] public partial bool HasLines { get; set; }
 
     /// <summary>Which table shows: the daily lines, or the summary by month.</summary>
     [ObservableProperty] public partial bool ShowMonths { get; set; }
     public bool ShowDaily => !ShowMonths;
-    public bool ShowDailyEmpty => ShowDaily && !HasLines;
+    public bool ShowDailyEmpty => ShowDaily && Lines.Count == 0;
     partial void OnShowMonthsChanged(bool value) { OnPropertyChanged(nameof(ShowDaily)); OnPropertyChanged(nameof(ShowDailyEmpty)); }
-    partial void OnHasLinesChanged(bool value) => OnPropertyChanged(nameof(ShowDailyEmpty));
 
-    // The boxes for a new balance.
-    [ObservableProperty] public partial DateTimeOffset? FormDate { get; set; } = DateTimeOffset.Now;
-    [ObservableProperty] public partial double FormBalance { get; set; } = double.NaN;
-    [ObservableProperty] public partial double FormWithdrawal { get; set; } = double.NaN;
-    [ObservableProperty] public partial string FormComment { get; set; } = "";
+    public BalancesViewModel() => Lines.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowDailyEmpty));
 
     [ObservableProperty] public partial string Message { get; set; } = "";
     [ObservableProperty] public partial InfoBarSeverity MessageSeverity { get; set; } = InfoBarSeverity.Warning;
@@ -99,7 +96,6 @@ public sealed partial class BalancesViewModel : ObservableObject
     partial void OnMessageChanged(string value) => OnPropertyChanged(nameof(HasMessage));
 
     private BalanceLine? _editing;
-    private bool _dateSet;
 
     private void Warn(string text) { MessageSeverity = InfoBarSeverity.Warning; Message = text; }
     public void Tell(string text) { MessageSeverity = InfoBarSeverity.Success; Message = text; }
@@ -118,18 +114,13 @@ public sealed partial class BalancesViewModel : ObservableObject
             Months.Clear();
             foreach (var month in report.Months.Reverse()) Months.Add(new BalanceMonthLine(month));
 
-            HasLines = report.Rows.Count > 0;
-            var latest = report.Rows.LastOrDefault();
-            BalanceText = latest is null ? "" : Format.Money(latest.Balance);
-            SinceText = report.Rows.Count == 0 ? "" : $"Totals since {Format.Date(report.Rows[0].Date)}";
+            _latestDate = report.Rows.LastOrDefault()?.Date;
+            BalanceText = report.Rows.LastOrDefault() is { } latest ? Format.Money(latest.Balance) : "";
             ChangeText = Format.Money(report.Totals.DailyChanges);
             ChangeBrush = Format.Signed(report.Totals.DailyChanges);
             WithdrawalsText = Format.Money(-report.Totals.Withdrawals);
             GainsText = Format.Money(report.Totals.GainsLosses);
             GainsBrush = Format.Signed(report.Totals.GainsLosses);
-
-            // The next balance is usually for the day after the last one (the boxes are only set up once, then follow what is added).
-            if (!_dateSet && latest is not null) { FormDate = new DateTimeOffset(latest.Date.AddDays(1).ToDateTime(TimeOnly.MinValue)); _dateSet = true; }
         }
         catch (Exception ex) { Warn($"Could not load the balances: {ex.Message}"); }
         finally { _gate.Release(); }
@@ -151,29 +142,35 @@ public sealed partial class BalancesViewModel : ObservableObject
         foreach (var line in lines) Lines.Add(line);
     }
 
-    /// <summary>Adds the balance typed into the boxes at the top.</summary>
-    public async Task SaveAsync()
+    private DateOnly? _latestDate;
+
+    /// <summary>
+    /// Add Entry: puts a new line at the top of the list with its cells already open as boxes, dated the day after the latest balance (or today).
+    /// It is only saved when its tick (or Enter) is pressed. Pressing Add Entry again goes back to the line already open.
+    /// </summary>
+    public BalanceLine? BeginAdd()
     {
-        if (FormDate is not { } date) { Warn("Choose the date of the balance."); return; }
-        if (double.IsNaN(FormBalance)) { Warn("Type in the balance on that date."); return; }
-        try
+        if (Lines.FirstOrDefault(l => l.IsNew) is { } open) return open;
+        if (_editing is { } other) other.IsEditing = false;
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var next = _latestDate?.AddDays(1) ?? today;
+        var date = next > today ? today : next;
+        var line = new BalanceLine(new BalanceRow(Guid.Empty, date, 0, 0, 0, 0, 0, null, BalanceTracker.MonthOf(date)))
         {
-            await _store.AddBalanceEntryAsync(AccountId, DateOnly.FromDateTime(date.DateTime), AppServices.ToCents(FormBalance), AppServices.ToCents(FormWithdrawal), FormComment);
-            Message = "";
-            FormBalance = double.NaN;
-            FormWithdrawal = double.NaN;
-            FormComment = "";
-            FormDate = date.AddDays(1);
-            await LoadAsync(AccountId);
-            AppServices.RaiseBalancesChanged();   // the balance beside the account's name changes
-        }
-        catch (Exception ex) { Warn($"Could not save: {ex.Message}"); }
+            EditDate = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue)),
+            IsEditing = true,
+        };
+        _editing = line;
+        Message = "";
+        Lines.Insert(0, line);
+        return line;
     }
 
     /// <summary>Turns a line's cells into boxes. Any other line being changed goes back to normal first.</summary>
     public void BeginChange(BalanceLine line)
     {
-        if (_editing is { } other && !ReferenceEquals(other, line)) other.IsEditing = false;
+        if (_editing is { } other && !ReferenceEquals(other, line)) CancelChange(other);
         _editing = line;
         line.EditDate = new DateTimeOffset(line.Date.ToDateTime(TimeOnly.MinValue));
         line.EditBalance = (double)AppServices.ToRands(line.BalanceCents);
@@ -185,6 +182,7 @@ public sealed partial class BalancesViewModel : ObservableObject
 
     public void CancelChange(BalanceLine line)
     {
+        if (line.IsNew) Lines.Remove(line);   // a line that was never saved just goes away
         line.IsEditing = false;
         if (ReferenceEquals(_editing, line)) _editing = null;
     }
@@ -196,7 +194,13 @@ public sealed partial class BalancesViewModel : ObservableObject
         if (double.IsNaN(line.EditBalance)) { Warn("Type in the balance on that date."); return; }
         try
         {
-            await _store.UpdateBalanceEntryAsync(line.Id, DateOnly.FromDateTime(date.DateTime), AppServices.ToCents(line.EditBalance), AppServices.ToCents(line.EditWithdrawal), line.EditComment);
+            var day = DateOnly.FromDateTime(date.DateTime);
+            if (line.IsNew)
+            {
+                await _store.AddBalanceEntryAsync(AccountId, day, AppServices.ToCents(line.EditBalance), AppServices.ToCents(line.EditWithdrawal), line.EditComment);
+                Lines.Remove(line);
+            }
+            else await _store.UpdateBalanceEntryAsync(line.Id, day, AppServices.ToCents(line.EditBalance), AppServices.ToCents(line.EditWithdrawal), line.EditComment);
             Message = "";
             line.IsEditing = false;
             if (ReferenceEquals(_editing, line)) _editing = null;
