@@ -518,13 +518,13 @@ public sealed partial class MainWindow : Window
                 await MoveAccountAsync(dragged, account.Id);
             _draggedAccount = null;
             _paneHeld = false;   // the dragged row may be rebuilt before its drop completes, so let go of the panel here too
+            _pointerInNav = true;   // released over the panel, which stays open until the pointer moves out of it
         };
         row.Tapped += (_, _) => Nav.SelectedItem = item;   // the row takes the click while it is draggable, so it opens the page itself
         row.DropCompleted += (_, _) =>
         {
             _draggedAccount = null;
             _paneHeld = false;
-            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
         return item;
