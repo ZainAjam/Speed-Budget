@@ -64,13 +64,14 @@
                 <Button Content="Add Entry" Style="{StaticResource AccentButtonStyle}" Click="AddEntry_Click"
                         ToolTipService.ToolTip="Add the balance on a date, with anything you took out and a comment if you like" />
                 <!-- Shown while lines are ticked -->
-                <Button x:Name="DeleteSelectedButton" Click="DeleteSelected_Click" Visibility="Collapsed"
+                <Button x:Name="DeleteSelectedButton" Click="DeleteSelected_Click" Visibility="Collapsed" IsEnabled="False"
                         ToolTipService.ToolTip="Delete all the ticked lines in one go">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE74D;" FontSize="14" />
                         <TextBlock x:Name="DeleteSelectedText" Text="Delete selected" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="SelectDoneButton" Content="Done" Click="SelectDone_Click" Visibility="Collapsed" ToolTipService.ToolTip="Leave selection mode" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <ToggleButton x:Name="DailyButton" Content="Daily balances" IsChecked="True" Click="Daily_Click" />
@@ -123,7 +124,7 @@
 
                     <Grid x:Name="DailyHeading">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="46" />
+                            <ColumnDefinition Width="{x:Bind Columns.LeadWidth, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.TotalChange, Mode=OneWay}" />
@@ -133,7 +134,7 @@
                             <ColumnDefinition Width="*" MinWidth="{x:Bind Columns.CommentMin, Mode=OneWay}" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource HeadingBorder}" Padding="0">
+                        <Border Style="{StaticResource HeadingBorder}" Padding="0" Visibility="{x:Bind Columns.Selecting, Mode=OneWay}">
                             <CheckBox x:Name="SelectAllBox" MinWidth="0" Padding="0" HorizontalAlignment="Center" Click="SelectAll_Click" AutomationProperties.Name="Select all lines"
                                       ToolTipService.ToolTip="Tick all the lines, or none" />
                         </Border>
@@ -160,7 +161,7 @@
                         <local:ResizeGrip Grid.Column="6" Tag="5" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
 
-                    <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Lines}" SelectionMode="Multiple" x:Name="LinesList" SelectionChanged="Lines_SelectionChanged">
+                    <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Lines}" SelectionMode="None" x:Name="LinesList" SelectionChanged="Lines_SelectionChanged">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="Padding" Value="0" />
@@ -171,7 +172,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BalanceLine">
                                 <!-- Pressing the pencil turns this line's own cells into boxes (Enter saves, Esc leaves it as it was) -->
-                                <Grid Margin="18,0,0,0" Background="Transparent" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown" ContextRequested="Line_ContextRequested">
+                                <Grid Margin="{x:Bind Columns.RowIndent, Mode=OneWay}" Background="Transparent" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown" ContextRequested="Line_ContextRequested">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />

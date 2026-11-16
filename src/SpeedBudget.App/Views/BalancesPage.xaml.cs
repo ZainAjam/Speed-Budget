@@ -22,6 +22,7 @@ public sealed partial class BalancesPage : Page, IReloadable
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
+        SetSelecting(false);   // selection mode never carries over from another table
         await LoadColumnsAsync();
         if (e.Parameter is Guid accountId) await ViewModel.LoadAsync(accountId);
     }
@@ -104,13 +105,30 @@ public sealed partial class BalancesPage : Page, IReloadable
         else LinesList.SelectedItems.Clear();
     }
 
-    private void Lines_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void Lines_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSelection();
+
+    /// <summary>In selection mode the Delete selected and Done buttons show; Delete selected works once something is ticked.</summary>
+    private void UpdateSelection()
     {
         var count = LinesList.SelectedItems.Count;
-        DeleteSelectedButton.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        DeleteSelectedText.Text = $"Delete selected ({count})";
+        var selecting = ViewModel.IsSelecting;
+        DeleteSelectedButton.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
+        DeleteSelectedButton.IsEnabled = count > 0;
+        SelectDoneButton.Visibility = DeleteSelectedButton.Visibility;
+        DeleteSelectedText.Text = count > 0 ? $"Delete selected ({count})" : "Delete selected";
         SelectAllBox.IsChecked = count > 0 && count == ViewModel.Lines.Count;
     }
+
+    /// <summary>Selection mode on or off: the tick boxes come and go with it, and leaving it clears the ticks.</summary>
+    private void SetSelecting(bool selecting)
+    {
+        if (!selecting && LinesList.SelectionMode != ListViewSelectionMode.None) LinesList.SelectedItems.Clear();
+        LinesList.SelectionMode = selecting ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
+        ViewModel.IsSelecting = selecting;
+        UpdateSelection();
+    }
+
+    private void SelectDone_Click(object sender, RoutedEventArgs e) => SetSelecting(false);
 
     private async void DeleteSelected_Click(object sender, RoutedEventArgs e)
     {
@@ -150,6 +168,12 @@ public sealed partial class BalancesPage : Page, IReloadable
                 var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "" } };
                 edit.Click += (_, _) => ViewModel.BeginChange(line);
                 menu.Items.Add(edit);
+            if (!ViewModel.IsSelecting)
+            {
+                var select = new MenuFlyoutItem { Text = "Select", Icon = new FontIcon { Glyph = "\uE762" } };
+                select.Click += (_, _) => { SetSelecting(true); LinesList.SelectedItems.Add(line); };
+                menu.Items.Add(select);
+            }
             }
             var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "" } };
             delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());

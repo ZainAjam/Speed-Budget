@@ -35,6 +35,12 @@ public sealed class BalanceColumns : ObservableObject
     public GridLength MonthWithdrawals => Of(_widths[9]);
     public GridLength MonthLeft => Of(_widths[10]);
 
+    /// <summary>True in selection mode: a column of tick boxes shows at the left of the table.</summary>
+    public bool Selecting { get; private set; }
+    public GridLength LeadWidth => Of(Selecting ? 46 : 0);
+    public Thickness RowIndent => new(Selecting ? 18 : 0, 0, 0, 0);   // the tick box a line brings with it takes 28 of the 46
+    public void SetSelecting(bool selecting) { Selecting = selecting; OnPropertyChanged(string.Empty); }
+
     public double Get(int index) => _widths[index];
 
     /// <summary>The narrowest each column may be made, so it can never be dragged out of sight.</summary>
@@ -188,6 +194,10 @@ public sealed partial class BalancesViewModel : ObservableObject
     public bool ShowDaily => !ShowMonths;
     public bool ShowDailyEmpty => ShowDaily && Lines.Count == 0;
     partial void OnShowMonthsChanged(bool value) { OnPropertyChanged(nameof(ShowDaily)); OnPropertyChanged(nameof(ShowDailyEmpty)); }
+
+    /// <summary>Selection mode: tick boxes show beside the lines, so several can be ticked and deleted together. Entered from the right-click menu's Select.</summary>
+    [ObservableProperty] public partial bool IsSelecting { get; set; }
+    partial void OnIsSelectingChanged(bool value) => BalanceColumns.Shared.SetSelecting(value);
 
     public BalancesViewModel() => Lines.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ShowDailyEmpty));
 

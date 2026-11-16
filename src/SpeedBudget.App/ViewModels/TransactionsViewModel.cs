@@ -1324,6 +1324,16 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     // ---- Ticking transactions, to delete them together ----
+    /// <summary>Selection mode: tick boxes show beside the transactions, so several can be ticked and deleted together. Entered from the right-click menu's Select.</summary>
+    [ObservableProperty] public partial bool IsSelecting { get; set; }
+
+    partial void OnIsSelectingChanged(bool value)
+    {
+        ColumnLayout.Current.Selecting = value;
+        if (!value) SetAllTicked(false);
+        else TicksChanged();
+    }
+
 
     /// <summary>The ticked transactions (a new row that is not saved yet is never counted).</summary>
     public List<TransactionRow> TickedRows() => Rows.OfType<TransactionRow>().Where(r => r.IsTicked && !r.IsNew).ToList();
@@ -1364,8 +1374,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Duplicate: a new row, filled in like the given one (same date, counterparty, memo, budget item or split, and amount), opens for editing
-    /// beside it. It is saved like any new row, with Enter or the tick, and goes away on Esc.
+    /// Duplicate: a new row, filled in like the given one (same account, counterparty, memo, budget item or split, and amount) but dated today, opens for editing
+    /// as the latest entry in the table. It is saved like any new row, with Enter or the tick, and goes away on Esc.
     /// </summary>
     public async Task BeginDuplicateAsync(TransactionRow row)
     {
@@ -1373,7 +1383,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         if (IsRowEditing) { Message = FinishFirst; return; }
 
         var source = row.Entity;
-        var entity = new TransactionEntity { AccountId = source.AccountId, Date = source.Date, Payee = source.Payee, Memo = source.Memo, Amount = source.Amount };
+        var entity = new TransactionEntity { AccountId = source.AccountId, Date = DateOnly.FromDateTime(DateTime.Today), Payee = source.Payee, Memo = source.Memo, Amount = source.Amount };
         if (row.IsTransfer) entity.TransferPairId = Guid.CreateVersion7();   // marks it as a transfer until it is saved as a real pair
         var copy = new TransactionRow(entity, row.Item, row.AccountName, row.LineCount, this) { IsNew = true, OtherAccountId = row.OtherAccountId };
         if (row.IsSplit)
@@ -1383,8 +1393,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         }
 
         _draft = copy;
-        var at = Rows.IndexOf(row);
-        if (at < 0) Rows.Add(copy); else Rows.Insert(SortIndex == 0 ? at : at + 1, copy);   // the copy is the later one: above the original when newest is first
+        if (SortIndex == 0) Rows.Insert(0, copy); else Rows.Add(copy);   // the latest entry in the table: first when newest is first, as for any new row
         Message = "";
         SyncColumnLayout();
         BeginEdit(copy);

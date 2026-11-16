@@ -16,7 +16,7 @@ public sealed partial class ColumnLayout : ObservableObject
     /// <summary>The last column of the table holds the delete button, and is just wide enough for it.</summary>
     public const double ActionsMinimum = 76;
 
-    [ObservableProperty] public partial double Date { get; set; } = 174;
+    [ObservableProperty] public partial double Date { get; set; } = 128;
     [ObservableProperty] public partial double BankDate { get; set; } = 128;
     [ObservableProperty] public partial double Counterparty { get; set; } = 240;
     [ObservableProperty] public partial double Memo { get; set; } = 160;
@@ -41,7 +41,14 @@ public sealed partial class ColumnLayout : ObservableObject
         return Math.Abs(zoom - 1) < 0.0001 ? width : Math.Round(width * zoom) / zoom;
     }
 
-    public GridLength DateColumn => new(Snap(Date));
+    /// <summary>True while the table is in selection mode: a column of tick boxes shows at the left of the Date column.</summary>
+    [ObservableProperty] public partial bool Selecting { get; set; }
+    public const double SelectWidth = 46;
+    private double SelectExtra => Selecting ? SelectWidth : 0;
+    public GridLength SelectColumn => new(SelectExtra);
+    partial void OnSelectingChanged(bool value) { Changed(nameof(DateColumn)); OnPropertyChanged(nameof(SelectColumn)); }
+
+    public GridLength DateColumn => new(Snap(Date) + SelectExtra);
     public GridLength BankDateColumn => new(Snap(BankDate));
     public GridLength CounterpartyColumn => new(Snap(Counterparty));
     public GridLength MemoColumn => new(Snap(Memo));
@@ -70,7 +77,7 @@ public sealed partial class ColumnLayout : ObservableObject
     public GridLength DetailColumn => new(DetailWidth);
 
     /// <summary>What the table needs: every column at its own width, and the last one at least wide enough for the delete button.</summary>
-    public double FixedTotal => Date + BankDate + Counterparty + Memo + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared + ActionsMinimum;
+    public double FixedTotal => Date + SelectExtra + BankDate + Counterparty + Memo + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared + ActionsMinimum;
 
     partial void OnDateChanged(double value) => Changed(nameof(DateColumn));
     partial void OnBankDateChanged(double value) => Changed(nameof(BankDateColumn));
@@ -94,7 +101,7 @@ public sealed partial class ColumnLayout : ObservableObject
     /// <summary>The narrowest each column may be made, so it can never be dragged out of sight.</summary>
     public static double MinimumOf(string column) => column switch
     {
-        nameof(Date) => 158,   // the tick box and a date box a row shows while it is edited
+        nameof(Date) => 112,   // wide enough for the date box a row shows while it is edited
         nameof(BankDate) => 112,   // wide enough for the date box a row shows while it is edited
         nameof(Counterparty) => 120,
         nameof(Memo) => 90,

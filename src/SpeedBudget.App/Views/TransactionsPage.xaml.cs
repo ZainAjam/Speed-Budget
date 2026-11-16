@@ -19,6 +19,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         InitializeComponent();
         ViewModel.TickedChanged += UpdateTicks;
+        ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(TransactionsViewModel.IsSelecting)) UpdateTicks(null, EventArgs.Empty); };
         // Oldest first opens at the bottom of the table; the rows stay out of sight until they are there, so no scrolling shows.
         if (ViewModel.SortIndex == 1) EntryList.Opacity = 0;
         // Handled presses count too: the boxes and buttons in the table handle theirs.
@@ -460,6 +461,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>The navigation parameter is the account to show, or nothing for all accounts.</summary>
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
+        ViewModel.IsSelecting = false;   // selection mode never carries over from another table
         ViewModel.AccountId = e.Parameter is Guid id ? id : null;
         ViewModel.ShowBehind(e.Parameter as TransactionDrillDown);
     }
@@ -508,6 +510,12 @@ public sealed partial class TransactionsPage : Page, IReloadable
             var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
             duplicate.Click += async (_, _) => await ViewModel.BeginDuplicateAsync(row);
             menu.Items.Add(duplicate);
+            if (!ViewModel.IsSelecting)
+            {
+                var select = new MenuFlyoutItem { Text = "Select", Icon = new FontIcon { Glyph = "\uE762" } };
+                select.Click += (_, _) => { ViewModel.IsSelecting = true; row.IsTicked = true; };
+                menu.Items.Add(select);
+            }
         }
         menu.Items.Add(delete);
 
@@ -605,14 +613,19 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private void TickAll_Click(object sender, RoutedEventArgs e) => ViewModel.SetAllTicked(TickAllBox.IsChecked == true);
 
-    /// <summary>Shows the Delete selected button while anything is ticked, and keeps the box in the heading in step.</summary>
+    /// <summary>In selection mode the Delete selected and Done buttons show; Delete selected works once something is ticked. The box in the heading keeps in step.</summary>
     private void UpdateTicks(object? sender, EventArgs e)
     {
         var count = ViewModel.TickedRows().Count;
-        DeleteTickedButton.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        DeleteTickedText.Text = $"Delete selected ({count})";
+        var selecting = ViewModel.IsSelecting;
+        DeleteTickedButton.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
+        DeleteTickedButton.IsEnabled = count > 0;
+        SelectDoneButton.Visibility = DeleteTickedButton.Visibility;
+        DeleteTickedText.Text = count > 0 ? $"Delete selected ({count})" : "Delete selected";
         TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
     }
+
+    private void SelectDone_Click(object sender, RoutedEventArgs e) => ViewModel.IsSelecting = false;
 
     private async void DeleteTicked_Click(object sender, RoutedEventArgs e)
     {
