@@ -46,7 +46,8 @@ public sealed partial class ColumnLayout : ObservableObject
     public const double SelectWidth = 46;
     private double SelectExtra => Selecting ? SelectWidth : 0;
     public GridLength SelectColumn => new(SelectExtra);
-    partial void OnSelectingChanged(bool value) { Changed(nameof(DateColumn)); OnPropertyChanged(nameof(SelectColumn)); }
+    public bool NotSelecting => !Selecting;
+    partial void OnSelectingChanged(bool value) { Changed(nameof(DateColumn)); OnPropertyChanged(nameof(SelectColumn)); OnPropertyChanged(nameof(NotSelecting)); }
 
     public GridLength DateColumn => new(Snap(Date) + SelectExtra);
     public GridLength BankDateColumn => new(Snap(BankDate));

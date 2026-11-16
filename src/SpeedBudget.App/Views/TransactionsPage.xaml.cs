@@ -178,6 +178,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>Esc: let go of whatever is being edited, and close the month line panel if it is open.</summary>
     private void CloseDetail_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (ViewModel.IsSelecting && !ViewModel.IsRowEditing) { ViewModel.IsSelecting = false; args.Handled = true; return; }   // Esc leaves multi-select mode
         if (ViewModel.SelectedEntry is null) return;   // leave Esc alone when there is nothing to let go of
         args.Handled = true;
         ClearEditing();
@@ -200,6 +201,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// </summary>
     private void Page_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == VirtualKey.Escape && ViewModel.IsSelecting && !ViewModel.IsRowEditing) { e.Handled = true; ViewModel.IsSelecting = false; return; }   // Esc leaves multi-select mode
         if (e.Key is not (VirtualKey.Enter or VirtualKey.Escape) || ViewModel.Selected is null) return;
 
         // Esc works wherever the focus is on the page (even with a drop-down open): a new row is deleted, and a row being edited goes
@@ -464,6 +466,16 @@ public sealed partial class TransactionsPage : Page, IReloadable
         ViewModel.IsSelecting = false;   // selection mode never carries over from another table
         ViewModel.AccountId = e.Parameter is Guid id ? id : null;
         ViewModel.ShowBehind(e.Parameter as TransactionDrillDown);
+    }
+
+    /// <summary>In multi-select mode, a click anywhere in a row ticks or unticks it (the tick box does its own).</summary>
+    private void Row_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (!ViewModel.IsSelecting || sender is not FrameworkElement { DataContext: TransactionRow { IsNew: false } row }) return;
+        for (var node = e.OriginalSource as DependencyObject; node is not null && !ReferenceEquals(node, sender); node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+            if (node is CheckBox) return;
+        row.IsTicked = !row.IsTicked;
+        e.Handled = true;
     }
 
     /// <summary>Right-click (or the menu key) on a transaction row: Edit, Duplicate, Delete and Multi-select, or, in multi-select mode, only Delete and Exit multi-select.</summary>

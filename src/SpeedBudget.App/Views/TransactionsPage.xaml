@@ -35,7 +35,7 @@
 
         <DataTemplate x:Key="TransactionTemplate" x:DataType="vm:TransactionRow">
             <!-- A transaction is edited in place: the selected row swaps its text for boxes. Right-click offers Edit and Delete. -->
-            <Grid Background="Transparent" ContextRequested="Row_ContextRequested">
+            <Grid Background="Transparent" ContextRequested="Row_ContextRequested" Tapped="Row_Tapped">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
@@ -55,7 +55,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <!-- Tick it to select this transaction for deleting together with the other ticked ones -->
-                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" Visibility="{x:Bind Layout.Selecting, Mode=OneWay}">
+                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}" Visibility="{x:Bind Layout.Selecting, Mode=OneWay}">
                             <CheckBox IsChecked="{x:Bind IsTicked, Mode=TwoWay}" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Visibility="{x:Bind ShowTick}" AutomationProperties.Name="Select this transaction" />
                         </Border>
@@ -126,7 +126,7 @@
                 </Border>
                 <!-- A pencil (yellow) turns edit mode on; while editing it is a tick (green) that saves the row. The bin is always there. -->
                 <Border Grid.Column="9" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.ActionLine, Mode=OneWay}" Padding="0,2">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Visibility="{x:Bind Layout.NotSelecting, Mode=OneWay}">
                         <Button Click="Edit_Click" Padding="7" Background="Transparent" BorderThickness="0" Visibility="{x:Bind NotEditing, Mode=OneWay}"
                                 AutomationProperties.Name="Edit this transaction" ToolTipService.ToolTip="Edit this transaction">
                             <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="#E9B72C" />
@@ -230,9 +230,9 @@
                 <Button Content="New Month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
-                <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
-                    <ComboBoxItem Content="Newest first" />
-                    <ComboBoxItem Content="Oldest first" />
+                <ComboBox Width="170" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
+                    <ComboBoxItem Content="Show newest first" />
+                    <ComboBoxItem Content="Show oldest first" />
                 </ComboBox>
                 <TextBlock Text="{x:Bind ViewModel.DrillText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.8" MaxWidth="260" TextTrimming="CharacterEllipsis"
                            ToolTipService.ToolTip="The transactions behind the figure you pressed on the budget" />
@@ -287,7 +287,7 @@
                                     <ColumnDefinition Width="{x:Bind Layout.SelectColumn, Mode=OneWay}" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" Visibility="{x:Bind Layout.Selecting, Mode=OneWay}">
+                                <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}" Visibility="{x:Bind Layout.Selecting, Mode=OneWay}">
                                     <CheckBox x:Name="TickAllBox" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" HorizontalAlignment="Center" VerticalAlignment="Center"
                                               Click="TickAll_Click" AutomationProperties.Name="Select all transactions" ToolTipService.ToolTip="Tick all the transactions, or none" />
                                 </Border>

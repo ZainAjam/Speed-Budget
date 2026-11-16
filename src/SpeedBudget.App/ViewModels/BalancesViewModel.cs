@@ -21,7 +21,19 @@ public sealed class BalanceColumns : ObservableObject
     public const int DailyFirst = 0, DailyLast = 6, MonthFirst = 7, MonthLast = 10;
 
     private readonly double[] _widths = { 128, 130, 130, 130, 130, 130, 200, 130, 170, 170, 190 };
-    private static GridLength Of(double width) => new(width);
+    // The widths shown are nudged (by less than a pixel) so that, at the table's zoom, every column edge falls on a whole screen pixel and
+    // all the lines between the columns look the same. The lines themselves are always one screen pixel wide.
+    private static double Snap(double width) { var zoom = AppServices.TransactionsZoom; return Math.Abs(zoom - 1) < 0.0001 ? width : Math.Round(width * zoom) / zoom; }
+    private static GridLength Of(double width) => new(Snap(width));
+    private static double LineWidth => Math.Abs(AppServices.TransactionsZoom - 1) < 0.0001 ? 1 : 1 / AppServices.TransactionsZoom;
+    public Thickness RightLine => new(0, 0, LineWidth, 0);
+    public Thickness BottomLine => new(0, 0, 0, LineWidth);
+    public Thickness AllLine => new(LineWidth);
+    public bool NotSelecting => !Selecting;
+    public double ActionsOpacity => Selecting ? 0 : 1;   // the pencil and bin go invisible in multi-select mode, but the line keeps its height
+
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? _queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+    public BalanceColumns() => AppServices.ZoomChanged += () => _queue?.TryEnqueue(() => OnPropertyChanged(string.Empty));
 
     public GridLength Date => Of(_widths[0]);
     public GridLength Balance => Of(_widths[1]);
@@ -38,7 +50,6 @@ public sealed class BalanceColumns : ObservableObject
     /// <summary>True in selection mode: a column of tick boxes shows at the left of the table.</summary>
     public bool Selecting { get; private set; }
     public GridLength LeadWidth => Of(Selecting ? 46 : 0);
-    public Thickness RowIndent => new(Selecting ? 18 : 0, 0, 0, 0);   // the tick box a line brings with it takes 28 of the 46
     public void SetSelecting(bool selecting) { Selecting = selecting; OnPropertyChanged(string.Empty); }
 
     public double Get(int index) => _widths[index];
@@ -139,6 +150,14 @@ public sealed partial class BalanceLine(BalanceRow row) : ObservableObject
     /// <summary>A line that was just added with Add Entry and is not saved yet: it has no id, and no changes or gains to show.</summary>
     public bool IsNew => Id == Guid.Empty;
     public bool HasFigures => !IsNew;
+
+    /// <summary>Whether the line has a tick box: a new line that is not saved yet has none.</summary>
+    public bool ShowTick => !IsNew;
+
+    /// <summary>Ticked lines are deleted together.</summary>
+    [ObservableProperty] public partial bool IsTicked { get; set; }
+    partial void OnIsTickedChanged(bool value) => TickChanged?.Invoke(this, EventArgs.Empty);
+    public static event EventHandler? TickChanged;
 
     /// <summary>True while the line's own cells are boxes to type in.</summary>
     [ObservableProperty] public partial bool IsEditing { get; set; }

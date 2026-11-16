@@ -20,8 +20,12 @@ public sealed partial class BalancesPage : Page, IReloadable
         InitializeComponent();
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e) => BalanceLine.TickChanged -= Line_TickChanged;
+
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
+        BalanceLine.TickChanged -= Line_TickChanged;
+        BalanceLine.TickChanged += Line_TickChanged;
         SetSelecting(false);   // selection mode never carries over from another table
         await LoadColumnsAsync();
         if (e.Parameter is Guid accountId) await ViewModel.LoadAsync(accountId);
@@ -99,33 +103,61 @@ public sealed partial class BalancesPage : Page, IReloadable
 
     // ---- Ticking lines, to delete them in one go ----
 
+    /// <summary>The ticked lines (a new line that is not saved yet is never counted).</summary>
+    private List<BalanceLine> Ticked() => ViewModel.Lines.Where(l => l.IsTicked && !l.IsNew).ToList();
+
     private void SelectAll_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectAllBox.IsChecked == true) LinesList.SelectAll();
-        else LinesList.SelectedItems.Clear();
+        var tick = SelectAllBox.IsChecked == true;
+        _tickingAll = true;
+        try { foreach (var line in ViewModel.Lines) if (!line.IsNew) line.IsTicked = tick; }
+        finally { _tickingAll = false; }
+        UpdateSelection();
     }
 
-    private void Lines_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateSelection();
+    private bool _tickingAll;
+
+    private void Line_TickChanged(object? sender, EventArgs e)
+    {
+        if (!_tickingAll) UpdateSelection();
+    }
 
     /// <summary>Keeps the box in the heading in step with the ticks: ticked when every line is.</summary>
     private void UpdateSelection()
     {
-        var count = LinesList.SelectedItems.Count;
-        SelectAllBox.IsChecked = count > 0 && count == ViewModel.Lines.Count;
+        var count = Ticked().Count;
+        SelectAllBox.IsChecked = count > 0 && count == ViewModel.Lines.Count(l => !l.IsNew);
     }
 
-    /// <summary>Selection mode on or off: the tick boxes come and go with it, and leaving it clears the ticks.</summary>
+    /// <summary>Multi-select mode on or off: the tick boxes come and go with it, and leaving it clears the ticks.</summary>
     private void SetSelecting(bool selecting)
     {
-        if (!selecting && LinesList.SelectionMode != ListViewSelectionMode.None) LinesList.SelectedItems.Clear();
-        LinesList.SelectionMode = selecting ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
+        if (!selecting) foreach (var line in ViewModel.Lines) line.IsTicked = false;
         ViewModel.IsSelecting = selecting;
         UpdateSelection();
     }
 
+    /// <summary>In multi-select mode, a click anywhere in a line ticks or unticks it (the tick box does its own).</summary>
+    private void Line_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (!ViewModel.IsSelecting || sender is not FrameworkElement { Tag: BalanceLine { IsNew: false } line }) return;
+        for (var node = e.OriginalSource as DependencyObject; node is not null && !ReferenceEquals(node, sender); node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+            if (node is CheckBox) return;
+        line.IsTicked = !line.IsTicked;
+        e.Handled = true;
+    }
+
+    /// <summary>Esc leaves multi-select mode.</summary>
+    private void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (!ViewModel.IsSelecting || ViewModel.Lines.Any(l => l.IsEditing)) return;
+        args.Handled = true;
+        SetSelecting(false);
+    }
+
     private async void DeleteSelected_Click(object sender, RoutedEventArgs e)
     {
-        var lines = LinesList.SelectedItems.OfType<BalanceLine>().ToList();
+        var lines = Ticked();
         if (lines.Count == 0) return;
         var dialog = new ContentDialog
         {
@@ -150,7 +182,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         if (ViewModel.IsSelecting)
         {
             // In multi-select mode the menu only deletes the ticked lines (or this one, when none is ticked yet) or leaves the mode.
-            var chosen = LinesList.SelectedItems.OfType<BalanceLine>().Where(l => !l.IsNew).ToList();
+            var chosen = Ticked();
             if (chosen.Count == 0) chosen = [line];
             var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} balances" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
             deleteChosen.Click += (_, _) =>
@@ -176,7 +208,7 @@ public sealed partial class BalancesPage : Page, IReloadable
             menu.Items.Add(delete);
 
             var select = new MenuFlyoutItem { Text = "Multi-select", Icon = new FontIcon { Glyph = "\uE762" } };
-            select.Click += (_, _) => { SetSelecting(true); LinesList.SelectedItems.Add(line); };
+            select.Click += (_, _) => { SetSelecting(true); line.IsTicked = true; };
             menu.Items.Add(select);
         }
         if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
