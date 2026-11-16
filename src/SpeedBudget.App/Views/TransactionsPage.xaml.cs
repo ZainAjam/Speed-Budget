@@ -494,6 +494,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
             var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} transactions" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
             deleteChosen.Click += async (_, _) => await DeleteManyAsync(chosen);
             menu.Items.Add(deleteChosen);
+            menu.Items.Add(new MenuFlyoutSeparator());
             var exit = new MenuFlyoutItem { Text = "Exit multi-select", Icon = new FontIcon { Glyph = "\uE711" } };
             exit.Click += (_, _) => ViewModel.IsSelecting = false;
             menu.Items.Add(exit);
