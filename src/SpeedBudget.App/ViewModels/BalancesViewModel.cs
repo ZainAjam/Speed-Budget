@@ -10,13 +10,17 @@ namespace SpeedBudget.App.ViewModels;
 
 /// <summary>
 /// The widths of the table columns, shared by the heading and every line so that dragging a column's edge in the heading resizes it all the way down.
-/// Index 0-5: Date, Balance, Total changes, Daily changes, Withdrawals, Gains / losses. Index 6-9: Month, Gains / losses, Withdrawals, Money left.
+/// Index 0-6: Date, Balance, Total changes, Daily changes, Withdrawals, Gains / losses, Comment (which takes the room that is left).
+/// Index 7-10: Month, Gains / losses, Withdrawals, Money left. Resizing works as in the transactions table, and the sizes are remembered.
 /// </summary>
 public sealed class BalanceColumns : ObservableObject
 {
     public static BalanceColumns Shared { get; } = new();
 
-    private readonly double[] _widths = { 130, 125, 125, 125, 125, 125, 130, 170, 170, 190 };
+    public const int CommentIndex = 6;
+    public const int DailyFirst = 0, DailyLast = 6, MonthFirst = 7, MonthLast = 10;
+
+    private readonly double[] _widths = { 128, 130, 130, 130, 130, 130, 200, 130, 170, 170, 190 };
     private static GridLength Of(double width) => new(width);
 
     public GridLength Date => Of(_widths[0]);
@@ -25,17 +29,79 @@ public sealed class BalanceColumns : ObservableObject
     public GridLength DailyChange => Of(_widths[3]);
     public GridLength Withdrawal => Of(_widths[4]);
     public GridLength Gain => Of(_widths[5]);
-    public GridLength Month => Of(_widths[6]);
-    public GridLength MonthGains => Of(_widths[7]);
-    public GridLength MonthWithdrawals => Of(_widths[8]);
-    public GridLength MonthLeft => Of(_widths[9]);
+    public double CommentMin => _widths[6];   // the Comment column is as wide as the room left, and never narrower than this
+    public GridLength Month => Of(_widths[7]);
+    public GridLength MonthGains => Of(_widths[8]);
+    public GridLength MonthWithdrawals => Of(_widths[9]);
+    public GridLength MonthLeft => Of(_widths[10]);
 
     public double Get(int index) => _widths[index];
 
+    /// <summary>The narrowest each column may be made, so it can never be dragged out of sight.</summary>
+    public static double MinimumOf(int index) => index switch { 0 => 112, 6 => 120, _ => 90 };
+
     public void Set(int index, double width)
     {
-        _widths[index] = Math.Clamp(width, 60, 600);
+        if (!double.IsFinite(width)) return;
+        _widths[index] = Math.Round(Math.Clamp(width, MinimumOf(index), 600));   // whole pixels
         OnPropertyChanged(string.Empty);   // every width is read again
+    }
+
+    public double[] Snapshot() => (double[])_widths.Clone();
+
+    public string Serialize() => string.Join(",", _widths.Select(w => w.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+    public void Load(string? saved)
+    {
+        var parts = (saved ?? "").Split(',');
+        if (parts.Length != _widths.Length) return;
+        for (var i = 0; i < parts.Length; i++)
+            if (double.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var w)) Set(i, w);
+    }
+
+    /// <summary>
+    /// Dragging the right edge of a heading, as in Word and in the transactions table: the divider moves and the columns either side of it
+    /// give and take room, so the table keeps its width. Dragging right, this column grows and the ones to its right shrink, nearest first,
+    /// each down to its minimum; dragging left, this column and those before it shrink and the one on the right grows. With Shift held, this
+    /// column changes on its own. The last column has no neighbour, so the table itself grows or shrinks.
+    /// <paramref name="start"/> are the widths when the drag began and <paramref name="dx"/> how far the pointer has moved since.
+    /// </summary>
+    public void Resize(int first, int last, int column, double dx, bool shift, double[] start)
+    {
+        var widths = (double[])start.Clone();
+        var isLast = column == last;
+        if (shift || (isLast && dx >= 0))
+        {
+            widths[column] = start[column] + dx;
+        }
+        else if (dx >= 0)
+        {
+            var room = 0.0;
+            for (var j = column + 1; j <= last; j++) room += start[j] - MinimumOf(j);
+            var amount = Math.Min(Math.Min(dx, room), 600 - start[column]);
+            widths[column] = start[column] + amount;
+            for (var j = column + 1; j <= last && amount > 0; j++)
+            {
+                var take = Math.Min(amount, start[j] - MinimumOf(j));
+                widths[j] = start[j] - take;
+                amount -= take;
+            }
+        }
+        else
+        {
+            var room = 0.0;
+            for (var j = isLast ? column : first; j <= column; j++) room += start[j] - MinimumOf(j);
+            var amount = Math.Min(-dx, room);
+            if (!isLast) amount = Math.Min(amount, 600 - start[column + 1]);
+            if (!isLast) widths[column + 1] = start[column + 1] + amount;
+            for (var j = column; j >= first && amount > 0; j--)
+            {
+                var take = Math.Min(amount, start[j] - MinimumOf(j));
+                widths[j] = start[j] - take;
+                amount -= take;
+            }
+        }
+        for (var i = first; i <= last; i++) Set(i, widths[i]);
     }
 }
 

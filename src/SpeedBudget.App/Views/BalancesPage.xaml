@@ -5,8 +5,19 @@
     xmlns:local="using:SpeedBudget.App.Views"
     xmlns:vm="using:SpeedBudget.App.ViewModels">
     <Page.Resources>
-        <!-- The lines between the cells of the tables -->
-        <SolidColorBrush x:Key="CellLine" Color="#55808080" />
+        <!-- The tables look like the transactions table: a shaded heading and thin lines between cells -->
+        <SolidColorBrush x:Key="HeadingBrush" Color="{ThemeResource SystemAccentColorDark2}" />
+        <Style x:Key="HeadingBorder" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource HeadingBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="Padding" Value="8,8" />
+        </Style>
+        <Style x:Key="HeadingText" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
     </Page.Resources>
     <Grid Margin="32,24" RowSpacing="14">
         <Grid.RowDefinitions>
@@ -27,7 +38,7 @@
                     <TextBlock Text="Balance now" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Text="{x:Bind ViewModel.BalanceText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                 </StackPanel>
-                <Rectangle Width="1" Height="40" Fill="{StaticResource CellLine}" VerticalAlignment="Center" />
+                <Rectangle Width="1" Height="40" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" VerticalAlignment="Center" />
                 <StackPanel ToolTipService.ToolTip="What the market has done to the fund since the first balance: the daily gains and losses added up, with the withdrawals put back">
                     <TextBlock Text="Total Gains / Losses" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Text="{x:Bind ViewModel.GainsText, Mode=OneWay}" Foreground="{x:Bind ViewModel.GainsBrush, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -98,13 +109,13 @@
 
                 <!-- The daily balances: lines between the cells, and the edge of a heading can be dragged to change the column's width -->
                 <Grid Grid.Row="1" Grid.RowSpan="2" RowSpacing="0" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}"
-                      BorderBrush="{StaticResource CellLine}" BorderThickness="1">
+                      BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Grid Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,0,1">
+                    <Grid x:Name="DailyHeading">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="28" />
                             <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
@@ -113,44 +124,34 @@
                             <ColumnDefinition Width="{x:Bind Columns.DailyChange, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Withdrawal, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Gain, Mode=OneWay}" />
-                            <ColumnDefinition Width="*" MinWidth="120" />
+                            <ColumnDefinition Width="*" MinWidth="{x:Bind Columns.CommentMin, Mode=OneWay}" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
-                        <CheckBox x:Name="SelectAllBox" MinWidth="0" Padding="0" Margin="8,6,0,6" Click="SelectAll_Click" AutomationProperties.Name="Select all lines"
-                                  ToolTipService.ToolTip="Tick all the lines, or none" />
+                        <Border Style="{StaticResource HeadingBorder}" Padding="8,0,0,0">
+                            <CheckBox x:Name="SelectAllBox" MinWidth="0" Padding="0" Click="SelectAll_Click" AutomationProperties.Name="Select all lines"
+                                      ToolTipService.ToolTip="Tick all the lines, or none" />
+                        </Border>
                         <!-- What each heading means is in its tooltip -->
-                        <Border Grid.Column="1" BorderBrush="{StaticResource CellLine}" BorderThickness="1,0,1,0" />
-                        <Border Grid.Column="2" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="3" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="4" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="5" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="6" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="7" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <TextBlock Grid.Column="1" Text="Date" FontWeight="SemiBold" Margin="8,8" ToolTipService.ToolTip="The date of the balance" />
-                        <TextBlock Grid.Column="2" Text="Balance" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="The balance of the fund on that date, as you read it from the website or statement" />
-                        <TextBlock Grid.Column="3" Text="Total changes" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="The balance on that date against the very first balance: how much the fund has changed in total since you started, withdrawals included" />
-                        <TextBlock Grid.Column="4" Text="Daily changes" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="The balance on that date against the balance on the line before it" />
-                        <TextBlock Grid.Column="5" Text="Withdrawals" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="Money you took out of the fund on that date. It is not a loss, so it is put back when the gains and losses are worked out" />
-                        <TextBlock Grid.Column="6" Text="Gains / losses" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="What the market did to the fund that day: the daily change with any withdrawal put back" />
-                        <TextBlock Grid.Column="7" Text="Comment" FontWeight="SemiBold" Margin="8,8" ToolTipService.ToolTip="Anything you want to remember about that line" />
-                        <!-- Drag the right edge of a heading to make its column wider or narrower -->
-                        <local:ColumnGrip Grid.Column="1" Tag="0" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="2" Tag="1" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="3" Tag="2" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="4" Tag="3" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="5" Tag="4" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="6" Tag="5" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
+                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Date" ToolTipService.ToolTip="The date of the balance" /></Border>
+                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Balance" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="The balance of the fund on that date, as you read it from the website or statement" /></Border>
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Total changes" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="The balance on that date against the very first balance: how much the fund has changed in total since you started, withdrawals included" /></Border>
+                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Daily changes" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="The balance on that date against the balance on the line before it" /></Border>
+                        <Border Grid.Column="5" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Withdrawals" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="Money you took out of the fund on that date. It is not a loss, so it is put back when the gains and losses are worked out" /></Border>
+                        <Border Grid.Column="6" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Gains / losses" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="What the market did to the fund that day: the daily change with any withdrawal put back" /></Border>
+                        <Border Grid.Column="7" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Comment" ToolTipService.ToolTip="Anything you want to remember about that line" /></Border>
+                        <Border Grid.Column="8" Style="{StaticResource HeadingBorder}" BorderThickness="0" />
+                        <!-- Drag the right edge of a heading to resize that column, as in the transactions table -->
+                        <local:ResizeGrip Grid.Column="1" Tag="0" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="2" Tag="1" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="3" Tag="2" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="4" Tag="3" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="5" Tag="4" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="6" Tag="5" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
 
                     <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Lines}" SelectionMode="Multiple" x:Name="LinesList" SelectionChanged="Lines_SelectionChanged">
@@ -164,7 +165,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BalanceLine">
                                 <!-- Pressing the pencil turns this line's own cells into boxes (Enter saves, Esc leaves it as it was) -->
-                                <Grid BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown">
+                                <Grid BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />
@@ -172,17 +173,17 @@
                                         <ColumnDefinition Width="{x:Bind Columns.DailyChange, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Withdrawal, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Gain, Mode=OneWay}" />
-                                        <ColumnDefinition Width="*" MinWidth="120" />
+                                        <ColumnDefinition Width="*" MinWidth="{x:Bind Columns.CommentMin, Mode=OneWay}" />
                                         <ColumnDefinition Width="170" />
                                     </Grid.ColumnDefinitions>
                                     <!-- Lines between the cells -->
-                                    <Border Grid.Column="0" BorderBrush="{StaticResource CellLine}" BorderThickness="1,0,1,0" />
-                                    <Border Grid.Column="1" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="2" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="3" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="4" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="5" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="6" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,1,0" />
+                                    <Border Grid.Column="1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="2" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="3" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="4" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="5" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
 
                                     <TextBlock Text="{x:Bind DateText}" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
                                     <CalendarDatePicker Date="{x:Bind EditDate, Mode=TwoWay}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="4,3" Visibility="{x:Bind IsEditing, Mode=OneWay}"
@@ -230,36 +231,29 @@
 
                 <!-- The month by month summary -->
                 <Grid Grid.Row="1" Grid.RowSpan="2" RowSpacing="0" Visibility="{x:Bind ViewModel.ShowMonths, Mode=OneWay}"
-                      BorderBrush="{StaticResource CellLine}" BorderThickness="1" HorizontalAlignment="Left">
+                      BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" HorizontalAlignment="Left">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Grid Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,0,1">
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{x:Bind Columns.Month, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.MonthGains, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.MonthWithdrawals, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.MonthLeft, Mode=OneWay}" />
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="1" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <Border Grid.Column="2" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                        <TextBlock Text="Month" FontWeight="SemiBold" Margin="8,8" ToolTipService.ToolTip="The month, written year-month" />
-                        <TextBlock Grid.Column="1" Text="Gains / losses" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="What the market did to the fund in the month: its daily gains and losses added up" />
-                        <TextBlock Grid.Column="2" Text="Withdrawals" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="What was taken out of the fund in the month" />
-                        <TextBlock Grid.Column="3" Text="Money left to reinvest" FontWeight="SemiBold" HorizontalTextAlignment="Right" Margin="8,8"
-                                   ToolTipService.ToolTip="The gains after the withdrawals. When it is below zero, the withdrawals were bigger than the month's gains and reached into earlier gains and then into the original investment" />
-                        <local:ColumnGrip Grid.Column="0" Tag="6" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="1" Tag="7" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="2" Tag="8" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
-                        <local:ColumnGrip Grid.Column="3" Tag="9" Width="10" HorizontalAlignment="Right" Background="Transparent"
-                                          PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved" PointerReleased="Grip_PointerReleased" PointerCanceled="Grip_PointerReleased" />
+                        <Border Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Month" ToolTipService.ToolTip="The month, written year-month" /></Border>
+                        <Border Grid.Column="1" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Gains / losses" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="What the market did to the fund in the month: its daily gains and losses added up" /></Border>
+                        <Border Grid.Column="2" Style="{StaticResource HeadingBorder}"><TextBlock Style="{StaticResource HeadingText}" Text="Withdrawals" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="What was taken out of the fund in the month" /></Border>
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" BorderThickness="0"><TextBlock Style="{StaticResource HeadingText}" Text="Money left to reinvest" HorizontalAlignment="Right"
+                                   ToolTipService.ToolTip="The gains after the withdrawals. When it is below zero, the withdrawals were bigger than the month's gains and reached into earlier gains and then into the original investment" /></Border>
+                        <local:ResizeGrip Grid.Column="0" Tag="7" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="1" Tag="8" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="2" Tag="9" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="3" Tag="10" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
                     <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Months}" SelectionMode="None">
                         <ListView.ItemContainerStyle>
@@ -271,16 +265,16 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BalanceMonthLine">
-                                <Grid BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,0,1">
+                                <Grid BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind Columns.Month, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.MonthGains, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.MonthWithdrawals, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.MonthLeft, Mode=OneWay}" />
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="1" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
-                                    <Border Grid.Column="2" BorderBrush="{StaticResource CellLine}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
+                                    <Border Grid.Column="2" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" />
                                     <TextBlock Text="{x:Bind Month}" VerticalAlignment="Center" Margin="8,6" />
                                     <TextBlock Grid.Column="1" Text="{x:Bind GainsText}" Foreground="{x:Bind GainsBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" />
                                     <TextBlock Grid.Column="2" Text="{x:Bind WithdrawalsText}" Foreground="{x:Bind WithdrawalsBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" />

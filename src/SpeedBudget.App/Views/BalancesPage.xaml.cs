@@ -22,6 +22,7 @@ public sealed partial class BalancesPage : Page, IReloadable
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
+        await LoadColumnsAsync();
         if (e.Parameter is Guid accountId) await ViewModel.LoadAsync(accountId);
     }
 
@@ -55,32 +56,44 @@ public sealed partial class BalancesPage : Page, IReloadable
 
     public BalanceColumns Columns => BalanceColumns.Shared;
 
-    private ColumnGrip? _dragging;
-    private double _dragStartX, _dragStartWidth;
+    private static bool s_columnsLoaded;
+    private double[] _gripStart = [];
 
-    private static int GripColumn(object sender) => int.Parse((string)((FrameworkElement)sender).Tag, System.Globalization.CultureInfo.InvariantCulture);
-
-    private void Grip_PointerPressed(object sender, PointerRoutedEventArgs e)
+    private async Task LoadColumnsAsync()
     {
-        if (sender is not ColumnGrip grip || grip.Parent is not UIElement heading) return;
-        _dragging = grip;
-        _dragStartX = e.GetCurrentPoint(heading).Position.X;
-        _dragStartWidth = Columns.Get(GripColumn(grip));
-        grip.CapturePointer(e.Pointer);
-        e.Handled = true;
+        if (s_columnsLoaded) return;
+        s_columnsLoaded = true;
+        try { Columns.Load(await AppServices.Store.GetLocalSettingAsync("balanceColumns")); }
+        catch { /* the normal sizes are fine */ }
     }
 
-    private void Grip_PointerMoved(object sender, PointerRoutedEventArgs e)
+    private static int ColumnOf(object? grip) => int.Parse((string)((FrameworkElement)grip!).Tag, System.Globalization.CultureInfo.InvariantCulture);
+
+    private static (int First, int Last) GroupOf(int column) =>
+        column <= BalanceColumns.DailyLast ? (BalanceColumns.DailyFirst, BalanceColumns.DailyLast) : (BalanceColumns.MonthFirst, BalanceColumns.MonthLast);
+
+    private void Grip_Started(object? sender, EventArgs e)
     {
-        if (!ReferenceEquals(sender, _dragging) || _dragging!.Parent is not UIElement heading) return;
-        Columns.Set(GripColumn(_dragging), _dragStartWidth + e.GetCurrentPoint(heading).Position.X - _dragStartX);
-        e.Handled = true;
+        // The Comment column may be wider than its own width because it takes the room that is left; a drag starts from what is on screen.
+        var onScreen = Math.Floor(DailyHeading.ActualWidth - 28 - 170);
+        for (var i = BalanceColumns.DailyFirst; i < BalanceColumns.CommentIndex; i++) onScreen -= Columns.Get(i);
+        if (onScreen > Columns.Get(BalanceColumns.CommentIndex)) Columns.Set(BalanceColumns.CommentIndex, onScreen);
+        _gripStart = Columns.Snapshot();
     }
 
-    private void Grip_PointerReleased(object sender, PointerRoutedEventArgs e)
+    private void Grip_Moved(object? sender, double dx)
     {
-        if (sender is ColumnGrip grip) grip.ReleasePointerCapture(e.Pointer);
-        _dragging = null;
+        var column = ColumnOf(sender);
+        var (first, last) = GroupOf(column);
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        try { Columns.Resize(first, last, column, dx / AppServices.TransactionsZoom, shift, _gripStart); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Resizing a column failed: {ex.Message}"); }
+    }
+
+    private async void Grip_Completed(object? sender, EventArgs e)
+    {
+        try { await AppServices.Store.SetLocalSettingAsync("balanceColumns", Columns.Serialize()); }
+        catch { /* not remembering the sizes must never get in the way */ }
     }
 
     // ---- Ticking lines, to delete them in one go ----
