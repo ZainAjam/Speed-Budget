@@ -75,7 +75,7 @@ public sealed partial class BalancesPage : Page, IReloadable
     private void Grip_Started(object? sender, EventArgs e)
     {
         // The Comment column may be wider than its own width because it takes the room that is left; a drag starts from what is on screen.
-        var onScreen = Math.Floor(DailyHeading.ActualWidth - 28 - 170);
+        var onScreen = Math.Floor(DailyHeading.ActualWidth - 36 - 170);
         for (var i = BalanceColumns.DailyFirst; i < BalanceColumns.CommentIndex; i++) onScreen -= Columns.Get(i);
         if (onScreen > Columns.Get(BalanceColumns.CommentIndex)) Columns.Set(BalanceColumns.CommentIndex, onScreen);
         _gripStart = Columns.Snapshot();

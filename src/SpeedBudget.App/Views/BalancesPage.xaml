@@ -117,7 +117,7 @@
 
                     <Grid x:Name="DailyHeading">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="28" />
+                            <ColumnDefinition Width="36" />
                             <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.TotalChange, Mode=OneWay}" />
@@ -165,7 +165,7 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BalanceLine">
                                 <!-- Pressing the pencil turns this line's own cells into boxes (Enter saves, Esc leaves it as it was) -->
-                                <Grid BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown">
+                                <Grid Margin="8,0,0,0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Tag="{x:Bind}" KeyDown="Line_KeyDown">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{x:Bind Columns.Date, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Balance, Mode=OneWay}" />
