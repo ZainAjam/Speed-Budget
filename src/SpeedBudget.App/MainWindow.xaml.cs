@@ -294,7 +294,7 @@ public sealed partial class MainWindow : Window
         _paneChanging = true;
         DispatcherQueue.TryEnqueue(() =>
         {
-            try { if (Nav.IsPaneOpen != open) Nav.IsPaneOpen = open; }
+            try { if (Nav.IsPaneOpen != open && (open || !_paneHeld)) Nav.IsPaneOpen = open; }
             catch (Exception ex) { Diagnostics.Note($"The left panel could not be {(open ? "opened" : "closed")}: {ex.Message}"); }
             finally { _paneChanging = false; }
         });
@@ -457,6 +457,26 @@ public sealed partial class MainWindow : Window
     private Guid? _draggedAccount;
     private readonly List<Guid> _accountOrder = [];
 
+    private bool _orderChanged;
+
+    /// <summary>
+    /// The drag is over: let go of the panel, and, if the order was changed, rebuild the list a moment later. The list is not rebuilt
+    /// during the drop because that removes the row being dragged while Windows is still finishing the drag, which closed the app.
+    /// </summary>
+    private void FinishDrag()
+    {
+        _draggedAccount = null;
+        _paneHeld = false;
+        _pointerInNav = true;   // released over the panel, which stays open until the pointer moves out of it
+        if (!_orderChanged) return;
+        _orderChanged = false;
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(300);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => AppServices.RaiseAccountsChanged();
+        timer.Start();
+    }
+
     /// <summary>Puts a dragged account in the place of the one it was dropped on, and remembers the new order.</summary>
     private async Task MoveAccountAsync(Guid moved, Guid target)
     {
@@ -469,7 +489,7 @@ public sealed partial class MainWindow : Window
         try
         {
             await AppServices.Store.SetAccountOrderAsync(order);
-            AppServices.RaiseAccountsChanged();
+            _orderChanged = true;   // the list is rebuilt once the drag has finished (see FinishDrag): rebuilding it now would remove the row being dragged
         }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Could not save the account order: {ex.Message}"); }
     }
@@ -517,15 +537,13 @@ public sealed partial class MainWindow : Window
             if (_draggedAccount is { } dragged && dragged != account.Id)
                 await MoveAccountAsync(dragged, account.Id);
             _draggedAccount = null;
-            _paneHeld = false;   // the dragged row may be rebuilt before its drop completes, so let go of the panel here too
-            _pointerInNav = true;   // released over the panel, which stays open until the pointer moves out of it
+            FinishDrag();
         };
         row.Tapped += (_, _) => Nav.SelectedItem = item;   // the row takes the click while it is draggable, so it opens the page itself
-        row.DropCompleted += (_, _) =>
-        {
-            _draggedAccount = null;
-            _paneHeld = false;
-        };
+        row.DropCompleted += (_, _) => FinishDrag();
+        // The panel is held open from the press (the pointer leaves the panel just as a drag begins, and the panel would close then); a plain click lets go again.
+        row.PointerPressed += (_, _) => { if (!account.IsClosed) _paneHeld = true; };
+        row.PointerReleased += (_, _) => { if (_draggedAccount is null) _paneHeld = false; };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
         return item;
     }
