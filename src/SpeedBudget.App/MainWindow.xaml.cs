@@ -19,6 +19,7 @@ public sealed partial class MainWindow : Window
     private bool _onTransactions;
     private Guid? _accountPage;
     private readonly HashSet<Guid> _trackedAccounts = [];
+    private readonly HashSet<Guid> _balanceAccounts = [];   // the tracking accounts kept by their balances
 
     public WatcherService Watcher => AppServices.Watcher;
 
@@ -341,7 +342,7 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         try
         {
-            var created = await AppServices.Store.AddAccountAsync(dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents);
+            var created = await AppServices.Store.AddAccountAsync(dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents, trackBalances: dialog.TrackBalances);
             _openAfterRebuild = created.Id;
             AppServices.RaiseAccountsChanged();
         }
@@ -420,7 +421,7 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         try
         {
-            await AppServices.Store.UpdateAccountAsync(accountId, dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents, dialog.IsClosed);
+            await AppServices.Store.UpdateAccountAsync(accountId, dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents, dialog.IsClosed, trackBalances: dialog.TrackBalances);
             AppServices.RaiseAccountsChanged();
         }
         catch (Exception ex) { ShowToast($"Could not save the account: {ex.Message}"); }
@@ -565,6 +566,8 @@ public sealed partial class MainWindow : Window
         }
         _trackedAccounts.Clear();
         foreach (var tracked in accounts.Where(a => !a.IsOnBudget && !a.IsClosed)) _trackedAccounts.Add(tracked.Id);
+        _balanceAccounts.Clear();
+        foreach (var kept in accounts.Where(a => a.TrackBalances)) _balanceAccounts.Add(kept.Id);
         UpdateWatcherStrip();
 
         // The accounts are rows of their own under Transactions (not nested in it), so their icons line up with the others.
@@ -808,7 +811,8 @@ public sealed partial class MainWindow : Window
             case "tx" or "tx:all": ContentFrame.Navigate(typeof(TransactionsPage), parameter); break;
             case "settings": ContentFrame.Navigate(typeof(SettingsPage)); break;
             case { } t when t.StartsWith("tx:") && Guid.TryParse(t.AsSpan(3), out var id):
-                ContentFrame.Navigate(typeof(TransactionsPage), id);
+                // An account kept by its balances has its own screen instead of the transactions table.
+                ContentFrame.Navigate(_balanceAccounts.Contains(id) ? typeof(BalancesPage) : typeof(TransactionsPage), id);
                 break;
         }
     }

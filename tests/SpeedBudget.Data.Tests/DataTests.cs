@@ -521,6 +521,34 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task An_account_kept_by_its_balances_is_worth_its_latest_balance_and_works_out_gains()
+    {
+        var fund = await _store.AddAccountAsync("Retirement", AccountType.Investment, isOnBudget: false, trackBalances: true);
+        Assert.True(fund.TrackBalances);
+        Assert.Equal(0, (await _store.GetBalancesAsync(fund.Id)).BookBalance);
+
+        await _store.AddBalanceEntryAsync(fund.Id, new(2024, 1, 29), 1_000_000, 0, null);
+        await _store.AddBalanceEntryAsync(fund.Id, new(2024, 1, 31), 1_020_000, 0, "  month end ");
+        var withdrawal = await _store.AddBalanceEntryAsync(fund.Id, new(2024, 2, 1), 250_000, -870_000, "Pay Day");   // a minus sign is taken as the amount withdrawn
+
+        Assert.Equal(250_000, (await _store.GetBalancesAsync(fund.Id)).BookBalance);
+        var report = await _store.GetBalanceReportAsync(fund.Id);
+        Assert.Equal(new long[] { 0, 20_000, 100_000 }, report.Rows.Select(r => r.GainLoss));
+        Assert.Equal(870_000, report.Totals.Withdrawals);
+        Assert.Equal("month end", report.Rows[1].Comment);
+
+        // Fixing a balance and deleting one both flow through.
+        await _store.UpdateBalanceEntryAsync(withdrawal.Id, new(2024, 2, 1), 1_100_000, 0, null);
+        Assert.Equal(1_100_000, (await _store.GetBalancesAsync(fund.Id)).BookBalance);
+        await _store.DeleteBalanceEntryAsync(withdrawal.Id);
+        Assert.Equal(1_020_000, (await _store.GetBalancesAsync(fund.Id)).BookBalance);
+
+        // Only a tracking account can be kept this way; a budget account never is.
+        await _store.UpdateAccountAsync(fund.Id, "Retirement", AccountType.Investment, isOnBudget: true, 0, isClosed: false, trackBalances: true);
+        Assert.False((await _store.GetAccountsAsync()).Single(a => a.Id == fund.Id).TrackBalances);
+    }
+
+    [Fact]
     public async Task A_transfer_can_have_nothing_in_it_and_keeps_its_direction()
     {
         var a = await _store.AddAccountAsync("A", AccountType.Cheque, true);

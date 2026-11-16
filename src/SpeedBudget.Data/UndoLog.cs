@@ -22,6 +22,7 @@ public sealed class UndoUnit(DateTime at, List<UndoRow> rows)
             nameof(GroupEntity) => "a budget group",
             nameof(AccountEntity) => "an account",
             nameof(ExpectedTransactionEntity) => "an expected transaction",
+            nameof(BalanceEntryEntity) => "a balance",
             nameof(MonthMarkerEntity) => "a month",
             _ => "your data",
         };

@@ -284,9 +284,50 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public Task SetStatementBalanceAsync(Guid accountId, long? cents, CancellationToken ct = default) =>
         SetSettingAsync($"statement:{accountId}", cents?.ToString(), ct);
 
+    // ---- Accounts tracked by their balances ----
+
+    public Task<List<BalanceEntryEntity>> GetBalanceEntriesAsync(Guid accountId, CancellationToken ct = default) =>
+        db.BalanceEntries.Where(e => e.AccountId == accountId).OrderBy(e => e.Date).ThenBy(e => e.Id).ToListAsync(ct);
+
+    public async Task<BalanceEntryEntity> AddBalanceEntryAsync(Guid accountId, DateOnly date, long balance, long withdrawal, string? comment, CancellationToken ct = default)
+    {
+        var entry = new BalanceEntryEntity { AccountId = accountId, Date = date, Balance = balance, Withdrawal = Math.Abs(withdrawal), Comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim() };
+        db.BalanceEntries.Add(entry);
+        await db.SaveChangesAsync(ct);
+        return entry;
+    }
+
+    public async Task UpdateBalanceEntryAsync(Guid entryId, DateOnly date, long balance, long withdrawal, string? comment, CancellationToken ct = default)
+    {
+        var entry = await db.BalanceEntries.SingleAsync(e => e.Id == entryId, ct);
+        entry.Date = date;
+        entry.Balance = balance;
+        entry.Withdrawal = Math.Abs(withdrawal);
+        entry.Comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteBalanceEntryAsync(Guid entryId, CancellationToken ct = default)
+    {
+        db.BalanceEntries.Remove(await db.BalanceEntries.SingleAsync(e => e.Id == entryId, ct));
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>The tracker's lines, totals and months for an account kept by its balances.</summary>
+    public async Task<BalanceReport> GetBalanceReportAsync(Guid accountId, CancellationToken ct = default) =>
+        BalanceTracker.Calculate((await GetBalanceEntriesAsync(accountId, ct)).Select(e => new BalanceInput(e.Id, e.Date, e.Balance, e.Withdrawal, e.Comment)));
+
     /// <summary>The cleared and uncleared balances of one account, or of every account when none is given.</summary>
     public async Task<Reconciliation> GetBalancesAsync(Guid? accountId = null, CancellationToken ct = default)
     {
+        // An account kept by its balances is worth the latest balance typed in (or its opening balance, before any).
+        if (accountId is { } tracked && await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == tracked && a.TrackBalances, ct) is { } kept)
+        {
+            var latest = await db.BalanceEntries.AsNoTracking().Where(e => e.AccountId == tracked).OrderByDescending(e => e.Date).ThenByDescending(e => e.Id).FirstOrDefaultAsync(ct);
+            var worth = latest?.Balance ?? kept.OpeningBalance;
+            return new Reconciliation(worth, worth, 0, null, null);
+        }
+
         var accounts = db.Accounts.AsNoTracking().AsQueryable();
         var transactions = db.Transactions.AsNoTracking().AsQueryable();
         if (accountId is { } id)
@@ -739,10 +780,10 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     public Task<List<ItemEntity>> GetItemsAsync(CancellationToken ct = default) =>
         db.Items.OrderBy(i => i.SortOrder).ThenBy(i => i.Name).ToListAsync(ct);
 
-    public async Task<AccountEntity> AddAccountAsync(string name, AccountType type, bool isOnBudget, long openingBalance = 0, CancellationToken ct = default)
+    public async Task<AccountEntity> AddAccountAsync(string name, AccountType type, bool isOnBudget, long openingBalance = 0, CancellationToken ct = default, bool trackBalances = false)
     {
         var next = await db.Accounts.AnyAsync(ct) ? await db.Accounts.MaxAsync(a => a.SortOrder, ct) + 1 : 0;
-        var account = new AccountEntity { Name = name, Type = type, IsOnBudget = isOnBudget, OpeningBalance = openingBalance, SortOrder = next };
+        var account = new AccountEntity { Name = name, Type = type, IsOnBudget = isOnBudget, OpeningBalance = openingBalance, SortOrder = next, TrackBalances = trackBalances && !isOnBudget };
         db.Accounts.Add(account);
         await db.SaveChangesAsync(ct);
         return account;
@@ -788,12 +829,12 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>Deletes an account, or closes it instead when it already has transactions. Returns true if deleted.</summary>
-    public Task<bool> AccountHasTransactionsAsync(Guid accountId, CancellationToken ct = default) =>
-        db.Transactions.AnyAsync(t => t.AccountId == accountId, ct);
+    public async Task<bool> AccountHasTransactionsAsync(Guid accountId, CancellationToken ct = default) =>
+        await db.Transactions.AnyAsync(t => t.AccountId == accountId, ct) || await db.BalanceEntries.AnyAsync(e => e.AccountId == accountId, ct);   // balances typed in count as its history
 
     public async Task<bool> DeleteOrCloseAccountAsync(AccountEntity account, CancellationToken ct = default)
     {
-        if (await db.Transactions.AnyAsync(t => t.AccountId == account.Id, ct))
+        if (await AccountHasTransactionsAsync(account.Id, ct))
         {
             account.IsClosed = true;
             await db.SaveChangesAsync(ct);
@@ -846,12 +887,14 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>Changes all the details of an account.</summary>
-    public async Task UpdateAccountAsync(Guid accountId, string name, AccountType type, bool isOnBudget, long openingBalance, bool isClosed, CancellationToken ct = default)
+    public async Task UpdateAccountAsync(Guid accountId, string name, AccountType type, bool isOnBudget, long openingBalance, bool isClosed, CancellationToken ct = default, bool? trackBalances = null)
     {
         var account = await db.Accounts.SingleAsync(a => a.Id == accountId, ct);
         account.Name = name.Trim();
         account.Type = type;
         account.IsOnBudget = isOnBudget;
+        if (trackBalances is { } track) account.TrackBalances = track && !isOnBudget;
+        if (isOnBudget) account.TrackBalances = false;   // only a tracking account can be kept by its balances
         account.OpeningBalance = openingBalance;
         account.IsClosed = isClosed;
         await db.SaveChangesAsync(ct);

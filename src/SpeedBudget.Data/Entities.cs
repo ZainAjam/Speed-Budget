@@ -25,6 +25,12 @@ public class AccountEntity : SyncEntity
     public long OpeningBalance { get; set; }
     public bool IsClosed { get; set; }
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// A tracking account kept by its balances rather than its transactions: the user types in the balance (usually daily) and what was
+    /// withdrawn, and the tracker works out the changes, gains and losses (see <see cref="BalanceEntryEntity"/>).
+    /// </summary>
+    public bool TrackBalances { get; set; }
 }
 
 public class GroupEntity : SyncEntity
@@ -136,6 +142,20 @@ public class ExpectedTransactionEntity : SyncEntity
 
     /// <summary>The day of the month a monthly, quarterly or yearly series started on, so a short month does not drag it earlier for good.</summary>
     public int AnchorDay { get; set; }
+}
+
+/// <summary>The balance of an account tracked by its balances, on a date, with what was withdrawn from it that day and an optional comment.</summary>
+public class BalanceEntryEntity : SyncEntity
+{
+    public Guid AccountId { get; set; }
+    public DateOnly Date { get; set; }
+
+    /// <summary>The balance on that date, in cents.</summary>
+    public long Balance { get; set; }
+
+    /// <summary>What was taken out of the fund on that date, as a positive amount in cents.</summary>
+    public long Withdrawal { get; set; }
+    public string? Comment { get; set; }
 }
 
 public class TransactionEntity : SyncEntity

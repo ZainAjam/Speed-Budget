@@ -13,7 +13,14 @@ public sealed class AccountDialog : ContentDialog
     private readonly NumberBox _opening = new() { Header = "Opening balance (R)", SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden, PlaceholderText = "0.00" };
     private readonly ToggleSwitch? _closed;
 
+    // A tracking account (one outside the budget) can be kept either by its transactions or by its balances, as a retirement fund usually is.
+    private readonly ComboBox _how = new() { Header = "How do you keep track of it?", HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly TextBlock _howNote = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.7, FontSize = 12 };
+
     public string AccountName => _name.Text.Trim();
+
+    /// <summary>True when the account is kept by the balances typed in (daily, for instance) instead of by its transactions.</summary>
+    public bool TrackBalances => !_onBudget.IsOn && _how.SelectedIndex == 1;
     public AccountType Type => (AccountType)Math.Max(0, _type.SelectedIndex);
     public bool IsOnBudget => _onBudget.IsOn;
     public long OpeningCents => AppServices.ToCents(_opening.Value);
@@ -39,7 +46,24 @@ public sealed class AccountDialog : ContentDialog
         body.Children.Add(_name);
         body.Children.Add(_type);
         body.Children.Add(_onBudget);
+        _how.Items.Add("Record each transaction, like any other account");
+        _how.Items.Add("Record its balance: daily balances, withdrawals, gains and losses");
+        _how.SelectedIndex = 0;
+        body.Children.Add(_how);
+        body.Children.Add(_howNote);
         body.Children.Add(_opening);
+
+        void ShowHow()
+        {
+            var tracking = !_onBudget.IsOn;
+            _how.Visibility = _howNote.Visibility = tracking ? Visibility.Visible : Visibility.Collapsed;
+            _howNote.Text = TrackBalances
+                ? "You type in the balance on a date (usually every day) and anything withdrawn, and the daily changes, total changes, gains and losses are worked out for you."
+                : "You enter its outflows and inflows yourself, in the transactions table.";
+            _opening.Visibility = TrackBalances ? Visibility.Collapsed : Visibility.Visible;
+        }
+        _onBudget.Toggled += (_, _) => ShowHow();
+        _how.SelectionChanged += (_, _) => ShowHow();
 
         if (existing is null)
         {
@@ -51,12 +75,14 @@ public sealed class AccountDialog : ContentDialog
             _name.Text = existing.Name;
             _type.SelectedIndex = (int)existing.Type;
             _onBudget.IsOn = existing.IsOnBudget;
+            _how.SelectedIndex = existing.TrackBalances ? 1 : 0;
             _opening.Value = (double)AppServices.ToRands(existing.OpeningBalance);
             _closed = new ToggleSwitch { Header = "Closed", OnContent = "Closed, hidden from new entries", OffContent = "Open", IsOn = existing.IsClosed };
             body.Children.Add(_closed);
         }
 
         Content = body;
+        ShowHow();
         IsPrimaryButtonEnabled = AccountName != "";
         _name.TextChanged += (_, _) => IsPrimaryButtonEnabled = AccountName != "";
         Opened += (_, _) => { _name.Focus(FocusState.Programmatic); _name.SelectAll(); };
