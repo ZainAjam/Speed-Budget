@@ -218,6 +218,7 @@ public sealed partial class BalancesPage : Page, IReloadable
             delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());
             menu.Items.Add(delete);
 
+            menu.Items.Add(new MenuFlyoutSeparator());
             var select = new MenuFlyoutItem { Text = "Multi-select", Icon = new FontIcon { Glyph = "\uE762" } };
             select.Click += (_, _) => { SetSelecting(true); line.IsTicked = true; };
             menu.Items.Add(select);

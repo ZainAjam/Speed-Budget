@@ -527,6 +527,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
             delete.Click += async (_, _) => await DeleteRowAsync(row);
             menu.Items.Add(delete);
 
+            menu.Items.Add(new MenuFlyoutSeparator());
             var select = new MenuFlyoutItem { Text = "Multi-select", Icon = new FontIcon { Glyph = "\uE762" } };
             select.Click += (_, _) => { ViewModel.IsSelecting = true; row.IsTicked = true; };
             menu.Items.Add(select);
