@@ -18,6 +18,8 @@ public sealed partial class BalancesPage : Page, IReloadable
     public BalancesPage()
     {
         InitializeComponent();
+        // A press outside the table lets go of the highlighted line, as on the transactions tables (handled presses count too).
+        AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e) => BalanceLine.TickChanged -= Line_TickChanged;
@@ -147,9 +149,18 @@ public sealed partial class BalancesPage : Page, IReloadable
         e.Handled = true;
     }
 
+    private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (LinesList.SelectedItem is null || ViewModel.Lines.Any(l => l.IsEditing)) return;
+        for (var node = e.OriginalSource as DependencyObject; node is not null; node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+            if (ReferenceEquals(node, DailyTable)) return;
+        LinesList.SelectedItem = null;
+    }
+
     /// <summary>Esc leaves multi-select mode.</summary>
     private void Escape_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        if (!ViewModel.IsSelecting && LinesList.SelectedItem is not null && !ViewModel.Lines.Any(l => l.IsEditing)) { LinesList.SelectedItem = null; args.Handled = true; return; }   // Esc lets go of the highlighted line
         if (!ViewModel.IsSelecting || ViewModel.Lines.Any(l => l.IsEditing)) return;
         args.Handled = true;
         SetSelecting(false);
