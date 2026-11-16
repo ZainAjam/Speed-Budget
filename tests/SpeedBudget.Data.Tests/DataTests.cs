@@ -1474,4 +1474,16 @@ public sealed class DataTests : IDisposable
         await _store.SetPinOrderAsync([c.Id, a.Id, b.Id]);
         Assert.Equal([c.Id, a.Id, b.Id], await _store.GetPinnedItemIdsAsync());
     }
+
+    [Fact]
+    public async Task Account_order_is_the_default_until_the_user_drags_accounts_into_their_own()
+    {
+        var budget = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var tracked = await _store.AddAccountAsync("Fund", AccountType.Investment, false);
+        Assert.False(await _store.IsAccountOrderCustomAsync());
+
+        await _store.SetAccountOrderAsync([tracked.Id, budget.Id]);   // a tracked account dragged above a budget one
+        Assert.True(await _store.IsAccountOrderCustomAsync());
+        Assert.Equal([tracked.Id, budget.Id], (await _store.GetAccountsAsync()).Select(a => a.Id));
+    }
 }

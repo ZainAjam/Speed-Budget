@@ -807,13 +807,19 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
     public Task<List<AccountEntity>> GetAccountsAsync(CancellationToken ct = default) =>
         db.Accounts.OrderBy(a => a.SortOrder).ThenBy(a => a.Name).ToListAsync(ct);
 
-    /// <summary>Saves the order accounts are listed in: the first id comes first. Accounts not named keep the order they had.</summary>
+    private const string AccountOrderCustomKey = "accountOrderCustom";
+
+    /// <summary>True once the user has dragged accounts into an order of their own. Until then budget accounts are listed first and tracked ones after them.</summary>
+    public async Task<bool> IsAccountOrderCustomAsync(CancellationToken ct = default) => await GetSettingAsync(AccountOrderCustomKey, ct) == "1";
+
+    /// <summary>Saves the order accounts are listed in: the first id comes first. Accounts not named keep the order they had. From then on the order is the user's own.</summary>
     public async Task SetAccountOrderAsync(IReadOnlyList<Guid> orderedIds, CancellationToken ct = default)
     {
         var accounts = await db.Accounts.ToListAsync(ct);
         for (var i = 0; i < orderedIds.Count; i++)
             if (accounts.FirstOrDefault(a => a.Id == orderedIds[i]) is { } account && account.SortOrder != i) account.SortOrder = i;
         await db.SaveChangesAsync(ct);
+        await SetSettingAsync(AccountOrderCustomKey, "1", ct);
     }
 
     public Task<List<GroupEntity>> GetGroupsAsync(CancellationToken ct = default) =>

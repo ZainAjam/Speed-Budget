@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.26
+
+- **Accounts in the side panel can be dragged into any order.** Drag an account under Transactions to where you want it, budget or tracking accounts alike; the side panel stays open while you drag. All Bank Accounts always stays first and Add bank account always stays last. Until you drag one, budget accounts are listed first and tracking accounts second.
+
 ## 0.9.25
 
 - **A tracking account can now be kept by its balances.** When you add or edit a tracking account (one that does not count toward the budget), choose how you keep track of it: **Record each transaction**, like any other account, or **Record its balance**, which suits a retirement fund. A balance account has its own screen: type in the balance on a date (usually every day), anything you withdrew that day, and a comment if you like, and Speed Budget works out the daily change, the total change since the first balance, and the gains and losses (the change in the balance with your withdrawal put back), with the totals at the top. **By month** adds up the gains and losses and the withdrawals for each month and shows the money left to reinvest. The balance beside the account's name is its latest balance.

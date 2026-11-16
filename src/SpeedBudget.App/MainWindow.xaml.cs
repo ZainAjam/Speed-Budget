@@ -455,7 +455,6 @@ public sealed partial class MainWindow : Window
     private readonly Dictionary<Guid, TextBlock> _balanceBlocks = [];
 
     private Guid? _draggedAccount;
-    private bool _draggedAccountOnBudget;
     private readonly List<Guid> _accountOrder = [];
 
     /// <summary>Puts a dragged account in the place of the one it was dropped on, and remembers the new order.</summary>
@@ -495,19 +494,19 @@ public sealed partial class MainWindow : Window
             // A bank (building) for an account in the budget; an eye for one that is only being watched.
             Icon = new FontIcon { Glyph = account.IsOnBudget ? "" : "" } };
 
-        // Accounts can be dragged into a new order, within their own kind (budget accounts above tracked ones).
+        // Accounts can be dragged into any order. All Bank Accounts stays first and the add entry last, as only accounts take a drop.
         row.CanDrag = !account.IsClosed;
         row.AllowDrop = !account.IsClosed;
         row.ContextRequested += (_, e) => AccountMenu(row, account, e);
         row.DragStarting += (_, e) =>
         {
             _draggedAccount = account.Id;
-            _draggedAccountOnBudget = account.IsOnBudget;
+            _paneHeld = true;   // the panel stays open while an account is being dragged (the pointer leaves it as the drag starts)
             e.Data.SetText(account.Name);
         };
         row.DragOver += (_, e) =>
         {
-            var allowed = _draggedAccount is { } dragged && dragged != account.Id && _draggedAccountOnBudget == account.IsOnBudget;
+            var allowed = _draggedAccount is { } dragged && dragged != account.Id;
             e.AcceptedOperation = allowed ? Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move : Windows.ApplicationModel.DataTransfer.DataPackageOperation.None;
             if (allowed) e.DragUIOverride.Caption = "Move here";
             e.Handled = true;
@@ -515,12 +514,18 @@ public sealed partial class MainWindow : Window
         row.Drop += async (_, e) =>
         {
             e.Handled = true;
-            if (_draggedAccount is { } dragged && dragged != account.Id && _draggedAccountOnBudget == account.IsOnBudget)
+            if (_draggedAccount is { } dragged && dragged != account.Id)
                 await MoveAccountAsync(dragged, account.Id);
             _draggedAccount = null;
+            _paneHeld = false;   // the dragged row may be rebuilt before its drop completes, so let go of the panel here too
         };
         row.Tapped += (_, _) => Nav.SelectedItem = item;   // the row takes the click while it is draggable, so it opens the page itself
-        row.DropCompleted += (_, _) => _draggedAccount = null;
+        row.DropCompleted += (_, _) =>
+        {
+            _draggedAccount = null;
+            _paneHeld = false;
+            DispatcherQueue.TryEnqueue(() => { if (AppServices.PanelMode == "hover" && !_pointerInNav) SetPane(false); });
+        };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
         return item;
     }
@@ -557,7 +562,12 @@ public sealed partial class MainWindow : Window
             var readStore = new BudgetStore(reader);
             // Budget accounts come first, then tracked ones; within each, in the order the user has dragged them into.
             // Open accounts first (budget accounts, then tracked ones, in the order they were dragged into), closed ones after them.
-            accounts = (await readStore.GetAccountsAsync()).OrderBy(a => a.IsClosed).ThenByDescending(a => a.IsOnBudget).ThenBy(a => a.SortOrder).ThenBy(a => a.Name).ToList();
+            // Until the user has dragged the accounts into an order of their own, budget accounts come first and tracked ones second.
+            var custom = await readStore.IsAccountOrderCustomAsync();
+            var all = await readStore.GetAccountsAsync();
+            accounts = (custom
+                ? all.OrderBy(a => a.IsClosed).ThenBy(a => a.SortOrder).ThenBy(a => a.Name)
+                : all.OrderBy(a => a.IsClosed).ThenByDescending(a => a.IsOnBudget).ThenBy(a => a.SortOrder).ThenBy(a => a.Name)).ToList();
             foreach (var account in accounts) balances[account.Id] = (await readStore.GetBalancesAsync(account.Id)).BookBalance;
         }
         catch (Exception ex)
