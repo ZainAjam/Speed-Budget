@@ -1,0 +1,282 @@
+using ClosedXML.Excel;
+using Microsoft.EntityFrameworkCore;
+
+namespace SpeedBudget.Data;
+
+/// <summary>One usable line of a filled-in transactions template. Amount is signed: money in is positive, money out is negative.</summary>
+public sealed record TransactionImportRow(int Line, DateOnly Date, string Payee, string? Memo, string? ItemName, string? AccountName, long Amount, bool Cleared);
+
+public sealed record TransactionImportFile(IReadOnlyList<TransactionImportRow> Rows, IReadOnlyList<ImportProblem> Problems);
+
+/// <summary>What an import of transactions did (or would do): how many were added, the lines left out and why, and notes such as budget items that were not found.</summary>
+public sealed record TransactionImportResult(int Added, IReadOnlyList<ImportProblem> Skipped, IReadOnlyList<string> Notes);
+
+/// <summary>
+/// The Excel template for importing transactions, the reader for it once it is filled in, and the export of a table of transactions.
+/// The columns are Date, Counterparty, Memo, Budget item, Account (only when importing into all accounts), Outflow, Inflow and Cleared.
+/// </summary>
+public static class TransactionImport
+{
+    private const string SheetName = "Transactions";
+
+    /// <summary>Writes an empty template with the column headings, and a second sheet saying how to fill it in. The Account column is for the all-accounts table.</summary>
+    public static void CreateTemplate(string path, bool withAccount)
+    {
+        using var book = new XLWorkbook();
+        var sheet = book.AddWorksheet(SheetName);
+        var headings = withAccount
+            ? new[] { "Date", "Counterparty", "Memo", "Budget item", "Account", "Outflow", "Inflow", "Cleared" }
+            : new[] { "Date", "Counterparty", "Memo", "Budget item", "Outflow", "Inflow", "Cleared" };
+        for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
+
+        var header = sheet.Range(1, 1, 1, headings.Length);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E7F5");
+        sheet.SheetView.FreezeRows(1);
+
+        var money = Array.IndexOf(headings, "Outflow") + 1;
+        sheet.Range(2, 1, 5000, 1).Style.DateFormat.Format = "yyyy-mm-dd";
+        sheet.Range(2, money, 5000, money + 1).Style.NumberFormat.Format = "#,##0.00";
+        sheet.Range(2, money, 5000, money + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        for (var i = 0; i < headings.Length; i++) sheet.Column(i + 1).Width = headings[i] switch { "Date" => 14, "Counterparty" => 28, "Memo" => 30, "Budget item" => 24, "Account" => 22, _ => 14 };
+
+        var help = book.AddWorksheet("How to fill in");
+        var lines = new List<string>
+        {
+            "Fill in the Transactions sheet, one line for each transaction, then import the file in Speed Budget.",
+            "",
+            "Date: the date of the transaction, such as 2024-01-29 (a real Excel date, or written as year-month-day). Required.",
+            "Counterparty: who you paid, or who paid you. Required.",
+            "Memo: a note to help you remember what it was for. Optional.",
+            "Budget item: the name of one of your budget items, written as it is in Speed Budget. Optional; a name that is not found leaves the transaction without an item.",
+        };
+        if (withAccount) lines.Add("Account: the name of the bank account, written as it is in Speed Budget. Required.");
+        lines.AddRange(
+        [
+            "Outflow: money that left the account, as a positive amount, such as 249.99. Leave it empty for money that came in.",
+            "Inflow: money that came into the account, such as 15000. Leave it empty for money that went out.",
+            "Cleared: write Yes once it shows on your bank statement. Optional.",
+            "",
+            "Transfers between accounts are not imported; add those in Speed Budget.",
+            "Keep the headings in the first row of the Transactions sheet.",
+        ]);
+        for (var i = 0; i < lines.Count; i++) help.Cell(i + 1, 1).Value = lines[i];
+        help.Cell(1, 1).Style.Font.Bold = true;
+        help.Column(1).Width = 130;
+
+        book.SaveAs(path);
+    }
+
+    /// <summary>Reads a filled-in template (or any sheet with these headings). Lines that cannot be used are reported, not imported.</summary>
+    public static TransactionImportFile Read(string path, bool withAccount)
+    {
+        var rows = new List<TransactionImportRow>();
+        var problems = new List<ImportProblem>();
+
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);   // a file still open in Excel can be read
+        using var book = new XLWorkbook(stream);
+        var sheet = book.Worksheets.FirstOrDefault(s => s.Name.Equals(SheetName, StringComparison.OrdinalIgnoreCase)) ?? book.Worksheets.First();
+
+        var last = sheet.LastRowUsed()?.RowNumber() ?? 0;
+        var headingRow = 0;
+        var columns = new Dictionary<string, int>();
+        for (var r = 1; r <= Math.Min(last, 20) && headingRow == 0; r++)
+        {
+            var found = new Dictionary<string, int>();
+            foreach (var cell in sheet.Row(r).CellsUsed())
+            {
+                var name = cell.GetString().Trim().ToLowerInvariant();
+                if (name.StartsWith("date")) found.TryAdd("date", cell.Address.ColumnNumber);
+                else if (name.StartsWith("counterparty") || name.StartsWith("payee")) found.TryAdd("payee", cell.Address.ColumnNumber);
+                else if (name.StartsWith("memo")) found.TryAdd("memo", cell.Address.ColumnNumber);
+                else if (name.StartsWith("budget item") || name == "item") found.TryAdd("item", cell.Address.ColumnNumber);
+                else if (name.StartsWith("account")) found.TryAdd("account", cell.Address.ColumnNumber);
+                else if (name.StartsWith("outflow")) found.TryAdd("outflow", cell.Address.ColumnNumber);
+                else if (name.StartsWith("inflow")) found.TryAdd("inflow", cell.Address.ColumnNumber);
+                else if (name.StartsWith("cleared")) found.TryAdd("cleared", cell.Address.ColumnNumber);
+            }
+            if (found.ContainsKey("date") && found.ContainsKey("payee") && (found.ContainsKey("outflow") || found.ContainsKey("inflow"))) { headingRow = r; columns = found; }
+        }
+        if (headingRow == 0)
+        {
+            problems.Add(new ImportProblem(1, "The Date, Counterparty and Outflow or Inflow headings were not found. Use the template, with its headings in the first row."));
+            return new TransactionImportFile(rows, problems);
+        }
+        if (withAccount && !columns.ContainsKey("account"))
+        {
+            problems.Add(new ImportProblem(1, "The Account heading was not found. For all accounts, use the template from the all-accounts table, which has an Account column."));
+            return new TransactionImportFile(rows, problems);
+        }
+
+        string Text(IXLRow row, string key) => columns.TryGetValue(key, out var c) ? row.Cell(c).GetString().Trim() : "";
+
+        for (var r = headingRow + 1; r <= last; r++)
+        {
+            var row = sheet.Row(r);
+            var dateCell = row.Cell(columns["date"]);
+            var outCell = columns.TryGetValue("outflow", out var oc) ? row.Cell(oc) : null;
+            var inCell = columns.TryGetValue("inflow", out var ic) ? row.Cell(ic) : null;
+            var payee = Text(row, "payee");
+
+            if (dateCell.IsEmpty() && payee == "" && (outCell?.IsEmpty() ?? true) && (inCell?.IsEmpty() ?? true)) continue;   // blank space
+
+            if (!BalanceImport.TryDate(dateCell, out var date)) { problems.Add(new ImportProblem(r, "The date is missing or could not be read.")); continue; }
+            var label = $"{date:d MMM yyyy}";
+            if (payee == "") { problems.Add(new ImportProblem(r, $"{label}: there is no counterparty.")); continue; }
+
+            long outflow = 0, inflow = 0;
+            if (outCell is not null && !outCell.IsEmpty())
+            {
+                if (!BalanceImport.TryMoney(outCell, out outflow)) { problems.Add(new ImportProblem(r, $"{label}: the outflow could not be read as an amount.")); continue; }
+                outflow = Math.Abs(outflow);
+            }
+            if (inCell is not null && !inCell.IsEmpty())
+            {
+                if (!BalanceImport.TryMoney(inCell, out inflow)) { problems.Add(new ImportProblem(r, $"{label}: the inflow could not be read as an amount.")); continue; }
+                inflow = Math.Abs(inflow);
+            }
+            if (outflow == 0 && inflow == 0) { problems.Add(new ImportProblem(r, $"{label}: there is no amount.")); continue; }
+
+            var account = Text(row, "account");
+            if (withAccount && account == "") { problems.Add(new ImportProblem(r, $"{label}: there is no account.")); continue; }
+
+            var memo = Text(row, "memo");
+            var item = Text(row, "item");
+            var cleared = Text(row, "cleared").ToLowerInvariant() is "yes" or "y" or "true" or "1" or "x" or "cleared";
+            rows.Add(new TransactionImportRow(r, date, payee, memo == "" ? null : memo, item == "" ? null : item, withAccount ? account : null, inflow - outflow, cleared));
+        }
+        return new TransactionImportFile(rows, problems);
+    }
+}
+
+public sealed partial class BudgetStore
+{
+    /// <summary>
+    /// Brings transactions read from an Excel template in, all in one save (so Ctrl+Z takes the whole import back). Into one account when
+    /// <paramref name="accountId"/> is given; otherwise each line names its account. An account or budget item is found by its name.
+    /// A line whose account is not found is skipped; a budget item that is not found is left empty. With <paramref name="apply"/> false nothing is saved.
+    /// </summary>
+    public async Task<TransactionImportResult> ImportTransactionsAsync(Guid? accountId, IEnumerable<TransactionImportRow> rows, bool apply = true, CancellationToken ct = default)
+    {
+        var accounts = await db.Accounts.Where(a => !a.IsClosed).ToListAsync(ct);
+        var items = await db.Items.ToListAsync(ct);
+        var skipped = new List<ImportProblem>();
+        var missingItems = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var nextOrder = new Dictionary<DateOnly, int>();
+        var payees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var toAdd = new List<(TransactionEntity Entity, Guid? ItemId)>();
+
+        foreach (var row in rows)
+        {
+            var account = accountId is { } id
+                ? accounts.FirstOrDefault(a => a.Id == id)
+                : accounts.FirstOrDefault(a => string.Equals(a.Name, row.AccountName, StringComparison.OrdinalIgnoreCase));
+            if (account is null) { skipped.Add(new ImportProblem(row.Line, $"{row.Date:d MMM yyyy}: the account {(accountId is null ? $"\"{row.AccountName}\" " : "")}was not found.")); continue; }
+            if (account.TrackBalances) { skipped.Add(new ImportProblem(row.Line, $"{row.Date:d MMM yyyy}: {account.Name} is kept by its balances, not by transactions.")); continue; }
+
+            Guid? itemId = null;
+            if (row.ItemName is { } itemName && account.IsOnBudget)
+            {
+                var item = items.FirstOrDefault(i => string.Equals(i.Name, itemName, StringComparison.OrdinalIgnoreCase) || string.Equals(i.DisplayName, itemName, StringComparison.OrdinalIgnoreCase));
+                if (item is null) missingItems.Add(itemName); else itemId = item.Id;
+            }
+
+            if (!nextOrder.TryGetValue(row.Date, out var order)) order = await NextDayOrderAsync(row.Date, ct);
+            nextOrder[row.Date] = order + 1;
+            toAdd.Add((new TransactionEntity { AccountId = account.Id, Date = row.Date, DayOrder = order, Payee = row.Payee, Memo = row.Memo, Amount = row.Amount, IsCleared = row.Cleared }, itemId));
+            payees.Add(row.Payee);
+        }
+
+        var notes = missingItems.Count == 0 ? [] : new List<string> { $"Budget items not found, so those transactions have no item: {string.Join(", ", missingItems)}." };
+        if (!apply || toAdd.Count == 0) return new TransactionImportResult(toAdd.Count, skipped, notes);
+
+        foreach (var payee in payees) await EnsurePayeeAsync(payee, ct);   // new counterparties join the list (a step of their own)
+        foreach (var (entity, itemId) in toAdd)
+        {
+            db.Transactions.Add(entity);
+            db.SplitLines.Add(new SplitLineEntity { TransactionId = entity.Id, BudgetItemId = itemId, Amount = entity.Amount });
+        }
+        await db.SaveChangesAsync(ct);
+        return new TransactionImportResult(toAdd.Count, skipped, notes);
+    }
+
+    /// <summary>Deletes several transactions in one save, so Ctrl+Z brings them all back together. Deleting one side of a transfer deletes the other side too.</summary>
+    public async Task DeleteTransactionsAsync(IEnumerable<TransactionEntity> transactions, CancellationToken ct = default)
+    {
+        var all = transactions.ToList();
+        var pairs = all.Where(t => t.TransferPairId is not null).Select(t => t.TransferPairId!.Value).Distinct().ToList();
+        var singles = all.Where(t => t.TransferPairId is null).ToList();
+        if (pairs.Count > 0) db.Transactions.RemoveRange(await db.Transactions.Where(t => t.TransferPairId != null && pairs.Contains(t.TransferPairId.Value)).ToListAsync(ct));
+        db.Transactions.RemoveRange(singles);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Writes the transactions of one account (or of every account) to an Excel file, oldest first.</summary>
+    public async Task ExportTransactionsAsync(string path, Guid? accountId, CancellationToken ct = default)
+    {
+        var accounts = (await db.Accounts.ToListAsync(ct)).ToDictionary(a => a.Id);
+        var items = (await db.Items.ToListAsync(ct)).ToDictionary(i => i.Id);
+        var transactions = await GetTransactionsAsync(accountId, ct);
+
+        using var book = new XLWorkbook();
+        var sheet = book.AddWorksheet("Transactions");
+        string[] headings = ["Date", "Bank date", "Counterparty", "Memo", "Budget item", "Account", "Outflow", "Inflow", "Cleared"];
+        for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
+        var header = sheet.Range(1, 1, 1, headings.Length);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E7F5");
+        sheet.SheetView.FreezeRows(1);
+
+        var r = 2;
+        foreach (var (t, lines) in transactions)
+        {
+            sheet.Cell(r, 1).Value = t.Date.ToDateTime(TimeOnly.MinValue);
+            if (t.BankDate is { } bank) sheet.Cell(r, 2).Value = bank.ToDateTime(TimeOnly.MinValue);
+            sheet.Cell(r, 3).Value = t.TransferPairId is null ? t.Payee : $"Transfer: {t.Payee}";
+            sheet.Cell(r, 4).Value = t.Memo ?? "";
+            var names = lines.Where(l => l.BudgetItemId is not null && items.ContainsKey(l.BudgetItemId.Value)).Select(l => items[l.BudgetItemId!.Value].Name).Distinct().ToList();
+            sheet.Cell(r, 5).Value = lines.Count > 1 ? $"Split: {string.Join(", ", names)}" : string.Join(", ", names);
+            sheet.Cell(r, 6).Value = accounts.TryGetValue(t.AccountId, out var account) ? account.Name : "";
+            if (t.Amount < 0) sheet.Cell(r, 7).Value = (double)(-t.Amount) / 100;
+            if (t.Amount > 0) sheet.Cell(r, 8).Value = (double)t.Amount / 100;
+            sheet.Cell(r, 9).Value = t.IsCleared ? "Yes" : "";
+            r++;
+        }
+        sheet.Range(2, 1, Math.Max(r - 1, 2), 2).Style.DateFormat.Format = "yyyy-mm-dd";
+        sheet.Range(2, 7, Math.Max(r - 1, 2), 8).Style.NumberFormat.Format = "#,##0.00";
+        for (var i = 0; i < headings.Length; i++) sheet.Column(i + 1).AdjustToContents(1, Math.Min(r, 200));
+        book.SaveAs(path);
+    }
+
+    /// <summary>Writes the lines of an account kept by its balances to an Excel file, oldest first, with the changes, gains and losses worked out. The first four columns can be imported again.</summary>
+    public async Task ExportBalancesAsync(string path, Guid accountId, CancellationToken ct = default)
+    {
+        var report = await GetBalanceReportAsync(accountId, ct);
+        using var book = new XLWorkbook();
+        var sheet = book.AddWorksheet("Balances");
+        string[] headings = ["Date", "Balance", "Withdrawal", "Comment", "Total changes", "Daily changes", "Gains / losses"];
+        for (var i = 0; i < headings.Length; i++) sheet.Cell(1, i + 1).Value = headings[i];
+        var header = sheet.Range(1, 1, 1, headings.Length);
+        header.Style.Font.Bold = true;
+        header.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E7F5");
+        sheet.SheetView.FreezeRows(1);
+
+        var r = 2;
+        foreach (var row in report.Rows)
+        {
+            sheet.Cell(r, 1).Value = row.Date.ToDateTime(TimeOnly.MinValue);
+            sheet.Cell(r, 2).Value = (double)row.Balance / 100;
+            if (row.Withdrawal != 0) sheet.Cell(r, 3).Value = (double)row.Withdrawal / 100;
+            sheet.Cell(r, 4).Value = row.Comment ?? "";
+            sheet.Cell(r, 5).Value = (double)row.TotalChange / 100;
+            sheet.Cell(r, 6).Value = (double)row.DailyChange / 100;
+            sheet.Cell(r, 7).Value = (double)row.GainLoss / 100;
+            r++;
+        }
+        sheet.Range(2, 1, Math.Max(r - 1, 2), 1).Style.DateFormat.Format = "yyyy-mm-dd";
+        sheet.Range(2, 2, Math.Max(r - 1, 2), 3).Style.NumberFormat.Format = "#,##0.00";
+        sheet.Range(2, 5, Math.Max(r - 1, 2), 7).Style.NumberFormat.Format = "#,##0.00";
+        for (var i = 0; i < headings.Length; i++) sheet.Column(i + 1).AdjustToContents(1, Math.Min(r, 200));
+        book.SaveAs(path);
+    }
+}

@@ -24,6 +24,8 @@ public static class KeyboardShortcuts
             ("Esc", "Drop the changes to the row being edited"),
             ("Alt + Up", "Move the selected month line up"),
             ("Alt + Down", "Move the selected month line down"),
+            ("Ctrl + click, Shift + click", "Select several rows; right-click them to delete them together"),
+            ("Ctrl + A", "Select every row"),
             ("Shift + drag a column divider", "Resize a column and move the rest of the table along"),
         ]),
         ("Counterparty and budget item lists", [

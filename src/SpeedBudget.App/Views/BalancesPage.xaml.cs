@@ -128,6 +128,52 @@ public sealed partial class BalancesPage : Page, IReloadable
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(lines);
     }
 
+    /// <summary>Right-click on a line: with several ticked, only Delete; with one, Edit, Duplicate and Delete.</summary>
+    private void Line_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { Tag: BalanceLine line } target) return;
+        args.Handled = true;
+        if (line.IsNew) return;   // a line still being added has its own tick and cross
+
+        var menu = new MenuFlyout();
+        var chosen = LinesList.SelectedItems.OfType<BalanceLine>().Where(l => !l.IsNew).ToList();
+        if (chosen.Count > 1 && chosen.Contains(line))
+        {
+            var deleteAll = new MenuFlyoutItem { Text = $"Delete {chosen.Count} balances", Icon = new FontIcon { Glyph = "" } };
+            deleteAll.Click += (_, _) => DeleteSelected_Click(this, new RoutedEventArgs());
+            menu.Items.Add(deleteAll);
+        }
+        else
+        {
+            if (!line.IsEditing)
+            {
+                var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "" } };
+                edit.Click += (_, _) => ViewModel.BeginChange(line);
+                menu.Items.Add(edit);
+                var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
+                duplicate.Click += (_, _) => ViewModel.BeginAdd(line);
+                menu.Items.Add(duplicate);
+            }
+            var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "" } };
+            delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());
+            menu.Items.Add(delete);
+        }
+        if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
+        else menu.ShowAt(target);
+    }
+
+    private async void Export_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = await ExcelFiles.PickSaveAsync(ViewModel.Title.Replace(' ', '-').ToLowerInvariant() + "-balances");
+            if (path is null) return;
+            await ViewModel.ExportAsync(path);
+            ViewModel.Tell($"Exported the balances to {path}.");
+        }
+        catch (Exception ex) { await ShowAsync("The balances could not be exported", ex.Message); }
+    }
+
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: BalanceLine line }) ViewModel.BeginChange(line);

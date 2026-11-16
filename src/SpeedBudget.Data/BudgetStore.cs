@@ -97,7 +97,7 @@ public static class LocalDatabase
 }
 
 /// <summary>Reads and writes budget data, hiding sync bookkeeping from the rest of the app.</summary>
-public sealed class BudgetStore(SpeedBudgetDb db)
+public sealed partial class BudgetStore(SpeedBudgetDb db)
 {
     /// <summary>Loads everything the budget engine needs.</summary>
     public async Task<BudgetSnapshot> LoadSnapshotAsync(CancellationToken ct = default)

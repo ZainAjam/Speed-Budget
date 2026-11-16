@@ -128,7 +128,7 @@ public static class BalanceImport
 
     private static readonly string[] DateFormats = ["yyyy-MM-dd", "yyyy/MM/dd", "d/M/yyyy", "dd/MM/yyyy", "d MMM yyyy", "d MMMM yyyy", "yyyyMMdd"];
 
-    private static bool TryDate(IXLCell cell, out DateOnly date)
+    internal static bool TryDate(IXLCell cell, out DateOnly date)
     {
         date = default;
         if (cell.IsEmpty()) return false;
@@ -147,7 +147,7 @@ public static class BalanceImport
         return false;
     }
 
-    private static bool TryMoney(IXLCell cell, out long cents)
+    internal static bool TryMoney(IXLCell cell, out long cents)
     {
         cents = 0;
         if (cell.DataType == XLDataType.Number) { cents = (long)Math.Round(cell.GetDouble() * 100, MidpointRounding.AwayFromZero); return true; }

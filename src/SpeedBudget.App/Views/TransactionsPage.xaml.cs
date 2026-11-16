@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using SpeedBudget.App.ViewModels;
 using SpeedBudget.Core;
+using SpeedBudget.Data;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -470,6 +471,19 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (row.IsNew) return;   // a row still being added has its own tick and bin
 
         var menu = new MenuFlyout();
+
+        // Several rows ticked together: the only thing offered is to delete them all.
+        var chosen = EntryList.SelectedItems.OfType<TransactionRow>().Where(r => !r.IsNew).ToList();
+        if (chosen.Count > 1 && chosen.Contains(row))
+        {
+            var deleteAll = new MenuFlyoutItem { Text = $"Delete {chosen.Count} transactions", Icon = new FontIcon { Glyph = "\uE74D" } };
+            deleteAll.Click += async (_, _) => await DeleteManyAsync(chosen);
+            menu.Items.Add(deleteAll);
+            if (args.TryGetPosition(target, out var where)) menu.ShowAt(target, where);
+            else menu.ShowAt(target);
+            return;
+        }
+
         var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
         delete.Click += async (_, _) => await DeleteRowAsync(row);
         if (row.IsEditing)
@@ -489,6 +503,10 @@ public sealed partial class TransactionsPage : Page, IReloadable
             var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
             edit.Click += (_, _) => ViewModel.BeginEdit(row);
             menu.Items.Add(edit);
+
+            var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
+            duplicate.Click += async (_, _) => await ViewModel.BeginDuplicateAsync(row);
+            menu.Items.Add(duplicate);
         }
         menu.Items.Add(delete);
 
@@ -580,6 +598,76 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         var row = (sender as FrameworkElement)?.DataContext as TransactionRow ?? ViewModel.Selected;
         if (row is not null) await DeleteRowAsync(row);
+    }
+
+    private async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)
+    {
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = $"Delete these {rows.Count} transactions?",
+            Content = rows.Any(r => r.IsTransfer) ? "A transfer is deleted on both sides. Ctrl+Z brings them all back." : "Ctrl+Z brings them all back.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(rows);
+    }
+
+    // ---- Excel: a blank template to fill in, importing it, and exporting the table ----
+
+    private bool ImportWithAccount => ViewModel.AccountId is null;
+
+    private async void GetTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = await ExcelFiles.PickSaveAsync("transactions-template");
+            if (path is null) return;
+            TransactionImport.CreateTemplate(path, ImportWithAccount);
+            await ExcelFiles.ShowAsync(XamlRoot, "Template saved", $"Saved to {path}. Fill it in, then choose Import from Excel, Import a filled-in template.");
+        }
+        catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The template could not be saved", ex.Message); }
+    }
+
+    private async void ImportExcel_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = await ExcelFiles.PickOpenAsync();
+            if (path is null) return;
+
+            var read = await Task.Run(() => TransactionImport.Read(path, ImportWithAccount));
+            if (read.Rows.Count == 0)
+            {
+                await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", read.Problems.Count == 0 ? "There are no lines with a date, a counterparty and an amount in the file." : ExcelFiles.ProblemText(read.Problems));
+                return;
+            }
+
+            var preview = await ViewModel.PreviewImportAsync(read.Rows);
+            var problems = read.Problems.Concat(preview.Skipped).ToList();
+            var text = $"{preview.Added} transaction{(preview.Added == 1 ? "" : "s")} will be added.";
+            foreach (var note in preview.Notes) text += $"\n\n{note}";
+            if (problems.Count > 0) text += $"\n\n{problems.Count} line{(problems.Count == 1 ? "" : "s")} will be skipped:\n{ExcelFiles.ProblemText(problems)}";
+            if (preview.Added == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", text); return; }
+            if (!await ExcelFiles.ConfirmAsync(XamlRoot, "Import these transactions?", text)) return;
+
+            var result = await ViewModel.ImportAsync(read.Rows);
+            if (result is not null) ViewModel.Message = "";
+        }
+        catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The file could not be imported", ex.Message); }
+    }
+
+    private async void ExportExcel_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var path = await ExcelFiles.PickSaveAsync(ViewModel.PageTitle.Replace(' ', '-').ToLowerInvariant() + "-transactions");
+            if (path is null) return;
+            await ViewModel.ExportAsync(path);
+            await ExcelFiles.ShowAsync(XamlRoot, "Exported", $"The transactions were saved to {path}.");
+        }
+        catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The transactions could not be exported", ex.Message); }
     }
 
     private async Task DeleteRowAsync(TransactionRow row)

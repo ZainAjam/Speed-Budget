@@ -1315,6 +1315,67 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>Deletes all the given transactions in one go (one Ctrl+Z brings them back).</summary>
+    public async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)
+    {
+        var saved = rows.Where(r => !r.IsNew).Select(r => r.Entity).ToList();
+        if (saved.Count == 0) return;
+        await _gate.WaitAsync();
+        try
+        {
+            await _store.DeleteTransactionsAsync(saved);
+            await LoadRowsAsync(null);
+        }
+        catch (Exception ex) { Message = $"Could not delete: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Duplicate: a new row, filled in like the given one (same date, counterparty, memo, budget item or split, and amount), opens for editing
+    /// beside it. It is saved like any new row, with Enter or the tick, and goes away on Esc.
+    /// </summary>
+    public async Task BeginDuplicateAsync(TransactionRow row)
+    {
+        if (_draft is { } existing) { SelectedEntry = existing; return; }
+        if (IsRowEditing) { Message = FinishFirst; return; }
+
+        var source = row.Entity;
+        var entity = new TransactionEntity { AccountId = source.AccountId, Date = source.Date, Payee = source.Payee, Memo = source.Memo, Amount = source.Amount };
+        if (row.IsTransfer) entity.TransferPairId = Guid.CreateVersion7();   // marks it as a transfer until it is saved as a real pair
+        var copy = new TransactionRow(entity, row.Item, row.AccountName, row.LineCount, this) { IsNew = true, OtherAccountId = row.OtherAccountId };
+        if (row.IsSplit)
+        {
+            var lines = await GetLinesAsync(row);
+            copy.SetDraftSplits(lines.Select(l => (l.BudgetItemId, l.Amount, l.Memo)).ToList());
+        }
+
+        _draft = copy;
+        var at = Rows.IndexOf(row);
+        if (at < 0) Rows.Add(copy); else Rows.Insert(SortIndex == 0 ? at : at + 1, copy);   // the copy is the later one: above the original when newest is first
+        Message = "";
+        SyncColumnLayout();
+        BeginEdit(copy);
+    }
+
+    /// <summary>What importing the lines would do, without saving anything.</summary>
+    public Task<TransactionImportResult> PreviewImportAsync(IEnumerable<TransactionImportRow> rows) => _store.ImportTransactionsAsync(AccountId, rows, apply: false);
+
+    public async Task<TransactionImportResult?> ImportAsync(IEnumerable<TransactionImportRow> rows)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var result = await _store.ImportTransactionsAsync(AccountId, rows);
+            _hints = await _store.GetPayeeHintsAsync();
+            await LoadRowsAsync(null);
+            return result;
+        }
+        catch (Exception ex) { Message = $"The import failed: {ex.Message}"; return null; }
+        finally { _gate.Release(); }
+    }
+
+    public Task ExportAsync(string path) => _store.ExportTransactionsAsync(path, AccountId);
+
     public async Task DeleteAsync(TransactionRow row)
     {
         await _gate.WaitAsync();
