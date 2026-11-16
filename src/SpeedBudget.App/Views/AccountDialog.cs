@@ -57,7 +57,9 @@ public sealed class AccountDialog : ContentDialog
         {
             var tracking = !_onBudget.IsOn;
             _how.Visibility = _howNote.Visibility = tracking ? Visibility.Visible : Visibility.Collapsed;
-            _howNote.Text = TrackBalances
+            _howNote.Text = existing is not null
+                ? "How a tracking account is kept is chosen when it is created and cannot be changed afterwards."
+                : TrackBalances
                 ? "You type in the balance on a date (usually every day) and anything withdrawn, and the daily changes, total changes, gains and losses are worked out for you."
                 : "You enter its outflows and inflows yourself, in the transactions table.";
             _opening.Visibility = TrackBalances ? Visibility.Collapsed : Visibility.Visible;
@@ -76,6 +78,9 @@ public sealed class AccountDialog : ContentDialog
             _type.SelectedIndex = (int)existing.Type;
             _onBudget.IsOn = existing.IsOnBudget;
             _how.SelectedIndex = existing.TrackBalances ? 1 : 0;
+            // How a tracking account is kept is decided when it is created and stays that way.
+            _how.IsEnabled = false;
+            if (existing.TrackBalances) _onBudget.IsEnabled = false;   // a balance-kept account is a tracking account for good
             _opening.Value = (double)AppServices.ToRands(existing.OpeningBalance);
             _closed = new ToggleSwitch { Header = "Closed", OnContent = "Closed, hidden from new entries", OffContent = "Open", IsOn = existing.IsClosed };
             body.Children.Add(_closed);

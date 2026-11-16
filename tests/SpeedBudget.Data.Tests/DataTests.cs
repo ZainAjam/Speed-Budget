@@ -548,9 +548,12 @@ public sealed class DataTests : IDisposable
         await _store.DeleteBalanceEntriesAsync(rows.Select(r => r.Id));
         Assert.Empty((await _store.GetBalanceReportAsync(fund.Id)).Rows);
 
-        // Only a tracking account can be kept this way; a budget account never is.
-        await _store.UpdateAccountAsync(fund.Id, "Retirement", AccountType.Investment, isOnBudget: true, 0, isClosed: false, trackBalances: true);
-        Assert.False((await _store.GetAccountsAsync()).Single(a => a.Id == fund.Id).TrackBalances);
+        // How an account is kept is fixed at creation: editing it cannot turn it into a budget account or change the way it is kept.
+        await _store.UpdateAccountAsync(fund.Id, "Retirement", AccountType.Investment, isOnBudget: true, 0, isClosed: false);
+        var kept = (await _store.GetAccountsAsync()).Single(a => a.Id == fund.Id);
+        Assert.True(kept.TrackBalances);
+        Assert.False(kept.IsOnBudget);
+        Assert.Equal("Retirement", kept.Name);
     }
 
     [Fact]

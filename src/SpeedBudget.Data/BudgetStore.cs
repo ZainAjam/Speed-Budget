@@ -929,14 +929,14 @@ public sealed class BudgetStore(SpeedBudgetDb db)
     }
 
     /// <summary>Changes all the details of an account.</summary>
-    public async Task UpdateAccountAsync(Guid accountId, string name, AccountType type, bool isOnBudget, long openingBalance, bool isClosed, CancellationToken ct = default, bool? trackBalances = null)
+    public async Task UpdateAccountAsync(Guid accountId, string name, AccountType type, bool isOnBudget, long openingBalance, bool isClosed, CancellationToken ct = default)
     {
         var account = await db.Accounts.SingleAsync(a => a.Id == accountId, ct);
         account.Name = name.Trim();
         account.Type = type;
-        account.IsOnBudget = isOnBudget;
-        if (trackBalances is { } track) account.TrackBalances = track && !isOnBudget;
-        if (isOnBudget) account.TrackBalances = false;   // only a tracking account can be kept by its balances
+        // How an account is kept (by its transactions or by its balances) is decided when it is created and never changes,
+        // so an account kept by its balances stays a tracking account.
+        account.IsOnBudget = isOnBudget && !account.TrackBalances;
         account.OpeningBalance = openingBalance;
         account.IsClosed = isClosed;
         await db.SaveChangesAsync(ct);

@@ -422,7 +422,7 @@ public sealed partial class MainWindow : Window
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         try
         {
-            await AppServices.Store.UpdateAccountAsync(accountId, dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents, dialog.IsClosed, trackBalances: dialog.TrackBalances);
+            await AppServices.Store.UpdateAccountAsync(accountId, dialog.AccountName, dialog.Type, dialog.IsOnBudget, dialog.OpeningCents, dialog.IsClosed);
             AppServices.RaiseAccountsChanged();
         }
         catch (Exception ex) { ShowToast($"Could not save the account: {ex.Message}"); }
