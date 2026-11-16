@@ -130,6 +130,7 @@ public sealed partial class MainWindow : Window
 
         RebuildAccountPages();
         AppServices.AccountsChanged += () => DispatcherQueue.TryEnqueue(RebuildAccountPages);
+        AppServices.BalancesChanged += () => DispatcherQueue.TryEnqueue(() => _ = RefreshBalancesAsync());
         Nav.SelectedItem = budget;
 
         // Look when the app opens, then every few hours, for people who leave it running.

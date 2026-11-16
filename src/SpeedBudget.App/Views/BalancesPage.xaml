@@ -47,6 +47,24 @@
             <ToggleButton x:Name="DailyButton" Content="Daily balances" IsChecked="True" Click="Daily_Click" />
             <ToggleButton x:Name="MonthButton" Content="By month" Click="Month_Click" />
             <TextBlock Text="{x:Bind ViewModel.SinceText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.7" Margin="8,0,0,0" />
+            <!-- Fill in balances in Excel: get a blank template, then import it once it is filled in -->
+            <Button Margin="24,0,0,0" AutomationProperties.Name="Import balances from Excel"
+                    ToolTipService.ToolTip="Fill in balances in an Excel file, then bring them in here">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE8E5;" FontSize="14" />
+                    <TextBlock Text="Excel import" />
+                </StackPanel>
+                <Button.Flyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Get a blank Excel template…" Click="GetTemplate_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE896;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Import a filled-in template…" Click="Import_Click">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8E5;" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
         </StackPanel>
 
         <local:ZoomBox Grid.Row="2">
@@ -57,7 +75,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="Warning" IsClosable="False"
+                <InfoBar IsOpen="{x:Bind ViewModel.HasMessage, Mode=OneWay}" Severity="{x:Bind ViewModel.MessageSeverity, Mode=OneWay}" IsClosable="False"
                          Message="{x:Bind ViewModel.Message, Mode=OneWay}" />
 
                 <!-- The daily balances -->
@@ -107,10 +125,7 @@
                         <NumberBox Grid.Column="4" app:Money.Format="True" Value="{x:Bind ViewModel.FormWithdrawal, Mode=TwoWay}" SpinButtonPlacementMode="Hidden"
                                    PlaceholderText="Withdrawn" AutomationProperties.Name="Amount withdrawn" />
                         <TextBox Grid.Column="6" Text="{x:Bind ViewModel.FormComment, Mode=TwoWay}" PlaceholderText="Comment (optional)" AutomationProperties.Name="Comment" />
-                        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6">
-                            <Button Content="{x:Bind ViewModel.SaveText, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
-                            <Button Content="Cancel" Click="CancelChange_Click" Visibility="{x:Bind ViewModel.IsChanging, Mode=OneWay}" />
-                        </StackPanel>
+                        <Button Grid.Column="7" Content="Add" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
                     </Grid>
 
                     <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Lines}" SelectionMode="None">
@@ -123,7 +138,9 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:BalanceLine">
-                                <Grid Padding="8,6" ColumnSpacing="8" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                <!-- Pressing the pencil turns this line's own cells into boxes (Enter saves, Esc leaves it as it was) -->
+                                <Grid Padding="8,6" ColumnSpacing="8" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+                                      Tag="{x:Bind}" KeyDown="Line_KeyDown">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="130" />
                                         <ColumnDefinition Width="150" />
@@ -134,14 +151,22 @@
                                         <ColumnDefinition Width="*" MinWidth="160" />
                                         <ColumnDefinition Width="170" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{x:Bind DateText}" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Text="{x:Bind DateText}" VerticalAlignment="Center" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
+                                    <CalendarDatePicker Date="{x:Bind EditDate, Mode=TwoWay}" Width="130" VerticalAlignment="Center" Visibility="{x:Bind IsEditing, Mode=OneWay}"
+                                                        AutomationProperties.Name="Date of the balance" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
+                                    <NumberBox Grid.Column="1" app:Money.Format="True" Value="{x:Bind EditBalance, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" VerticalAlignment="Center"
+                                               Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Balance" />
                                     <TextBlock Grid.Column="2" Text="{x:Bind TotalChangeText}" Foreground="{x:Bind TotalChangeBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="3" Text="{x:Bind DailyChangeText}" Foreground="{x:Bind DailyChangeBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="4" Text="{x:Bind WithdrawalText}" Foreground="{x:Bind WithdrawalBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="4" Text="{x:Bind WithdrawalText}" Foreground="{x:Bind WithdrawalBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
+                                    <NumberBox Grid.Column="4" app:Money.Format="True" Value="{x:Bind EditWithdrawal, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" VerticalAlignment="Center"
+                                               PlaceholderText="Withdrawn" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Amount withdrawn" />
                                     <TextBlock Grid.Column="5" Text="{x:Bind GainText}" Foreground="{x:Bind GainBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="6" Text="{x:Bind CommentText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
-                                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="2">
+                                    <TextBlock Grid.Column="6" Text="{x:Bind CommentText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
+                                    <TextBox Grid.Column="6" Text="{x:Bind EditComment, Mode=TwoWay}" VerticalAlignment="Center" PlaceholderText="Comment (optional)"
+                                             Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Comment" />
+                                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="2" Visibility="{x:Bind IsViewing, Mode=OneWay}">
                                         <Button Click="Edit_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
                                                 AutomationProperties.Name="Change this balance" ToolTipService.ToolTip="Change">
                                             <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="#E9B72C" />
@@ -149,6 +174,16 @@
                                         <Button Click="Delete_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
                                                 AutomationProperties.Name="Delete this balance" ToolTipService.ToolTip="Delete">
                                             <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                        </Button>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="2" Visibility="{x:Bind IsEditing, Mode=OneWay}">
+                                        <Button Click="SaveLine_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
+                                                AutomationProperties.Name="Save this balance" ToolTipService.ToolTip="Save">
+                                            <FontIcon Glyph="&#xE73E;" FontSize="14" Foreground="#2FB36D" />
+                                        </Button>
+                                        <Button Click="CancelLine_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
+                                                AutomationProperties.Name="Leave this balance as it was" ToolTipService.ToolTip="Cancel">
+                                            <FontIcon Glyph="&#xE711;" FontSize="14" />
                                         </Button>
                                     </StackPanel>
                                 </Grid>

@@ -313,6 +313,40 @@ public sealed class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// Brings lines read from an Excel template into an account kept by its balances, all at once (so Ctrl+Z takes the whole import back).
+    /// A date the account already has is updated with the figures in the file (a comment is only replaced when the file has one); other dates are added.
+    /// When the file has the same date twice, the later line wins. With <paramref name="apply"/> false nothing is saved and the result only says what would happen.
+    /// </summary>
+    public async Task<BalanceImportResult> ImportBalancesAsync(Guid accountId, IEnumerable<ImportRow> rows, bool apply = true, CancellationToken ct = default)
+    {
+        var byDate = new Dictionary<DateOnly, BalanceEntryEntity>();
+        foreach (var existing in await GetBalanceEntriesAsync(accountId, ct)) byDate[existing.Date] = existing;   // the latest line of a date is the one updated
+
+        var addedDates = new HashSet<DateOnly>();
+        var updatedDates = new HashSet<DateOnly>();
+        foreach (var row in rows)
+        {
+            if (byDate.TryGetValue(row.Date, out var entry))
+            {
+                if (!addedDates.Contains(row.Date)) updatedDates.Add(row.Date);
+                if (!apply) continue;
+                entry.Balance = row.Balance;
+                entry.Withdrawal = row.Withdrawal;
+                if (row.Comment is not null) entry.Comment = row.Comment;
+            }
+            else
+            {
+                addedDates.Add(row.Date);
+                var created = new BalanceEntryEntity { AccountId = accountId, Date = row.Date, Balance = row.Balance, Withdrawal = row.Withdrawal, Comment = row.Comment };
+                byDate[row.Date] = created;
+                if (apply) db.BalanceEntries.Add(created);
+            }
+        }
+        if (apply) await db.SaveChangesAsync(ct);
+        return new BalanceImportResult(addedDates.Count, updatedDates.Count);
+    }
+
     /// <summary>The tracker's lines, totals and months for an account kept by its balances.</summary>
     public async Task<BalanceReport> GetBalanceReportAsync(Guid accountId, CancellationToken ct = default) =>
         BalanceTracker.Calculate((await GetBalanceEntriesAsync(accountId, ct)).Select(e => new BalanceInput(e.Id, e.Date, e.Balance, e.Withdrawal, e.Comment)));

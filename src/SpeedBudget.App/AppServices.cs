@@ -17,6 +17,10 @@ public static class AppServices
 
     public static void RaiseAccountsChanged() => AccountsChanged?.Invoke();
 
+    /// <summary>The balance of an account changed (a balance was typed in or imported): only the figures beside the accounts need refreshing, not the list.</summary>
+    public static event Action? BalancesChanged;
+    public static void RaiseBalancesChanged() => BalancesChanged?.Invoke();
+
     public static string DataDirectory => LocalDatabase.DefaultDirectory;
 
     /// <summary>How the left panel behaves: "show" (always open), "hover" (a strip of icons that opens under the pointer) or "hide" (out of sight, opened with a small menu button).</summary>
