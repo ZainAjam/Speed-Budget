@@ -121,11 +121,12 @@ public class TransactionImportTests : IDisposable
         using (var book = new XLWorkbook(path))
         {
             var sheet = book.Worksheet("Transactions");
-            Assert.Equal("Shop", sheet.Cell(2, 3).GetString());
-            Assert.Equal(50, sheet.Cell(2, 7).GetDouble());
-            Assert.Equal(200, sheet.Cell(3, 8).GetDouble());
-            Assert.Equal("Yes", sheet.Cell(3, 9).GetString());
-            Assert.Equal(4, sheet.LastRowUsed()!.RowNumber());
+            Assert.Equal("New Month", sheet.Cell(2, 3).GetString());   // the first month heads the table
+            Assert.Equal("Shop", sheet.Cell(3, 3).GetString());
+            Assert.Equal(50, sheet.Cell(3, 7).GetDouble());
+            Assert.Equal(200, sheet.Cell(4, 8).GetDouble());
+            Assert.Equal("Yes", sheet.Cell(4, 9).GetString());
+            Assert.Equal(5, sheet.LastRowUsed()!.RowNumber());
         }
 
         var all = await _store.GetTransactionsAsync(account.Id);
@@ -152,5 +153,35 @@ public class TransactionImportTests : IDisposable
         var read = BalanceImport.Read(path);
         Assert.Equal(2, read.Rows.Count);
         Assert.Equal(5_000, read.Rows[1].Withdrawal);
+    }
+
+    [Fact]
+    public async Task New_month_lines_are_exported_in_place_and_imported_in_place()
+    {
+        var account = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        await _store.SetFirstMonthAsync(new DateOnly(2024, 3, 1));
+        TransactionImportRow Tx(int line, int day, string payee, int month = 3) => new(line, new DateOnly(2024, month, day), payee, null, null, null, -1_000, false);
+        TransactionImportRow Month(int line, string label) => new(line, default, TransactionImport.MonthRowName, null, null, null, 0, false, label);
+
+        var preview = await _store.ImportTransactionsAsync(account.Id, [Tx(2, 5, "A"), Tx(3, 20, "B"), Month(4, "April 2024"), Tx(5, 3, "C", month: 4), Month(6, "March 2024")], apply: false);
+        Assert.Equal(1, preview.MonthLines);   // March is the first month: it already has its place
+        Assert.Single(preview.Notes);
+
+        var result = await _store.ImportTransactionsAsync(account.Id, [Tx(2, 5, "A"), Tx(3, 20, "B"), Month(4, "April 2024"), Tx(5, 3, "C", month: 4)]);
+        Assert.Equal(3, result.Added);
+        var snapshot = await _store.LoadSnapshotAsync();
+        var line = Assert.Single(snapshot.Markers);
+        Assert.Equal("April 2024", line.Label);
+
+        // The line sits after B (20 March) and before C (3 April).
+        var key = (line.Date, line.DayOrder);
+        var all = await _store.GetTransactionsAsync(account.Id);
+        Assert.True(all.Single(t => t.Transaction.Payee == "B").Transaction is { } b && (b.Date, b.DayOrder).CompareTo(key) < 0);
+        Assert.True(all.Single(t => t.Transaction.Payee == "C").Transaction is { } c && (c.Date, c.DayOrder).CompareTo(key) > 0);
+
+        var path = Path.Combine(_dir, "months.xlsx");
+        await _store.ExportTransactionsAsync(path, account.Id);
+        var read = TransactionImport.Read(path, withAccount: false);
+        Assert.Equal(["March 2024", null, null, "April 2024", null], read.Rows.Select(r => r.MonthLabel));   // the first month, A, B, the new month, C
     }
 }

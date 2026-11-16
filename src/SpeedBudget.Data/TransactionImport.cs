@@ -1,15 +1,20 @@
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using SpeedBudget.Core;
 
 namespace SpeedBudget.Data;
 
 /// <summary>One usable line of a filled-in transactions template. Amount is signed: money in is positive, money out is negative.</summary>
-public sealed record TransactionImportRow(int Line, DateOnly Date, string Payee, string? Memo, string? ItemName, string? AccountName, long Amount, bool Cleared);
+public sealed record TransactionImportRow(int Line, DateOnly Date, string Payee, string? Memo, string? ItemName, string? AccountName, long Amount, bool Cleared, string? MonthLabel = null)
+{
+    /// <summary>A "New Month" line rather than a transaction: it starts the month named by <see cref="MonthLabel"/>.</summary>
+    public bool IsMonth => MonthLabel is not null;
+}
 
 public sealed record TransactionImportFile(IReadOnlyList<TransactionImportRow> Rows, IReadOnlyList<ImportProblem> Problems);
 
 /// <summary>What an import of transactions did (or would do): how many were added, the lines left out and why, and notes such as budget items that were not found.</summary>
-public sealed record TransactionImportResult(int Added, IReadOnlyList<ImportProblem> Skipped, IReadOnlyList<string> Notes);
+public sealed record TransactionImportResult(int Added, IReadOnlyList<ImportProblem> Skipped, IReadOnlyList<string> Notes, int MonthLines = 0);
 
 /// <summary>
 /// The Excel template for importing transactions, the reader for it once it is filled in, and the export of a table of transactions.
@@ -18,6 +23,9 @@ public sealed record TransactionImportResult(int Added, IReadOnlyList<ImportProb
 public static class TransactionImport
 {
     private const string SheetName = "Transactions";
+
+    /// <summary>The Counterparty of a line that starts a month (its Memo names the month).</summary>
+    public const string MonthRowName = "New Month";
 
     /// <summary>Writes an empty template with the column headings, and a second sheet saying how to fill it in. The Account column is for the all-accounts table.</summary>
     public static void CreateTemplate(string path, bool withAccount)
@@ -57,6 +65,7 @@ public static class TransactionImport
             "Inflow: money that came into the account, such as 15000. Leave it empty for money that went out.",
             "Cleared: write Yes once it shows on your bank statement. Optional.",
             "",
+            "New month: a line with New Month as its Counterparty and the month in the Memo, such as December 2026, starts that month at that place in the list. Leave the other cells empty.",
             "Transfers between accounts are not imported; add those in Speed Budget.",
             "Keep the headings in the first row of the Transactions sheet.",
         ]);
@@ -120,6 +129,15 @@ public static class TransactionImport
 
             if (dateCell.IsEmpty() && payee == "" && (outCell?.IsEmpty() ?? true) && (inCell?.IsEmpty() ?? true)) continue;   // blank space
 
+            // A "New Month" line: the counterparty says so and the memo names the month.
+            if (payee.Equals(MonthRowName, StringComparison.OrdinalIgnoreCase))
+            {
+                var monthText = Text(row, "memo");
+                if (!SpeedBudget.Core.MonthLabels.TryParse(monthText, out var monthStart)) { problems.Add(new ImportProblem(r, $"New Month: the month \"{monthText}\" could not be read. Write it like December 2026 in the Memo column.")); continue; }
+                rows.Add(new TransactionImportRow(r, default, MonthRowName, null, null, null, 0, false, SpeedBudget.Core.MonthLabels.For(monthStart)));
+                continue;
+            }
+
             if (!BalanceImport.TryDate(dateCell, out var date)) { problems.Add(new ImportProblem(r, "The date is missing or could not be read.")); continue; }
             var label = $"{date:d MMM yyyy}";
             if (payee == "") { problems.Add(new ImportProblem(r, $"{label}: there is no counterparty.")); continue; }
@@ -160,14 +178,28 @@ public sealed partial class BudgetStore
     {
         var accounts = await db.Accounts.Where(a => !a.IsClosed).ToListAsync(ct);
         var items = await db.Items.ToListAsync(ct);
+        var snapshot = await LoadSnapshotAsync(ct);
+        var firstLabel = BudgetEngine.FirstMonthLabelFor(snapshot);
+        var labelsInUse = snapshot.Markers.Select(m => m.Label).Append(firstLabel).ToHashSet();
         var skipped = new List<ImportProblem>();
+        var notes = new List<string>();
         var missingItems = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
         var nextOrder = new Dictionary<DateOnly, int>();
         var payees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var toAdd = new List<(TransactionEntity Entity, Guid? ItemId)>();
+        var months = new List<(string Label, DateOnly Month, int Before)>();   // Before: how many transactions come ahead of the line in the file
 
         foreach (var row in rows)
         {
+            if (row.IsMonth)
+            {
+                MonthLabels.TryParse(row.MonthLabel, out var month);
+                if (MonthLabels.TryParse(firstLabel, out var first) && month < first) { skipped.Add(new ImportProblem(row.Line, $"New Month {row.MonthLabel}: the budget starts in {firstLabel}, so a line for an earlier month can't be added.")); continue; }
+                if (!labelsInUse.Add(row.MonthLabel!)) { notes.Add($"{row.MonthLabel} already has its line, so it was not added again."); continue; }
+                months.Add((row.MonthLabel!, month, toAdd.Count));
+                continue;
+            }
+
             var account = accountId is { } id
                 ? accounts.FirstOrDefault(a => a.Id == id)
                 : accounts.FirstOrDefault(a => string.Equals(a.Name, row.AccountName, StringComparison.OrdinalIgnoreCase));
@@ -181,14 +213,16 @@ public sealed partial class BudgetStore
                 if (item is null) missingItems.Add(itemName); else itemId = item.Id;
             }
 
+            // Orders go up in twos, which leaves room for a month line between two transactions.
             if (!nextOrder.TryGetValue(row.Date, out var order)) order = await NextDayOrderAsync(row.Date, ct);
-            nextOrder[row.Date] = order + 1;
+            nextOrder[row.Date] = order + 2;
             toAdd.Add((new TransactionEntity { AccountId = account.Id, Date = row.Date, DayOrder = order, Payee = row.Payee, Memo = row.Memo, Amount = row.Amount, IsCleared = row.Cleared }, itemId));
             payees.Add(row.Payee);
         }
+        if (missingItems.Count > 0) notes.Add($"Budget items not found, so those transactions have no item: {string.Join(", ", missingItems)}.");
 
-        var notes = missingItems.Count == 0 ? [] : new List<string> { $"Budget items not found, so those transactions have no item: {string.Join(", ", missingItems)}." };
-        if (!apply || toAdd.Count == 0) return new TransactionImportResult(toAdd.Count, skipped, notes);
+        var result = new TransactionImportResult(toAdd.Count, skipped, notes, months.Count);
+        if (!apply || (toAdd.Count == 0 && months.Count == 0)) return result;
 
         foreach (var payee in payees) await EnsurePayeeAsync(payee, ct);   // new counterparties join the list (a step of their own)
         foreach (var (entity, itemId) in toAdd)
@@ -196,8 +230,20 @@ public sealed partial class BudgetStore
             db.Transactions.Add(entity);
             db.SplitLines.Add(new SplitLineEntity { TransactionId = entity.Id, BudgetItemId = itemId, Amount = entity.Amount });
         }
+
+        // A month line goes just ahead of the transaction that follows it in the file (or just after the last one).
+        var loose = new List<DateOnly>();
+        foreach (var (label, month, before) in months)
+        {
+            if (toAdd.Count == 0) { loose.Add(month); continue; }
+            var (date, order) = before < toAdd.Count ? (toAdd[before].Entity.Date, toAdd[before].Entity.DayOrder - 1) : (toAdd[^1].Entity.Date, toAdd[^1].Entity.DayOrder + 1);
+            var marker = new MonthMarkerEntity { Date = date, DayOrder = order, Label = label };
+            await MoveBudgetAsync(BudgetEngine.VirtualMonthId(month), marker.Id, ct);   // a month already planned without a line moves its budget to the new line
+            db.Markers.Add(marker);
+        }
         await db.SaveChangesAsync(ct);
-        return new TransactionImportResult(toAdd.Count, skipped, notes);
+        foreach (var month in loose) await AddMonthAsync(month, ct);   // a file with month lines only: they go where a new month normally starts
+        return result;
     }
 
     /// <summary>Deletes several transactions in one save, so Ctrl+Z brings them all back together. Deleting one side of a transfer deletes the other side too.</summary>
@@ -228,8 +274,23 @@ public sealed partial class BudgetStore
         sheet.SheetView.FreezeRows(1);
 
         var r = 2;
+        // The month lines go in among the transactions where they stand in the table: the first month at the top, the others by their place.
+        void MonthRow(string label)
+        {
+            sheet.Cell(r, 3).Value = TransactionImport.MonthRowName;
+            sheet.Cell(r, 4).Value = label;
+            var row = sheet.Range(r, 1, r, headings.Length);
+            row.Style.Font.Bold = true;
+            row.Style.Fill.BackgroundColor = XLColor.FromHtml("#FCE4D6");
+            r++;
+        }
+        MonthRow(await GetFirstMonthLabelAsync(ct));
+        var markers = (await GetMarkersAsync(ct)).OrderBy(m => m.Date).ThenBy(m => m.DayOrder).ToList();
+        var nextMarker = 0;
         foreach (var (t, lines) in transactions)
         {
+            while (nextMarker < markers.Count && (markers[nextMarker].Date, markers[nextMarker].DayOrder).CompareTo((t.Date, t.DayOrder)) <= 0)
+                MonthRow(markers[nextMarker++].Label);
             sheet.Cell(r, 1).Value = t.Date.ToDateTime(TimeOnly.MinValue);
             if (t.BankDate is { } bank) sheet.Cell(r, 2).Value = bank.ToDateTime(TimeOnly.MinValue);
             sheet.Cell(r, 3).Value = t.TransferPairId is null ? t.Payee : $"Transfer: {t.Payee}";
@@ -242,6 +303,7 @@ public sealed partial class BudgetStore
             sheet.Cell(r, 9).Value = t.IsCleared ? "Yes" : "";
             r++;
         }
+        while (nextMarker < markers.Count) MonthRow(markers[nextMarker++].Label);
         sheet.Range(2, 1, Math.Max(r - 1, 2), 2).Style.DateFormat.Format = "yyyy-mm-dd";
         sheet.Range(2, 7, Math.Max(r - 1, 2), 8).Style.NumberFormat.Format = "#,##0.00";
         for (var i = 0; i < headings.Length; i++) sheet.Column(i + 1).AdjustToContents(1, Math.Min(r, 200));

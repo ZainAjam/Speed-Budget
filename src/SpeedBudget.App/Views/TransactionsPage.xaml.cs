@@ -621,7 +621,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         DeleteTickedButton.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
         DeleteTickedButton.IsEnabled = count > 0;
         SelectDoneButton.Visibility = DeleteTickedButton.Visibility;
-        DeleteTickedText.Text = count > 0 ? $"Delete selected ({count})" : "Delete selected";
+        ToolTipService.SetToolTip(DeleteTickedButton, count > 0 ? $"Delete selected ({count})" : "Delete selected");
         TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
     }
 
@@ -679,10 +679,11 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
             var preview = await ViewModel.PreviewImportAsync(read.Rows);
             var problems = read.Problems.Concat(preview.Skipped).ToList();
-            var text = $"{preview.Added} transaction{(preview.Added == 1 ? "" : "s")} will be added.";
+            var text = $"{preview.Added} transaction{(preview.Added == 1 ? "" : "s")} will be added";
+            text += preview.MonthLines > 0 ? $", with {preview.MonthLines} new month line{(preview.MonthLines == 1 ? "" : "s")}." : ".";
             foreach (var note in preview.Notes) text += $"\n\n{note}";
             if (problems.Count > 0) text += $"\n\n{problems.Count} line{(problems.Count == 1 ? "" : "s")} will be skipped:\n{ExcelFiles.ProblemText(problems)}";
-            if (preview.Added == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", text); return; }
+            if (preview.Added == 0 && preview.MonthLines == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", text); return; }
             if (!await ExcelFiles.ConfirmAsync(XamlRoot, "Import these transactions?", text)) return;
 
             var result = await ViewModel.ImportAsync(read.Rows);

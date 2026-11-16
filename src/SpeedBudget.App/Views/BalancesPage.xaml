@@ -68,20 +68,20 @@
                         ToolTipService.ToolTip="Delete all the ticked lines in one go">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                        <TextBlock x:Name="DeleteSelectedText" Text="Delete selected" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="SelectDoneButton" Content="Done" Click="SelectDone_Click" Visibility="Collapsed" ToolTipService.ToolTip="Leave selection mode" />
+                <Button x:Name="SelectDoneButton" Click="SelectDone_Click" Visibility="Collapsed" ToolTipService.ToolTip="Done" AutomationProperties.Name="Done selecting">
+                    <FontIcon Glyph="&#xE711;" FontSize="14" />
+                </Button>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <ToggleButton x:Name="DailyButton" Content="Daily balances" IsChecked="True" Click="Daily_Click" />
                 <ToggleButton x:Name="MonthButton" Content="By month" Click="Month_Click" />
                 <!-- Fill in balances in Excel: get a blank template, then import it once it is filled in -->
                 <Button Margin="20,0,0,0" AutomationProperties.Name="Import balances from Excel"
-                        ToolTipService.ToolTip="Fill in balances in an Excel file, then bring them in here">
+                        ToolTipService.ToolTip="Import from Excel">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE8E5;" FontSize="14" />
-                        <TextBlock Text="Import" />
+                        <FontIcon Glyph="&#xE896;" FontSize="14" />
                     </StackPanel>
                     <Button.Flyout>
                         <MenuFlyout>
@@ -94,10 +94,9 @@
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>
-                <Button Click="Export_Click" AutomationProperties.Name="Export balances to Excel" ToolTipService.ToolTip="Save the balances, with the changes, gains and losses, in an Excel file">
+                <Button Click="Export_Click" AutomationProperties.Name="Export balances to Excel" ToolTipService.ToolTip="Export to Excel">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE898;" FontSize="14" />
-                        <TextBlock Text="Export" />
                     </StackPanel>
                 </Button>
             </StackPanel>

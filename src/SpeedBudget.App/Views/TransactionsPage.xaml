@@ -227,22 +227,22 @@
                     </StackPanel>
                 </Button>
                 <Button Content="New Transfer" Click="Transfer_Click" />
-                <Button Content="Start a new month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
+                <Button Content="New Month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
                 <!-- Shown while transactions are ticked -->
                 <Button x:Name="DeleteTickedButton" Click="DeleteTicked_Click" Visibility="Collapsed" IsEnabled="False" ToolTipService.ToolTip="Delete all the ticked transactions in one go">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                        <TextBlock x:Name="DeleteTickedText" Text="Delete selected" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="SelectDoneButton" Content="Done" Click="SelectDone_Click" Visibility="Collapsed" ToolTipService.ToolTip="Leave selection mode" />
+                <Button x:Name="SelectDoneButton" Click="SelectDone_Click" Visibility="Collapsed" ToolTipService.ToolTip="Done" AutomationProperties.Name="Done selecting">
+                    <FontIcon Glyph="&#xE711;" FontSize="14" />
+                </Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                 <!-- Excel: fill in a template and import it, or export what the table holds -->
-                <Button AutomationProperties.Name="Import transactions from Excel" ToolTipService.ToolTip="Fill in transactions in an Excel file, then bring them in here">
+                <Button AutomationProperties.Name="Import transactions from Excel" ToolTipService.ToolTip="Import from Excel">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE8E5;" FontSize="14" />
-                        <TextBlock Text="Import" />
+                        <FontIcon Glyph="&#xE896;" FontSize="14" />
                     </StackPanel>
                     <Button.Flyout>
                         <MenuFlyout>
@@ -255,10 +255,9 @@
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>
-                <Button Click="ExportExcel_Click" AutomationProperties.Name="Export transactions to Excel" ToolTipService.ToolTip="Save the transactions in an Excel file">
+                <Button Click="ExportExcel_Click" AutomationProperties.Name="Export transactions to Excel" ToolTipService.ToolTip="Export to Excel">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE898;" FontSize="14" />
-                        <TextBlock Text="Export" />
                     </StackPanel>
                 </Button>
                 <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">

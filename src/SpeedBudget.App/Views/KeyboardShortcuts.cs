@@ -19,7 +19,7 @@ public static class KeyboardShortcuts
         ]),
         ("Transactions", [
             ("Ctrl + N", "Add a new transaction row"),
-            ("Ctrl + M", "Start a new month"),
+            ("Ctrl + M", "New Month"),
             ("Enter", "Save the row being edited"),
             ("Esc", "Drop the changes to the row being edited"),
             ("Alt + Up", "Move the selected month line up"),

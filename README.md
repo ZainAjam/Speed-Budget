@@ -238,7 +238,7 @@ opens showing only the transactions that make up that figure.
 buttons at the top right to see one month or several. Press the months at the top to pick a month and year and jump straight
 to it, and a small calendar button takes you back to the month you are recording transactions for.
 
-**Start a new month.** When your month rolls over, press **Start a new month** (or `Ctrl+M`), give the month a name and a
+**New Month.** When your month rolls over, press **New Month** (or `Ctrl+M`), give the month a name and a
 start date, and a line appears in the list. Drag it up or down to fine-tune, select it and use `Alt+Up` / `Alt+Down`, or
 select it and change the date it starts on. If you add a transaction or transfer on the very day a month starts, the app
 asks which month it belongs to, because that day could be either.
@@ -290,7 +290,7 @@ The full list is under **App Settings > Show keyboard shortcuts**.
 |---|---|
 | `Ctrl+1` / `Ctrl+2` | Open Plan your spending / the first account |
 | `Ctrl+N` | New transaction |
-| `Ctrl+M` | Start a new month |
+| `Ctrl+M` | New Month |
 | `Enter` / `Esc` | Save / drop the changes to the row (or amount) being edited |
 | `Alt+Up` / `Alt+Down` | Move the selected month line |
 | `Ctrl+Z` / `Ctrl+Y` (or `Ctrl+Shift+Z`) | Undo / redo |

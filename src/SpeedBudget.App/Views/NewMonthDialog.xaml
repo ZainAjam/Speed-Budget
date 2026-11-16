@@ -1,7 +1,7 @@
 <ContentDialog x:Class="SpeedBudget.App.Views.NewMonthDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Let's start a new month" PrimaryButtonText="Start new month" CloseButtonText="Cancel" DefaultButton="Primary">
+    Title="Let's start a new month" PrimaryButtonText="New Month" CloseButtonText="Cancel" DefaultButton="Primary">
     <StackPanel Spacing="12" MinWidth="420">
         <TextBlock TextWrapping="Wrap" Opacity="0.8"
                    Text="A line is drawn in your transactions. Everything after it counts towards the month you choose. The month's budget is the one you planned ahead on the Budget screen." />

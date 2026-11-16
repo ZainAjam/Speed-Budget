@@ -115,7 +115,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         DeleteSelectedButton.Visibility = selecting ? Visibility.Visible : Visibility.Collapsed;
         DeleteSelectedButton.IsEnabled = count > 0;
         SelectDoneButton.Visibility = DeleteSelectedButton.Visibility;
-        DeleteSelectedText.Text = count > 0 ? $"Delete selected ({count})" : "Delete selected";
+        ToolTipService.SetToolTip(DeleteSelectedButton, count > 0 ? $"Delete selected ({count})" : "Delete selected");
         SelectAllBox.IsChecked = count > 0 && count == ViewModel.Lines.Count;
     }
 
