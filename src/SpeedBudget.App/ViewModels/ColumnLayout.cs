@@ -16,7 +16,7 @@ public sealed partial class ColumnLayout : ObservableObject
     /// <summary>The last column of the table holds the delete button, and is just wide enough for it.</summary>
     public const double ActionsMinimum = 76;
 
-    [ObservableProperty] public partial double Date { get; set; } = 160;
+    [ObservableProperty] public partial double Date { get; set; } = 174;
     [ObservableProperty] public partial double BankDate { get; set; } = 128;
     [ObservableProperty] public partial double Counterparty { get; set; } = 240;
     [ObservableProperty] public partial double Memo { get; set; } = 160;
@@ -94,7 +94,7 @@ public sealed partial class ColumnLayout : ObservableObject
     /// <summary>The narrowest each column may be made, so it can never be dragged out of sight.</summary>
     public static double MinimumOf(string column) => column switch
     {
-        nameof(Date) => 144,   // the tick box and a date box a row shows while it is edited
+        nameof(Date) => 158,   // the tick box and a date box a row shows while it is edited
         nameof(BankDate) => 112,   // wide enough for the date box a row shows while it is edited
         nameof(Counterparty) => 120,
         nameof(Memo) => 90,

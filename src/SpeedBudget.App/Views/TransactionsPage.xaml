@@ -48,17 +48,19 @@
                     <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="76" />
                 </Grid.ColumnDefinitions>
-                <Border Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
-                    <Grid ColumnSpacing="4">
+                <Border Style="{StaticResource CellBorder}" Padding="0" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
+                    <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="46" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <!-- Tick it to select this transaction for deleting together with the other ticked ones -->
-                        <CheckBox IsChecked="{x:Bind IsTicked, Mode=TwoWay}" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" Visibility="{x:Bind ShowTick}"
-                                  AutomationProperties.Name="Select this transaction" />
-                        <TextBlock Grid.Column="1" Text="{x:Bind DateText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                        <CalendarDatePicker Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}"
+                        <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+                            <CheckBox IsChecked="{x:Bind IsTicked, Mode=TwoWay}" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Visibility="{x:Bind ShowTick}" AutomationProperties.Name="Select this transaction" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="{x:Bind DateText, Mode=OneWay}" Margin="8,7" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <CalendarDatePicker Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" Margin="4,3"
                                             DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
                                             AutomationProperties.Name="Date" />
                     </Grid>
@@ -294,15 +296,17 @@
                             <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="76" />
                         </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}">
-                            <Grid ColumnSpacing="4">
+                        <Border Style="{StaticResource HeadingBorder}" Padding="0" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}">
+                            <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="46" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <CheckBox x:Name="TickAllBox" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" Click="TickAll_Click" AutomationProperties.Name="Select all transactions"
-                                          ToolTipService.ToolTip="Tick all the transactions, or none" />
-                                <local:ColumnTitle Grid.Column="1" FilterKey="Date" Title="Date" Help="The date the transaction happened. It decides which budget month it counts in." />
+                                <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+                                    <CheckBox x:Name="TickAllBox" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Click="TickAll_Click" AutomationProperties.Name="Select all transactions" ToolTipService.ToolTip="Tick all the transactions, or none" />
+                                </Border>
+                                <local:ColumnTitle Grid.Column="1" Margin="8,8,8,8" FilterKey="Date" Title="Date" Help="The date the transaction happened. It decides which budget month it counts in." />
                             </Grid>
                         </Border>
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}"><local:ColumnTitle FilterKey="BankDate" Title="Bank date" Help="The date your bank processed it, if that is different from the date it happened. Optional." /></Border>
