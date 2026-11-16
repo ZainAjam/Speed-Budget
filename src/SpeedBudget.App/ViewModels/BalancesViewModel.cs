@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using SpeedBudget.Core;
@@ -7,9 +8,42 @@ using SpeedBudget.Data;
 
 namespace SpeedBudget.App.ViewModels;
 
+/// <summary>
+/// The widths of the table columns, shared by the heading and every line so that dragging a column's edge in the heading resizes it all the way down.
+/// Index 0-5: Date, Balance, Total changes, Daily changes, Withdrawals, Gains / losses. Index 6-9: Month, Gains / losses, Withdrawals, Money left.
+/// </summary>
+public sealed class BalanceColumns : ObservableObject
+{
+    public static BalanceColumns Shared { get; } = new();
+
+    private readonly double[] _widths = { 130, 125, 125, 125, 125, 125, 130, 170, 170, 190 };
+    private static GridLength Of(double width) => new(width);
+
+    public GridLength Date => Of(_widths[0]);
+    public GridLength Balance => Of(_widths[1]);
+    public GridLength TotalChange => Of(_widths[2]);
+    public GridLength DailyChange => Of(_widths[3]);
+    public GridLength Withdrawal => Of(_widths[4]);
+    public GridLength Gain => Of(_widths[5]);
+    public GridLength Month => Of(_widths[6]);
+    public GridLength MonthGains => Of(_widths[7]);
+    public GridLength MonthWithdrawals => Of(_widths[8]);
+    public GridLength MonthLeft => Of(_widths[9]);
+
+    public double Get(int index) => _widths[index];
+
+    public void Set(int index, double width)
+    {
+        _widths[index] = Math.Clamp(width, 60, 600);
+        OnPropertyChanged(string.Empty);   // every width is read again
+    }
+}
+
 /// <summary>One line of an account kept by its balances. It is changed in place: pressing its pencil turns its cells into boxes.</summary>
 public sealed partial class BalanceLine(BalanceRow row) : ObservableObject
 {
+    public BalanceColumns Columns => BalanceColumns.Shared;
+
     public Guid Id { get; } = row.Id;
     public DateOnly Date { get; } = row.Date;
     public long BalanceCents { get; } = row.Balance;
@@ -51,6 +85,7 @@ public sealed partial class BalanceLine(BalanceRow row) : ObservableObject
 /// <summary>One month of an account kept by its balances.</summary>
 public sealed class BalanceMonthLine(MonthGains month)
 {
+    public BalanceColumns Columns => BalanceColumns.Shared;
     public string Month { get; } = month.Month;
     public string GainsText { get; } = Format.Money(month.GainsLosses);
     public Brush GainsBrush { get; } = Format.Signed(month.GainsLosses);
@@ -98,7 +133,25 @@ public sealed partial class BalancesViewModel : ObservableObject
     private BalanceLine? _editing;
 
     private void Warn(string text) { MessageSeverity = InfoBarSeverity.Warning; Message = text; }
-    public void Tell(string text) { MessageSeverity = InfoBarSeverity.Success; Message = text; }
+    /// <summary>A confirmation: it goes away by itself after ten seconds (a warning stays until something else is done).</summary>
+    public void Tell(string text)
+    {
+        MessageSeverity = InfoBarSeverity.Success;
+        Message = text;
+        _messageTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _messageTimer.Tick -= ClearConfirmation;
+        _messageTimer.Tick += ClearConfirmation;
+        _messageTimer.Stop();
+        _messageTimer.Start();
+    }
+
+    private DispatcherTimer? _messageTimer;
+
+    private void ClearConfirmation(object? sender, object e)
+    {
+        _messageTimer?.Stop();
+        if (MessageSeverity == InfoBarSeverity.Success) Message = "";
+    }
 
     public async Task LoadAsync(Guid accountId)
     {

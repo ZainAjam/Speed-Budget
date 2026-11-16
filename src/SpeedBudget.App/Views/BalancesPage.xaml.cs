@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using SpeedBudget.App.ViewModels;
 using SpeedBudget.Data;
@@ -48,6 +49,38 @@ public sealed partial class BalancesPage : Page, IReloadable
     {
         if (sender is NumberBox { DataContext: BalanceLine { IsNew: true } } box)
             box.DispatcherQueue.TryEnqueue(() => box.Focus(FocusState.Programmatic));
+    }
+
+    // ---- Dragging the edge of a column heading to change the column's width ----
+
+    public BalanceColumns Columns => BalanceColumns.Shared;
+
+    private ColumnGrip? _dragging;
+    private double _dragStartX, _dragStartWidth;
+
+    private static int GripColumn(object sender) => int.Parse((string)((FrameworkElement)sender).Tag, System.Globalization.CultureInfo.InvariantCulture);
+
+    private void Grip_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not ColumnGrip grip || grip.Parent is not UIElement heading) return;
+        _dragging = grip;
+        _dragStartX = e.GetCurrentPoint(heading).Position.X;
+        _dragStartWidth = Columns.Get(GripColumn(grip));
+        grip.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void Grip_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, _dragging) || _dragging!.Parent is not UIElement heading) return;
+        Columns.Set(GripColumn(_dragging), _dragStartWidth + e.GetCurrentPoint(heading).Position.X - _dragStartX);
+        e.Handled = true;
+    }
+
+    private void Grip_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is ColumnGrip grip) grip.ReleasePointerCapture(e.Pointer);
+        _dragging = null;
     }
 
     // ---- Ticking lines, to delete them in one go ----
