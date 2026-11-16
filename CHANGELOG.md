@@ -10,6 +10,7 @@ into the release.
 - **A clearer icon for budget accounts.** Accounts that count toward the budget now show a payment card in the side panel instead of a bank building (tracking accounts keep the eye).
 - **The app no longer closes when the side panel hiccups.** Now and then Windows refused to slide the side panel open or shut just as a page was opened, and the app closed with an "Unspecified error". That error is now noted in the log and ignored, and the app carries on.
 - **Dragging accounts is steadier.** The side panel no longer closes when you start dragging an account, and the app no longer closes when you drop one: the list is rebuilt a moment after the drop instead of during it.
+- **Switching the side panel to Collapsed no longer risks closing the app.** The panel is now closed first and then turned into the narrow strip of icons, and nothing can hold it open at that moment.
 
 ## 0.9.25
 

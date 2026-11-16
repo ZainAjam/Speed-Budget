@@ -114,7 +114,7 @@ public sealed partial class MainWindow : Window
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
-            if (_zoomHold || _paneHeld) { args.Cancel = true; return; }
+            if (_zoomHold || _paneHeld || _pressHeld) { args.Cancel = true; return; }
             ShowHeadings(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
@@ -125,7 +125,7 @@ public sealed partial class MainWindow : Window
         Nav.PointerExited += (_, _) =>
         {
             _pointerInNav = false;
-            if (AppServices.PanelMode == "hover" && !_paneHeld && !_zoomHold) SetPane(false);
+            if (AppServices.PanelMode == "hover" && !_paneHeld && !_pressHeld && !_zoomHold) SetPane(false);
         };
 
         RebuildAccountPages();
@@ -242,26 +242,28 @@ public sealed partial class MainWindow : Window
 
     private void ApplyPanelMode()
     {
-        ShowHeadings(AppServices.PanelMode == "show");
-        switch (AppServices.PanelMode)
+        // A setting was changed, so nothing is being dragged or pressed: let go of any hold, so it cannot stop the panel closing.
+        _pressHeld = false;
+        _paneHeld = false;
+        try
         {
-            case "show":
-                Nav.IsPaneToggleButtonVisible = false;
+            ShowHeadings(AppServices.PanelMode == "show");
+            Nav.IsPaneToggleButtonVisible = false;
+            if (AppServices.PanelMode == "show")
+            {
                 Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
                 Nav.IsPaneOpen = true;
-                break;
-            case "hide":
-                // Collapsed: always the narrow strip of icons, which never opens by itself.
-                Nav.IsPaneToggleButtonVisible = false;
+            }
+            else
+            {
+                // Collapsed (and Expand on hover only): the narrow strip of icons. The panel is closed first and only then changed into the
+                // strip, rather than both at once while it is open, which Windows' own animation can refuse.
+                if (Nav.IsPaneOpen) Nav.IsPaneOpen = false;
                 Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
-                Nav.IsPaneOpen = false;
-                break;
-            default:
-                Nav.IsPaneToggleButtonVisible = false;
-                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
-                Nav.IsPaneOpen = false;
-                break;
+                if (Nav.IsPaneOpen) Nav.IsPaneOpen = false;
+            }
         }
+        catch (Exception ex) { Diagnostics.Note($"The side panel setting could not be applied completely: {ex.Message}"); }
     }
 
     /// <summary>With "show on hover": the panel opens when the pointer reaches its narrow strip, and closes when the pointer leaves it.</summary>
@@ -278,7 +280,7 @@ public sealed partial class MainWindow : Window
         if (AppServices.PanelMode != "hover") return;
         var x = e.GetCurrentPoint(Nav).Position.X;
         if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
-        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength && !_paneHeld) SetPane(false);
+        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength && !_paneHeld && !_pressHeld) SetPane(false);
     }
 
     private bool _paneChanging;
@@ -294,7 +296,7 @@ public sealed partial class MainWindow : Window
         _paneChanging = true;
         DispatcherQueue.TryEnqueue(() =>
         {
-            try { if (Nav.IsPaneOpen != open && (open || !_paneHeld)) Nav.IsPaneOpen = open; }
+            try { if (Nav.IsPaneOpen != open && (open || (!_paneHeld && !_pressHeld))) Nav.IsPaneOpen = open; }
             catch (Exception ex) { Diagnostics.Note($"The left panel could not be {(open ? "opened" : "closed")}: {ex.Message}"); }
             finally { _paneChanging = false; }
         });
@@ -352,6 +354,30 @@ public sealed partial class MainWindow : Window
 
     // While an account's menu is open the left panel stays open, even though the pointer has left it for the menu.
     private bool _paneHeld;
+
+    // Held from the press on an account until the release, so the panel stays open if a drag begins (the pointer leaves the panel just
+    // as it does). It lets go by itself after a moment, so it can never stay on if a release is missed.
+    private bool _pressHeld;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _pressTimer;
+
+    private void HoldForPress()
+    {
+        _pressHeld = true;
+        _pressTimer ??= DispatcherQueue.CreateTimer();
+        _pressTimer.Stop();
+        _pressTimer.Interval = TimeSpan.FromMilliseconds(1500);
+        _pressTimer.IsRepeating = false;
+        _pressTimer.Tick -= ReleasePress;
+        _pressTimer.Tick += ReleasePress;
+        _pressTimer.Start();
+    }
+
+    private void ReleasePress(object? sender, object? e)
+    {
+        _pressHeld = false;
+        _pressTimer?.Stop();
+    }
+
     private bool _pointerInNav;
 
     /// <summary>
@@ -522,6 +548,7 @@ public sealed partial class MainWindow : Window
         {
             _draggedAccount = account.Id;
             _paneHeld = true;   // the panel stays open while an account is being dragged (the pointer leaves it as the drag starts)
+            ReleasePress(null, null);
             e.Data.SetText(account.Name);
         };
         row.DragOver += (_, e) =>
@@ -542,8 +569,8 @@ public sealed partial class MainWindow : Window
         row.Tapped += (_, _) => Nav.SelectedItem = item;   // the row takes the click while it is draggable, so it opens the page itself
         row.DropCompleted += (_, _) => FinishDrag();
         // The panel is held open from the press (the pointer leaves the panel just as a drag begins, and the panel would close then); a plain click lets go again.
-        row.PointerPressed += (_, _) => { if (!account.IsClosed) _paneHeld = true; };
-        row.PointerReleased += (_, _) => { if (_draggedAccount is null) _paneHeld = false; };
+        row.PointerPressed += (_, _) => { if (!account.IsClosed) HoldForPress(); };
+        row.PointerReleased += (_, _) => ReleasePress(null, null);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, account.Name);
         return item;
     }
