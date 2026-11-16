@@ -77,27 +77,23 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <ToggleButton x:Name="DailyButton" Content="Daily balances" IsChecked="True" Click="Daily_Click" />
                 <ToggleButton x:Name="MonthButton" Content="By month" Click="Month_Click" />
-                <!-- Fill in balances in Excel: get a blank template, then import it once it is filled in -->
-                <Button Margin="20,0,0,0" AutomationProperties.Name="Import balances from Excel"
-                        ToolTipService.ToolTip="Import from Excel">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE896;" FontSize="14" />
-                    </StackPanel>
+                <!-- The overflow menu: import from and export to Excel -->
+                <Button Margin="12,0,0,0" AutomationProperties.Name="More" ToolTipService.ToolTip="More">
+                    <FontIcon Glyph="&#xE712;" FontSize="14" />
                     <Button.Flyout>
-                        <MenuFlyout>
-                            <MenuFlyoutItem Text="Get a blank Excel template…" Click="GetTemplate_Click">
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="Import from Excel…" Click="Import_Click">
                                 <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE896;" /></MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
-                            <MenuFlyoutItem Text="Import a filled-in template…" Click="Import_Click">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8E5;" /></MenuFlyoutItem.Icon>
+                            <MenuFlyoutItem Text="Get a blank Excel template…" Click="GetTemplate_Click">
+                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8A5;" /></MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Export to Excel…" Click="Export_Click">
+                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE898;" /></MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                         </MenuFlyout>
                     </Button.Flyout>
-                </Button>
-                <Button Click="Export_Click" AutomationProperties.Name="Export balances to Excel" ToolTipService.ToolTip="Export to Excel">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE898;" FontSize="14" />
-                    </StackPanel>
                 </Button>
             </StackPanel>
         </Grid>

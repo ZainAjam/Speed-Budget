@@ -239,27 +239,6 @@
                 </Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
-                <!-- Excel: fill in a template and import it, or export what the table holds -->
-                <Button AutomationProperties.Name="Import transactions from Excel" ToolTipService.ToolTip="Import from Excel">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE896;" FontSize="14" />
-                    </StackPanel>
-                    <Button.Flyout>
-                        <MenuFlyout>
-                            <MenuFlyoutItem Text="Get a blank Excel template…" Click="GetTemplate_Click">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE896;" /></MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutItem Text="Import a filled-in template…" Click="ImportExcel_Click">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8E5;" /></MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                        </MenuFlyout>
-                    </Button.Flyout>
-                </Button>
-                <Button Click="ExportExcel_Click" AutomationProperties.Name="Export transactions to Excel" ToolTipService.ToolTip="Export to Excel">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE898;" FontSize="14" />
-                    </StackPanel>
-                </Button>
                 <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
                     <ComboBoxItem Content="Newest first" />
                     <ComboBoxItem Content="Oldest first" />
@@ -268,6 +247,24 @@
                            ToolTipService.ToolTip="The transactions behind the figure you pressed on the budget" />
                 <Button Content="Clear filters" Click="ClearFilters_Click" Visibility="{x:Bind ViewModel.HasFilters, Mode=OneWay}" />
                 <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
+                <!-- The overflow menu: import from and export to Excel -->
+                <Button AutomationProperties.Name="More" ToolTipService.ToolTip="More">
+                    <FontIcon Glyph="&#xE712;" FontSize="14" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem Text="Import from Excel…" Click="ImportExcel_Click">
+                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE896;" /></MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="Get a blank Excel template…" Click="GetTemplate_Click">
+                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8A5;" /></MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutSeparator />
+                            <MenuFlyoutItem Text="Export to Excel…" Click="ExportExcel_Click">
+                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE898;" /></MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
             </StackPanel>
         </Grid>
         </local:ShrinkBox>

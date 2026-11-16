@@ -146,7 +146,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(lines);
     }
 
-    /// <summary>Right-click on a line: with several ticked, only Delete; with one, Edit and Delete.</summary>
+    /// <summary>Right-click on a line: Edit, Delete and Multi-select, or, in multi-select mode, only Delete and Exit multi-select.</summary>
     private void Line_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement { Tag: BalanceLine line } target) return;
@@ -154,30 +154,37 @@ public sealed partial class BalancesPage : Page, IReloadable
         if (line.IsNew) return;   // a line still being added has its own tick and cross
 
         var menu = new MenuFlyout();
-        var chosen = LinesList.SelectedItems.OfType<BalanceLine>().Where(l => !l.IsNew).ToList();
-        if (chosen.Count > 1 && chosen.Contains(line))
+        if (ViewModel.IsSelecting)
         {
-            var deleteAll = new MenuFlyoutItem { Text = $"Delete {chosen.Count} balances", Icon = new FontIcon { Glyph = "" } };
-            deleteAll.Click += (_, _) => DeleteSelected_Click(this, new RoutedEventArgs());
-            menu.Items.Add(deleteAll);
+            // In multi-select mode the menu only deletes the ticked lines (or this one, when none is ticked yet) or leaves the mode.
+            var chosen = LinesList.SelectedItems.OfType<BalanceLine>().Where(l => !l.IsNew).ToList();
+            if (chosen.Count == 0) chosen = [line];
+            var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} balances" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            deleteChosen.Click += (_, _) =>
+            {
+                if (chosen.Count > 1) DeleteSelected_Click(this, new RoutedEventArgs());
+                else Delete_Click(new Button { Tag = chosen[0] }, new RoutedEventArgs());
+            };
+            menu.Items.Add(deleteChosen);
+            var exit = new MenuFlyoutItem { Text = "Exit multi-select", Icon = new FontIcon { Glyph = "\uE711" } };
+            exit.Click += (_, _) => SetSelecting(false);
+            menu.Items.Add(exit);
         }
         else
         {
             if (!line.IsEditing)
             {
-                var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "" } };
+                var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
                 edit.Click += (_, _) => ViewModel.BeginChange(line);
                 menu.Items.Add(edit);
-            if (!ViewModel.IsSelecting)
-            {
-                var select = new MenuFlyoutItem { Text = "Select", Icon = new FontIcon { Glyph = "\uE762" } };
-                select.Click += (_, _) => { SetSelecting(true); LinesList.SelectedItems.Add(line); };
-                menu.Items.Add(select);
             }
-            }
-            var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "" } };
+            var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
             delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());
             menu.Items.Add(delete);
+
+            var select = new MenuFlyoutItem { Text = "Multi-select", Icon = new FontIcon { Glyph = "\uE762" } };
+            select.Click += (_, _) => { SetSelecting(true); LinesList.SelectedItems.Add(line); };
+            menu.Items.Add(select);
         }
         if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
         else menu.ShowAt(target);

@@ -466,7 +466,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         ViewModel.ShowBehind(e.Parameter as TransactionDrillDown);
     }
 
-    /// <summary>Right-click (or the menu key) on a transaction row: edit it or delete it.</summary>
+    /// <summary>Right-click (or the menu key) on a transaction row: Edit, Duplicate, Delete and Multi-select, or, in multi-select mode, only Delete and Exit multi-select.</summary>
     private void Row_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement { DataContext: TransactionRow row } target) return;
@@ -474,50 +474,51 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (row.IsNew) return;   // a row still being added has its own tick and bin
 
         var menu = new MenuFlyout();
-
-        // Several rows ticked together: the only thing offered is to delete them all.
-        var chosen = ViewModel.TickedRows();
-        if (chosen.Count > 1 && chosen.Contains(row))
+        if (ViewModel.IsSelecting)
         {
-            var deleteAll = new MenuFlyoutItem { Text = $"Delete {chosen.Count} transactions", Icon = new FontIcon { Glyph = "\uE74D" } };
-            deleteAll.Click += async (_, _) => await DeleteManyAsync(chosen);
-            menu.Items.Add(deleteAll);
-            if (args.TryGetPosition(target, out var where)) menu.ShowAt(target, where);
-            else menu.ShowAt(target);
-            return;
-        }
-
-        var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
-        delete.Click += async (_, _) => await DeleteRowAsync(row);
-        if (row.IsEditing)
-        {
-            // A row being edited offers to save it (the same as the tick on the row), instead of Edit.
-            var save = new MenuFlyoutItem { Text = "Save", Icon = new FontIcon { Glyph = "\uE73E" } };
-            save.Click += (_, _) =>
-            {
-                if (!ReferenceEquals(row, ViewModel.Selected)) return;
-                EntryList.Focus(FocusState.Programmatic);   // the box being typed in hands over what was typed
-                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
-            };
-            menu.Items.Add(save);
+            // In multi-select mode the menu only deletes the ticked rows (or this row, when none is ticked yet) or leaves the mode.
+            var chosen = ViewModel.TickedRows();
+            if (chosen.Count == 0) chosen = [row];
+            var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} transactions" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            deleteChosen.Click += async (_, _) => await DeleteManyAsync(chosen);
+            menu.Items.Add(deleteChosen);
+            var exit = new MenuFlyoutItem { Text = "Exit multi-select", Icon = new FontIcon { Glyph = "\uE711" } };
+            exit.Click += (_, _) => ViewModel.IsSelecting = false;
+            menu.Items.Add(exit);
         }
         else
         {
-            var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
-            edit.Click += (_, _) => ViewModel.BeginEdit(row);
-            menu.Items.Add(edit);
-
-            var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
-            duplicate.Click += async (_, _) => await ViewModel.BeginDuplicateAsync(row);
-            menu.Items.Add(duplicate);
-            if (!ViewModel.IsSelecting)
+            if (row.IsEditing)
             {
-                var select = new MenuFlyoutItem { Text = "Select", Icon = new FontIcon { Glyph = "\uE762" } };
-                select.Click += (_, _) => { ViewModel.IsSelecting = true; row.IsTicked = true; };
-                menu.Items.Add(select);
+                // A row being edited offers to save it (the same as the tick on the row), instead of Edit and Duplicate.
+                var save = new MenuFlyoutItem { Text = "Save", Icon = new FontIcon { Glyph = "\uE73E" } };
+                save.Click += (_, _) =>
+                {
+                    if (!ReferenceEquals(row, ViewModel.Selected)) return;
+                    EntryList.Focus(FocusState.Programmatic);   // the box being typed in hands over what was typed
+                    DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+                };
+                menu.Items.Add(save);
             }
+            else
+            {
+                var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
+                edit.Click += (_, _) => ViewModel.BeginEdit(row);
+                menu.Items.Add(edit);
+
+                var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "\uE8C8" } };
+                duplicate.Click += async (_, _) => await ViewModel.BeginDuplicateAsync(row);
+                menu.Items.Add(duplicate);
+            }
+
+            var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            delete.Click += async (_, _) => await DeleteRowAsync(row);
+            menu.Items.Add(delete);
+
+            var select = new MenuFlyoutItem { Text = "Multi-select", Icon = new FontIcon { Glyph = "\uE762" } };
+            select.Click += (_, _) => { ViewModel.IsSelecting = true; row.IsTicked = true; };
+            menu.Items.Add(select);
         }
-        menu.Items.Add(delete);
 
         if (args.TryGetPosition(target, out var point)) menu.ShowAt(target, point);
         else menu.ShowAt(target);
@@ -635,6 +636,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)
     {
+        if (rows.Count == 1) { await DeleteRowAsync(rows[0]); return; }
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
