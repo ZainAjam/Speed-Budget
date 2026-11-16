@@ -7,6 +7,7 @@ into the release.
 ## 0.9.26
 
 - **Accounts in the side panel can be dragged into any order.** Drag an account under Transactions to where you want it, budget or tracking accounts alike; the side panel stays open while you drag and after you let go (it closes when the pointer moves away). All Bank Accounts always stays first and Add bank account always stays last. Until you drag one, budget accounts are listed first and tracking accounts second.
+- **A clearer icon for budget accounts.** Accounts that count toward the budget now show a payment card in the side panel instead of a bank building (tracking accounts keep the eye).
 
 ## 0.9.25
 

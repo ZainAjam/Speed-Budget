@@ -491,8 +491,8 @@ public sealed partial class MainWindow : Window
         row.Children.Add(amount);
 
         var item = new NavigationViewItem { Content = row, Tag = $"tx:{account.Id}",
-            // A bank (building) for an account in the budget; an eye for one that is only being watched.
-            Icon = new FontIcon { Glyph = account.IsOnBudget ? "" : "" } };
+            // A payment card for an account in the budget (money you spend from); an eye for one that is only being watched.
+            Icon = new FontIcon { Glyph = account.IsOnBudget ? "" : "" } };
 
         // Accounts can be dragged into any order. All Bank Accounts stays first and the add entry last, as only accounts take a drop.
         row.CanDrag = !account.IsClosed;
