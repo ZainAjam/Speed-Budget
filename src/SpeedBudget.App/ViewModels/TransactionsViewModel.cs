@@ -55,6 +55,13 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     /// <summary>A new row that has not been saved yet. It is added to the list by the Add buttons and saved like any other edit.</summary>
     public bool IsNew { get; init; }
 
+    /// <summary>Whether the row has a tick box: a new row that is not saved yet has none.</summary>
+    public bool ShowTick => !IsNew;
+
+    /// <summary>Ticked rows are deleted together (see the Delete selected button and the right-click menu).</summary>
+    [ObservableProperty] public partial bool IsTicked { get; set; }
+    partial void OnIsTickedChanged(bool value) => owner.TicksChanged();
+
     public ColumnLayout Layout => ColumnLayout.Current;
 
     /// <summary>The lists the row's drop-downs choose from.</summary>
@@ -450,6 +457,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     {
         Expected = new ExpectedViewModel(this);
         Filters.Changed += OnFiltersChanged;
+        Rows.CollectionChanged += (_, _) => TicksChanged();
     }
 
     /// <summary>Lets the Expected transactions flyout take its turn with everything else this page does to the database.</summary>
@@ -1314,6 +1322,31 @@ public sealed partial class TransactionsViewModel : ObservableObject
         try { SelectedEntry = null; }
         finally { _gate.Release(); }
     }
+
+    // ---- Ticking transactions, to delete them together ----
+
+    /// <summary>The ticked transactions (a new row that is not saved yet is never counted).</summary>
+    public List<TransactionRow> TickedRows() => Rows.OfType<TransactionRow>().Where(r => r.IsTicked && !r.IsNew).ToList();
+
+    /// <summary>How many transactions are ticked, and whether every one in the table is.</summary>
+    public event EventHandler? TickedChanged;
+
+    private bool _tickingAll;
+
+    public void TicksChanged()
+    {
+        if (!_tickingAll) TickedChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SetAllTicked(bool ticked)
+    {
+        _tickingAll = true;
+        try { foreach (var row in Rows.OfType<TransactionRow>()) if (!row.IsNew) row.IsTicked = ticked; }
+        finally { _tickingAll = false; }
+        TickedChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public int TransactionCount => Rows.OfType<TransactionRow>().Count(r => !r.IsNew);
 
     /// <summary>Deletes all the given transactions in one go (one Ctrl+Z brings them back).</summary>
     public async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)

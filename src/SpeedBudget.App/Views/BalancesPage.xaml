@@ -80,7 +80,7 @@
                         ToolTipService.ToolTip="Fill in balances in an Excel file, then bring them in here">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE8E5;" FontSize="14" />
-                        <TextBlock Text="Import from Excel" />
+                        <TextBlock Text="Import" />
                     </StackPanel>
                     <Button.Flyout>
                         <MenuFlyout>
@@ -96,7 +96,7 @@
                 <Button Click="Export_Click" AutomationProperties.Name="Export balances to Excel" ToolTipService.ToolTip="Save the balances, with the changes, gains and losses, in an Excel file">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE898;" FontSize="14" />
-                        <TextBlock Text="Export to Excel" />
+                        <TextBlock Text="Export" />
                     </StackPanel>
                 </Button>
             </StackPanel>

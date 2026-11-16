@@ -128,7 +128,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(lines);
     }
 
-    /// <summary>Right-click on a line: with several ticked, only Delete; with one, Edit, Duplicate and Delete.</summary>
+    /// <summary>Right-click on a line: with several ticked, only Delete; with one, Edit and Delete.</summary>
     private void Line_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement { Tag: BalanceLine line } target) return;
@@ -150,9 +150,6 @@ public sealed partial class BalancesPage : Page, IReloadable
                 var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "" } };
                 edit.Click += (_, _) => ViewModel.BeginChange(line);
                 menu.Items.Add(edit);
-                var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
-                duplicate.Click += (_, _) => ViewModel.BeginAdd(line);
-                menu.Items.Add(duplicate);
             }
             var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "" } };
             delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());

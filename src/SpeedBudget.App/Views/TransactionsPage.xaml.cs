@@ -18,6 +18,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     public TransactionsPage()
     {
         InitializeComponent();
+        ViewModel.TickedChanged += UpdateTicks;
         // Oldest first opens at the bottom of the table; the rows stay out of sight until they are there, so no scrolling shows.
         if (ViewModel.SortIndex == 1) EntryList.Opacity = 0;
         // Handled presses count too: the boxes and buttons in the table handle theirs.
@@ -473,7 +474,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var menu = new MenuFlyout();
 
         // Several rows ticked together: the only thing offered is to delete them all.
-        var chosen = EntryList.SelectedItems.OfType<TransactionRow>().Where(r => !r.IsNew).ToList();
+        var chosen = ViewModel.TickedRows();
         if (chosen.Count > 1 && chosen.Contains(row))
         {
             var deleteAll = new MenuFlyoutItem { Text = $"Delete {chosen.Count} transactions", Icon = new FontIcon { Glyph = "\uE74D" } };
@@ -598,6 +599,25 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         var row = (sender as FrameworkElement)?.DataContext as TransactionRow ?? ViewModel.Selected;
         if (row is not null) await DeleteRowAsync(row);
+    }
+
+    // ---- Ticked transactions ----
+
+    private void TickAll_Click(object sender, RoutedEventArgs e) => ViewModel.SetAllTicked(TickAllBox.IsChecked == true);
+
+    /// <summary>Shows the Delete selected button while anything is ticked, and keeps the box in the heading in step.</summary>
+    private void UpdateTicks(object? sender, EventArgs e)
+    {
+        var count = ViewModel.TickedRows().Count;
+        DeleteTickedButton.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        DeleteTickedText.Text = $"Delete selected ({count})";
+        TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
+    }
+
+    private async void DeleteTicked_Click(object sender, RoutedEventArgs e)
+    {
+        var rows = ViewModel.TickedRows();
+        if (rows.Count > 0) await DeleteManyAsync(rows);
     }
 
     private async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)

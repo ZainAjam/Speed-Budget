@@ -49,9 +49,16 @@
                     <ColumnDefinition Width="76" />
                 </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
-                    <Grid>
-                        <TextBlock Text="{x:Bind DateText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                        <CalendarDatePicker Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}"
+                    <Grid ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <!-- Tick it to select this transaction for deleting together with the other ticked ones -->
+                        <CheckBox IsChecked="{x:Bind IsTicked, Mode=TwoWay}" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" Visibility="{x:Bind ShowTick}"
+                                  AutomationProperties.Name="Select this transaction" />
+                        <TextBlock Grid.Column="1" Text="{x:Bind DateText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <CalendarDatePicker Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}"
                                             DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
                                             AutomationProperties.Name="Date" />
                     </Grid>
@@ -219,13 +226,20 @@
                 </Button>
                 <Button Content="New Transfer" Click="Transfer_Click" />
                 <Button Content="Start a new month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
+                <!-- Shown while transactions are ticked -->
+                <Button x:Name="DeleteTickedButton" Click="DeleteTicked_Click" Visibility="Collapsed" ToolTipService.ToolTip="Delete all the ticked transactions in one go">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                        <TextBlock x:Name="DeleteTickedText" Text="Delete selected" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                 <!-- Excel: fill in a template and import it, or export what the table holds -->
                 <Button AutomationProperties.Name="Import transactions from Excel" ToolTipService.ToolTip="Fill in transactions in an Excel file, then bring them in here">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE8E5;" FontSize="14" />
-                        <TextBlock Text="Import from Excel" />
+                        <TextBlock Text="Import" />
                     </StackPanel>
                     <Button.Flyout>
                         <MenuFlyout>
@@ -241,7 +255,7 @@
                 <Button Click="ExportExcel_Click" AutomationProperties.Name="Export transactions to Excel" ToolTipService.ToolTip="Save the transactions in an Excel file">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE898;" FontSize="14" />
-                        <TextBlock Text="Export to Excel" />
+                        <TextBlock Text="Export" />
                     </StackPanel>
                 </Button>
                 <ComboBox Width="150" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
@@ -280,7 +294,17 @@
                             <ColumnDefinition Width="{x:Bind Layout.ClearedColumn, Mode=OneWay}" />
                             <ColumnDefinition Width="76" />
                         </Grid.ColumnDefinitions>
-                        <Border Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}"><local:ColumnTitle FilterKey="Date" Title="Date" Help="The date the transaction happened. It decides which budget month it counts in." /></Border>
+                        <Border Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}">
+                            <Grid ColumnSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="TickAllBox" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" Click="TickAll_Click" AutomationProperties.Name="Select all transactions"
+                                          ToolTipService.ToolTip="Tick all the transactions, or none" />
+                                <local:ColumnTitle Grid.Column="1" FilterKey="Date" Title="Date" Help="The date the transaction happened. It decides which budget month it counts in." />
+                            </Grid>
+                        </Border>
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}"><local:ColumnTitle FilterKey="BankDate" Title="Bank date" Help="The date your bank processed it, if that is different from the date it happened. Optional." /></Border>
                         <Border Grid.Column="2" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}"><local:ColumnTitle FilterKey="Counterparty" Title="Counterparty" Help="Who you paid, or who paid you: a shop, a person or an employer." /></Border>
                         <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Layout.HeadingLine, Mode=OneWay}"><local:ColumnTitle FilterKey="Memo" Title="Memo" Help="A note to help you remember what the transaction was for." /></Border>
@@ -306,7 +330,7 @@
                         <local:ResizeGrip Grid.Column="8" Tag="Cleared" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
                     <ListView Grid.Row="1" x:Name="EntryList" ItemsSource="{x:Bind ViewModel.Rows}" ContainerContentChanging="EntryList_ContainerContentChanging"
-                              ItemTemplateSelector="{StaticResource EntrySelector}" SelectionMode="Extended"
+                              ItemTemplateSelector="{StaticResource EntrySelector}"
                               SelectedItem="{x:Bind ViewModel.SelectedEntry, Mode=TwoWay}"
                               CanDragItems="True" CanReorderItems="True" AllowDrop="True"
                               DragItemsStarting="List_DragItemsStarting" DragItemsCompleted="List_DragItemsCompleted">

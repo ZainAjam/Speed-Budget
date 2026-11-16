@@ -267,7 +267,7 @@ public sealed partial class BalancesViewModel : ObservableObject
     /// Add Entry: puts a new line at the top of the list with its cells already open as boxes, dated the day after the latest balance (or today).
     /// It is only saved when its tick (or Enter) is pressed. Pressing Add Entry again goes back to the line already open.
     /// </summary>
-    public BalanceLine? BeginAdd(BalanceLine? copyOf = null)
+    public BalanceLine? BeginAdd()
     {
         if (Lines.FirstOrDefault(l => l.IsNew) is { } open) return open;
         if (_editing is { } other) other.IsEditing = false;
@@ -280,12 +280,6 @@ public sealed partial class BalancesViewModel : ObservableObject
             EditDate = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue)),
             IsEditing = true,
         };
-        if (copyOf is not null)   // Duplicate: the same balance, withdrawal and comment, ready to be changed
-        {
-            line.EditBalance = (double)AppServices.ToRands(copyOf.BalanceCents);
-            line.EditWithdrawal = copyOf.WithdrawalCents == 0 ? double.NaN : (double)AppServices.ToRands(copyOf.WithdrawalCents);
-            line.EditComment = copyOf.Comment ?? "";
-        }
         _editing = line;
         Message = "";
         Lines.Insert(0, line);
