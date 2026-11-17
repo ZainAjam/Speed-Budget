@@ -77,8 +77,10 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel x:Name="LeftButtons" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}">
-                <Button Content="Add Entry" Style="{StaticResource AccentButtonStyle}" Click="AddEntry_Click"
-                        ToolTipService.ToolTip="Add the balance on a date, with anything you took out and a comment if you like" />
+                <Button Style="{StaticResource AccentButtonStyle}" Click="AddEntry_Click" Width="44" Padding="0" AutomationProperties.Name="Add entry"
+                        ToolTipService.ToolTip="Add entry: the balance on a date, with anything you took out and a comment if you like">
+                    <FontIcon Glyph="&#xE710;" FontSize="14" />
+                </Button>
             </StackPanel>
             <StackPanel x:Name="RightButtons" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <ComboBox Width="170" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}" AutomationProperties.Name="Sort order">

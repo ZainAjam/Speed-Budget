@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.31
 
+- **Add Entry is now a + button** on the screen of an account kept by its balances.
+
 - **Hide cleared also hides a month line whose transactions are all cleared.** With **Hide cleared** on, a month with nothing left under its line (every one of its transactions is cleared) no longer shows its line either. A month with no transactions at all keeps its line.
 
 - **Several rows can be edited at once.** Press the pencil on as many rows as you like and they all stay open; each has its own tick to save it, and Enter in a row saves just that row (Esc drops just that row). In multi-select mode, right-click and choose **Edit** (or **Edit N transactions**), just like Delete, to open all the ticked rows together. Right-clicking a row that is being edited offers Save, Discard changes and, with several open, Save all and Discard all.
