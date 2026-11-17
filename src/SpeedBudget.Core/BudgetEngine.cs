@@ -169,7 +169,9 @@ public static class BudgetEngine
 
         foreach (var (monthId, label, planned) in months)
         {
-            long income = 0, budgeted = 0, deficit = 0;
+            // What the budget accounts already held when they were added is money to budget with, so it counts as income of the first month.
+            var opening = monthId == FirstMonthId ? s.Accounts.Where(a => a.IsOnBudget).Sum(a => a.OpeningBalance) : 0;
+            long income = opening, budgeted = 0, deficit = 0;
             var items = new List<ItemMonth>();
             var carryOut = new Dictionary<Guid, long>();
             var incomeItems = new List<IncomeItemMonth>();
@@ -200,7 +202,7 @@ public static class BudgetEngine
             var carried = previousAvailable;
             var available = income - heldOut + previousHeldOut + overflow + carried - budgeted;
 
-            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems, planned));
+            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems, planned, opening));
             previousHeldOut = heldOut;
             previousDeficit = deficit;
             carriedIntoMonth = carryOut;

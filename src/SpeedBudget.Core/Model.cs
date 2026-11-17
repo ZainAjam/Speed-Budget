@@ -3,7 +3,8 @@ namespace SpeedBudget.Core;
 /// <summary>Money is always integer cents. Positive = inflow, negative = outflow.</summary>
 public enum ItemKind { Expense, Income }
 
-public sealed record Account(Guid Id, string Name, bool IsOnBudget);
+/// <param name="OpeningBalance">What the account held when it was added. For a budget account it is income of the first month.</param>
+public sealed record Account(Guid Id, string Name, bool IsOnBudget, long OpeningBalance = 0);
 
 public sealed record BudgetItem(Guid Id, string Name, ItemKind Kind);
 
@@ -64,4 +65,5 @@ public sealed record MonthSummary(
     long Available,
     IReadOnlyList<ItemMonth> Items,
     IReadOnlyList<IncomeItemMonth> IncomeItems,
-    bool IsPlanned = false);
+    bool IsPlanned = false,
+    long OpeningBalances = 0);

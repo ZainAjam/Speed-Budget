@@ -112,7 +112,7 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
             .ToLookup(s => s.TransactionId);
 
         return new BudgetSnapshot(
-            accounts.Select(a => new Account(a.Id, a.Name, a.IsOnBudget)).ToList(),
+            accounts.Select(a => new Account(a.Id, a.Name, a.IsOnBudget, a.OpeningBalance)).ToList(),
             items.Select(i => new BudgetItem(i.Id, i.DisplayName, i.Kind)).ToList(),
             markers.Select(ToCore).ToList(),
             transactions.Select(t => new Core.Transaction(

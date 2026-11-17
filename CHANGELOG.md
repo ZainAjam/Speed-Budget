@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.29
 
+- **Opening balances count as income of the first month.** The opening balance of each budget account (not tracking accounts) is now part of "Income this month" for the first month of the budget, so it shows in "Available to budget" and carries on into the months after, ready to be given to budget items. Change an account's opening balance and the first month follows.
+
 - **A new line is brought into view and ready to type in.** Adding a transaction, a transfer, a duplicate or a balance entry now scrolls the table to the new line (even in a long list) and puts the cursor in its first box: the counterparty, the other account of a transfer, or the balance.
 - **An account kept by its balances can be sorted.** A **Show newest first / Show oldest first** box sits above its table, as on the transactions tables. A new entry goes where the latest lines are: at the top when newest is first, at the bottom when oldest is first.
 
