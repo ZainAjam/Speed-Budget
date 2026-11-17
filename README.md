@@ -66,8 +66,8 @@ saved until the last step.
 ### Plan your spending
 
 Give every budget item an amount for the month, and see what was spent and what is left (green when there is money left,
-red when overspent). The figures at the top show what you still have available to budget, and the Cash Inflow and Cash
-Outflow sections list your income and your spending groups.
+red when overspent). The figures at the top show what you still have available to budget, and the Cash Received and Cash
+Spend Planning sections list your income and your spending groups.
 
 ![The Budget screen showing four months side by side](docs/images/budget.png)
 

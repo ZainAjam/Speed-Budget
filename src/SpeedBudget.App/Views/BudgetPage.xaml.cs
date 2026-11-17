@@ -89,8 +89,15 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// Shows as many months side by side as the width allows, and at least one. The table is zoomed, so zooming out
     /// makes more room for months and zooming in makes less.
     /// </summary>
-    private void FitMonths(double width) =>
-        ViewModel.SetCapacity((int)Math.Floor(((width - PageMargins) / AppServices.BudgetZoom - ScrollBarWidth - NameColumnWidth) / MonthColumnWidth));
+    private void FitMonths(double width)
+    {
+        // Zoomed in, the months give up some of their spare width (down to a minimum) before one of them is taken off the screen.
+        var zoom = AppServices.BudgetZoom;
+        var room = (width - PageMargins) / zoom - ScrollBarWidth - NameColumnWidth;
+        var smallest = zoom > 1.0001 ? BudgetViewModel.MinMonthWidth : MonthColumnWidth;
+        var count = Math.Max(1, (int)Math.Floor(room / smallest));
+        ViewModel.SetCapacity(count, Math.Min(MonthColumnWidth, room / count));
+    }
 
     private void ZoomChanged() => DispatcherQueue.TryEnqueue(() => FitMonths(ActualWidth));
 
@@ -350,7 +357,7 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     // ---- Adding and renaming budget groups and items ----
 
-    /// <summary>Right-click "Cash Inflow": add an income group.</summary>
+    /// <summary>Right-click "Cash Received": add an income group.</summary>
     private void InflowTitle_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement target) return;
@@ -362,7 +369,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         args.Handled = true;
     }
 
-    /// <summary>Right-click "Cash Outflow": add a budget group.</summary>
+    /// <summary>Right-click "Cash Spend Planning": add a budget group.</summary>
     private void OutflowTitle_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement target) return;

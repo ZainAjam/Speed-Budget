@@ -44,7 +44,12 @@ public sealed partial class TransactionsPage : Page, IReloadable
         ViewModel.Expected.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ExpectedViewModel.IsOpen)) _ = UpdateExpectedPanelAsync();
+            if (e.PropertyName == nameof(ExpectedViewModel.ShowItem)) FitExpected();
         };
+        FitExpected();
+        // A round button at the bottom centre of a long table jumps to the end where the latest row is.
+        JumpButton.Attach(EntryList, () => ViewModel.SortIndex == 0, () => ViewModel.Rows.Count);
+        ViewModel.Rows.CollectionChanged += (_, _) => JumpButton.Refresh();
         // Changing the sort order shows the end of the table that is now "latest" (the top for newest first, the bottom for oldest first),
         // already in place: the rows stay out of sight while they re-order, so no scrolling shows.
         ViewModel.SortReloaded += () => DispatcherQueue.TryEnqueue(async () =>
@@ -548,7 +553,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var groups = await AppServices.Store.GetGroupsAsync();
         if (groups.Count == 0)
         {
-            ViewModel.Message = "Add a budget group first: use the + beside Cash Outflow on the budget screen.";
+            ViewModel.Message = "Add a budget group first: use the + beside Cash Spend Planning on the budget screen.";
             return;
         }
         var dialog = new NewItemDialog(groups, name) { XamlRoot = XamlRoot };
@@ -751,6 +756,20 @@ public sealed partial class TransactionsPage : Page, IReloadable
         }
         dialog.XamlRoot = XamlRoot;
         await dialog.ShowAsync();
+    }
+
+    /// <summary>
+    /// The expected transactions' headings, boxes and list are made smaller, as far as it takes, to fit a whole row in a narrow window
+    /// (a row needs about 1290 pixels, 1490 with the budget item column) instead of running off the side.
+    /// </summary>
+    private void FitExpected()
+    {
+        var natural = 1286 + (ViewModel.Expected.ShowItem ? 200 : 0);
+        foreach (var zoom in new[] { ExpectedZoomHeading, ExpectedZoomForm, ExpectedZoomList })
+        {
+            zoom.MinimumFit = 0.3;
+            zoom.NaturalWidth = natural;
+        }
     }
 
     private void Transfer_Click(object sender, RoutedEventArgs e) => NewRow(transfer: true);

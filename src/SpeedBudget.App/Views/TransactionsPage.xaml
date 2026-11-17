@@ -258,7 +258,8 @@
         </local:ShrinkBox>
 
         <!-- The table fills the width on offer, and the Memo column takes the room its other columns do not need. If the window is too narrow for the columns, this area scrolls sideways. -->
-        <local:ZoomBox Grid.Row="3">
+        <Grid Grid.Row="3">
+        <local:ZoomBox>
         <ScrollViewer x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" HorizontalScrollMode="Auto"
                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled" SizeChanged="TableScroll_SizeChanged">
         <Grid x:Name="TableRegion">
@@ -349,6 +350,8 @@
         </Grid>
         </ScrollViewer>
         </local:ZoomBox>
+        <local:JumpToLatestButton x:Name="JumpButton" />
+        </Grid>
 
             <!-- Expected transactions: a flyout that rises from the bar along the bottom. Things that are coming but have not happened yet are kept
                  here, and each moves into the table, with the date it happened, when it does. -->
@@ -383,7 +386,7 @@
                          Message="{x:Bind ViewModel.Expected.Message, Mode=OneWay}" />
                 <!-- Headings, then the boxes for a new expected transaction, then the list. All three share the same columns. -->
                 <!-- The headings, the boxes and the list zoom with the recorded transactions table, and share its zoom controls. -->
-                <local:ZoomBox Grid.Row="2">
+                <local:ZoomBox x:Name="ExpectedZoomHeading" Grid.Row="2">
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="190" />
@@ -404,7 +407,7 @@
                     <TextBlock Grid.Column="6" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                 </Grid>
                 </local:ZoomBox>
-                <local:ZoomBox Grid.Row="3">
+                <local:ZoomBox x:Name="ExpectedZoomForm" Grid.Row="3">
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="190" />
@@ -440,7 +443,7 @@
                     </StackPanel>
                 </Grid>
                 </local:ZoomBox>
-                <local:ZoomBox Grid.Row="4">
+                <local:ZoomBox x:Name="ExpectedZoomList" Grid.Row="4">
                 <ListView ItemsSource="{x:Bind ViewModel.Expected.Rows}" SelectionMode="None">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">

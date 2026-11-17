@@ -209,7 +209,15 @@ public sealed partial class MonthColumn : ObservableObject
     public bool HasPrevious { get; }
 
     /// <summary>How wide this month is drawn: wider when it is the only month on show.</summary>
-    public double Width { get; }
+    public double Width { get; private set; }
+
+    /// <summary>Changes the width of the month in place (the columns shrink a little before a month is dropped from the screen).</summary>
+    public void SetWidth(double width)
+    {
+        if (Math.Abs(Width - width) < 0.5) return;
+        Width = width;
+        OnPropertyChanged(nameof(Width));
+    }
     public IReadOnlyList<SummaryCell> Summary { get; }
 
     /// <summary>The "Available to budget" cell, which stays in view under the month heading while the other figures are hidden.</summary>
@@ -372,6 +380,10 @@ public sealed partial class BudgetViewModel : ObservableObject
     public const double MonthWidth = 330;
     public const double SingleMonthWidth = 660;
 
+    /// <summary>The narrowest a month is made when the room is short, before a month is taken off the screen instead.</summary>
+    public const double MinMonthWidth = 285;
+    private double _monthWidth = MonthWidth;
+
     public async Task LoadAsync()
     {
         await _gate.WaitAsync();
@@ -442,9 +454,11 @@ public sealed partial class BudgetViewModel : ObservableObject
     }
 
     /// <summary>How many month columns fit across the page. Called when the page is resized.</summary>
-    public void SetCapacity(int capacity)
+    public void SetCapacity(int capacity, double monthWidth = MonthWidth)
     {
         capacity = Math.Max(1, capacity);
+        _monthWidth = Math.Clamp(Math.Floor(monthWidth), MinMonthWidth, MonthWidth);
+        if (!ShowSingleMonth) foreach (var column in Columns) column.SetWidth(_monthWidth);
         if (capacity == _fitCapacity) return;
         _fitCapacity = capacity;
         if (_months.Count == 0 || ShowSingleMonth) return;
@@ -506,7 +520,7 @@ public sealed partial class BudgetViewModel : ObservableObject
     /// </summary>
     private void RebuildColumns()
     {
-        var width = ShowSingleMonth ? SingleMonthWidth : MonthWidth;
+        var width = ShowSingleMonth ? SingleMonthWidth : _monthWidth;
         var shown = Enumerable.Range(_start, Math.Max(0, Math.Min(_months.Count, _start + _capacity) - _start)).ToList();
         var wanted = shown.Select(i => _months[i].MonthId).ToHashSet();
         for (var i = Columns.Count - 1; i >= 0; i--)

@@ -6,6 +6,12 @@ into the release.
 
 ## 0.9.30
 
+- **Budget sections renamed.** "Cash Inflow" is now **Cash Received** and "Cash Outflow" is now **Cash Spend Planning**.
+- **Jump to the latest.** On a long table (the transactions tables and a balance account's table), a round button floats at the bottom centre when the latest line is out of view. Its arrow points up or down, and pressing it jumps to the end where the latest line is, whichever way the table is sorted.
+- **Balance account: icons for its two views.** The Daily balances and By month buttons are now icons: **Transactions** (the balance on each date) and **Report** (the month by month summary).
+- **The budget keeps its months when you zoom in.** Zoomed in, the months now give up some of their spare width (down to a minimum) before one of them is taken off the screen.
+- **Expected transactions fit a narrow window.** Their headings, boxes and list now shrink, as far as it takes, so a whole row fits when the window is about half the screen wide.
+
 - **The three most used budget items are at the top of the budget item drop-down.** In the transaction tables, the items you use most (counted over the transactions of your budget accounts) are listed first, marked with a small star, and the rest stay in their groups below them. The list updates as you add transactions.
 
 ## 0.9.29

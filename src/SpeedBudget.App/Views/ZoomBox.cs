@@ -23,18 +23,23 @@ public sealed partial class ZoomBox : Panel
 
     /// <summary>
     /// The width the table needs at full size (0 for none). When the room is narrower than that, the table is made smaller, just enough
-    /// to fit, instead of scrolling sideways; it is never made smaller than <see cref="SmallestFit"/> of its size.
+    /// to fit, instead of scrolling sideways; it is never made smaller than <see cref="MinimumFit"/> of its size.
     /// </summary>
     public double NaturalWidth { get => (double)GetValue(NaturalWidthProperty); set => SetValue(NaturalWidthProperty, value); }
 
-    private const double SmallestFit = 0.5;
+    public static readonly DependencyProperty MinimumFitProperty =
+        DependencyProperty.Register(nameof(MinimumFit), typeof(double), typeof(ZoomBox), new PropertyMetadata(0.5, (d, _) => ((ZoomBox)d).InvalidateMeasure()));
+
+    /// <summary>How small, as a share of its normal size, the table may be made to fit a narrow room (0.5 by default).</summary>
+    public double MinimumFit { get => (double)GetValue(MinimumFitProperty); set => SetValue(MinimumFitProperty, value); }
+
 
     /// <summary>The zoom chosen for the table, made smaller if the room is too narrow for the table at that zoom.</summary>
     private double EffectiveZoom(double roomWidth)
     {
         var zoom = AppServices.ZoomOf(Area);
         if (NaturalWidth <= 0 || double.IsInfinity(roomWidth) || roomWidth >= NaturalWidth * zoom) return zoom;
-        return Math.Max(zoom * SmallestFit, roomWidth / NaturalWidth);
+        return Math.Max(zoom * MinimumFit, roomWidth / NaturalWidth);
     }
 
     public ZoomBox()

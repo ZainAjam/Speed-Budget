@@ -85,8 +85,12 @@
                     <ComboBoxItem Content="Show newest first" />
                     <ComboBoxItem Content="Show oldest first" />
                 </ComboBox>
-                <ToggleButton x:Name="DailyButton" Content="Daily balances" IsChecked="True" Click="Daily_Click" />
-                <ToggleButton x:Name="MonthButton" Content="By month" Click="Month_Click" />
+                <ToggleButton x:Name="DailyButton" IsChecked="True" Click="Daily_Click" AutomationProperties.Name="Transactions" ToolTipService.ToolTip="Transactions: the balance on each date">
+                    <FontIcon Glyph="&#xE8FD;" FontSize="16" />
+                </ToggleButton>
+                <ToggleButton x:Name="MonthButton" Click="Month_Click" AutomationProperties.Name="Report" ToolTipService.ToolTip="Report: the gains, withdrawals and money left for each month">
+                    <FontIcon Glyph="&#xE9D2;" FontSize="16" />
+                </ToggleButton>
                 <!-- The overflow menu: import from and export to Excel -->
                 <Button Margin="12,0,0,0" AutomationProperties.Name="More" ToolTipService.ToolTip="More">
                     <FontIcon Glyph="&#xE712;" FontSize="14" />
@@ -107,7 +111,8 @@
         </Viewbox>
         </Grid>
 
-        <local:ZoomBox x:Name="TableZoom" Grid.Row="2">
+        <Grid Grid.Row="2">
+        <local:ZoomBox x:Name="TableZoom">
             <Grid RowSpacing="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -311,5 +316,7 @@
                 </Grid>
             </Grid>
         </local:ZoomBox>
+        <local:JumpToLatestButton x:Name="JumpButton" />
+        </Grid>
     </Grid>
 </Page>

@@ -21,6 +21,10 @@ public sealed partial class BalancesPage : Page, IReloadable
         // A press outside the table lets go of the highlighted line, as on the transactions tables (handled presses count too).
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         ViewModel.SortReloaded += () => DispatcherQueue.TryEnqueue(Sorted);
+        // A round button at the bottom centre of a long table jumps to the end where the latest line is.
+        JumpButton.Attach(LinesList, () => ViewModel.SortIndex == 0, () => ViewModel.ShowMonths ? 0 : ViewModel.Lines.Count);
+        ViewModel.Lines.CollectionChanged += (_, _) => JumpButton.Refresh();
+        ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(BalancesViewModel.SortIndex) or nameof(BalancesViewModel.ShowMonths)) JumpButton.Refresh(); };
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
