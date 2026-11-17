@@ -863,11 +863,17 @@ public sealed partial class MainWindow : Window
         UpdateWatcherStrip();
         // Switching quickly from one screen to the next only opens the one the user stops on: every screen that is opened and thrown away
         // again within a moment is a chance for the windowing system to fall over mid-way through building it.
+        // The first click opens at once; only a click that follows another within a moment waits to see whether more are coming.
         _pendingTag = tag; _pendingParameter = parameter;
         _navigateTimer ??= CreateNavigateTimer();
+        var burst = Environment.TickCount64 - _lastNavigate < 350;
+        _lastNavigate = Environment.TickCount64;
         _navigateTimer.Stop();
-        _navigateTimer.Start();
+        if (!burst) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
+        else _navigateTimer.Start();
     }
+
+    private long _lastNavigate;
 
     private string? _pendingTag;
     private object? _pendingParameter;
@@ -876,7 +882,7 @@ public sealed partial class MainWindow : Window
     private Microsoft.UI.Dispatching.DispatcherQueueTimer CreateNavigateTimer()
     {
         var timer = DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromMilliseconds(120);
+        timer.Interval = TimeSpan.FromMilliseconds(90);
         timer.IsRepeating = false;
         timer.Tick += (_, _) => { try { Navigate(_pendingTag, _pendingParameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {_pendingTag}: {ex.Message}"); } };
         return timer;
