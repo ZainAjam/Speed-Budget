@@ -234,35 +234,34 @@
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Left" VerticalAlignment="Center">
                 <!-- A "+" that adds a transaction; its arrow opens the other things that can be added -->
-                <SplitButton Click="NewTransactionSplit_Click" AutomationProperties.Name="New transaction"
-                             ToolTipService.ToolTip="New transaction (Ctrl+N). The arrow offers a new transfer or a new month.">
-                    <FontIcon Glyph="&#xE710;" FontSize="14" />
-                    <SplitButton.Resources>
-                        <StaticResource x:Key="SplitButtonBackground" ResourceKey="AccentFillColorDefaultBrush" />
-                        <StaticResource x:Key="SplitButtonBackgroundPointerOver" ResourceKey="AccentFillColorSecondaryBrush" />
-                        <StaticResource x:Key="SplitButtonBackgroundPressed" ResourceKey="AccentFillColorTertiaryBrush" />
-                        <StaticResource x:Key="SplitButtonForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-                        <StaticResource x:Key="SplitButtonForegroundPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-                        <StaticResource x:Key="SplitButtonForegroundPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-                        <SolidColorBrush x:Key="SplitButtonBorderBrush" Color="Transparent" />
-                        <SolidColorBrush x:Key="SplitButtonBorderBrushPointerOver" Color="Transparent" />
-                        <SolidColorBrush x:Key="SplitButtonBorderBrushPressed" Color="Transparent" />
-                    </SplitButton.Resources>
-                    <SplitButton.Flyout>
-                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                            <MenuFlyoutItem Text="New transaction" Click="NewTransaction_Click">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE710;" /></MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutItem Text="New transfer" Click="Transfer_Click">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8AB;" /></MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutSeparator Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
-                            <MenuFlyoutItem Text="New month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}">
-                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE787;" /></MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                        </MenuFlyout>
-                    </SplitButton.Flyout>
-                </SplitButton>
+                <!-- A "+" that adds a transaction, with an arrow beside it for the other things that can be added. Drawn as one coral box with black symbols and a black dividing line. -->
+                <Border Background="{ThemeResource AccentFillColorDefaultBrush}" CornerRadius="4" VerticalAlignment="Center" Height="32">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Click="NewTransaction_Click" Background="Transparent" BorderThickness="0" Width="44" Height="32" Padding="0" Foreground="Black"
+                                AutomationProperties.Name="New transaction" ToolTipService.ToolTip="New transaction (Ctrl+N)">
+                            <FontIcon Glyph="&#xE710;" FontSize="14" Foreground="Black" />
+                        </Button>
+                        <Rectangle Width="1" Height="20" Fill="Black" VerticalAlignment="Center" />
+                        <Button Background="Transparent" BorderThickness="0" Width="34" Height="32" Padding="0" Foreground="Black"
+                                AutomationProperties.Name="More to add" ToolTipService.ToolTip="New transfer or new month">
+                            <FontIcon Glyph="&#xE70D;" FontSize="11" Foreground="Black" />
+                            <Button.Flyout>
+                                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                    <MenuFlyoutItem Text="New transaction" Click="NewTransaction_Click">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE710;" /></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutItem Text="New transfer" Click="Transfer_Click">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8AB;" /></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                    <MenuFlyoutSeparator Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}" />
+                                    <MenuFlyoutItem Text="New month" Click="NewMonth_Click" Visibility="{x:Bind ViewModel.CanStartMonth, Mode=OneWay}">
+                                        <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE787;" /></MenuFlyoutItem.Icon>
+                                    </MenuFlyoutItem>
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </Border>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                 <ComboBox Width="170" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">

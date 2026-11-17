@@ -846,8 +846,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private void NewTransaction_Click(object sender, RoutedEventArgs e) => NewRow(transfer: false);
 
-    /// <summary>The "+" part of the split button.</summary>
-    private void NewTransactionSplit_Click(SplitButton sender, SplitButtonClickEventArgs e) => NewRow(transfer: false);
 
     /// <summary>Ctrl+N: add a new transaction row.</summary>
     private void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
