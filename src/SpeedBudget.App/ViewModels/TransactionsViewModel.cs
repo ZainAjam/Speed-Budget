@@ -971,6 +971,25 @@ public sealed partial class TransactionsViewModel : ObservableObject
             if (!Filters.Passes(row)) continue;
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
+        // With cleared transactions hidden, a month whose transactions are all cleared has nothing left under its line, so the line goes too.
+        // (A month with no transactions at all keeps its line: nothing was hidden from it.)
+        if (HideCleared && showLines)
+        {
+            var lines = entries.Where(e => e.Row is MarkerRow).OrderBy(e => e.Key).ToList();
+            var total = new int[lines.Count];
+            var uncleared = new int[lines.Count];
+            foreach (var d in details)
+            {
+                var key = new SortKey(d.Transaction.Date, d.Transaction.DayOrder);
+                var at = -1;
+                for (var i = 0; i < lines.Count && lines[i].Key.CompareTo(key) <= 0; i++) at = i;   // the last line at or before it: the month it is in
+                if (at < 0) continue;
+                total[at]++;
+                if (!d.Transaction.IsCleared) uncleared[at]++;
+            }
+            var gone = lines.Where((_, i) => total[i] > 0 && uncleared[i] == 0).Select(l => l.Row).ToHashSet();
+            entries.RemoveAll(e => gone.Contains(e.Row));
+        }
         foreach (var (column, seen) in filterSeen)
             _filterValues[column] = seen.OrderBy(v => v.Value).ThenBy(v => v.Key, StringComparer.CurrentCultureIgnoreCase).Select(v => v.Key).ToList();
 
