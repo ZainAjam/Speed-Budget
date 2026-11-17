@@ -42,6 +42,7 @@ public sealed partial class MainWindow : Window
         Nav.ItemInvoked += (sender, args) =>
         {
             var tag = args.InvokedItemContainer?.Tag as string;
+            if (tag is not ("zoom" or "add-account")) PaneItemChosen();
             if (tag == "add-account") _ = AddAccountAsync();
             else if (tag == "zoom" && !Nav.IsPaneOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
@@ -111,11 +112,15 @@ public sealed partial class MainWindow : Window
         Watcher.PropertyChanged += (_, _) => UpdateWatcherStrip();
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
+        WirePane();
         Nav.PaneOpening += (_, _) => ShowHeadings(true);
         Nav.PaneClosing += (_, args) =>
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
             if (_zoomHold || _paneHeld || _pressHeld) { args.Cancel = true; return; }
+            // The strip is already as wide as it will be when shut, so there is no wide, empty panel left to shrink while it closes.
+            Nav.OpenPaneLength = Nav.CompactPaneLength;
+            StartMoving();
             ShowHeadings(false);
         };
         // The left panel either always shows, or (Auto Hide Side Panel) shrinks to its icons and opens while the pointer is over it.
@@ -126,6 +131,7 @@ public sealed partial class MainWindow : Window
         Nav.PointerExited += (_, _) =>
         {
             _pointerInNav = false;
+            _noOpenUntilExit = false;   // out of the panel: it may open again when the pointer comes back
             if (AppServices.PanelMode == "hover" && !_paneHeld && !_pressHeld && !_zoomHold) SetPane(false);
         };
 
@@ -264,6 +270,7 @@ public sealed partial class MainWindow : Window
             Nav.IsPaneToggleButtonVisible = false;
             if (full)
             {
+                Nav.OpenPaneLength = _openWidth;
                 Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
                 Nav.IsPaneOpen = true;
             }
@@ -292,27 +299,104 @@ public sealed partial class MainWindow : Window
         }
         if (AppServices.PanelMode != "hover") return;
         var x = e.GetCurrentPoint(Nav).Position.X;
+        if (_noOpenUntilExit && x > Nav.CompactPaneLength) _noOpenUntilExit = false;   // the pointer has left the strip: it may open again when it comes back
         if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
-        else if (Nav.IsPaneOpen && x > Nav.OpenPaneLength && !_paneHeld && !_pressHeld) SetPane(false);
+        else if (Nav.IsPaneOpen && x > _openWidth && !_paneHeld && !_pressHeld) SetPane(false);
     }
 
-    private bool _paneChanging;
+    // ---- Opening and closing the left panel by hand (the "expand on hover" mode) ----
+    // The panel is asked to move only when it is standing still: a request made while it is moving is kept and made the moment it stops
+    // (Windows refuses it otherwise, which used to leave the panel shut under a pointer that was waiting for it to open). A request that is
+    // still refused is tried again a moment later. After an item is chosen the panel stays shut until the pointer has left it and come back.
 
-    /// <summary>
-    /// Opens or closes the left panel from a pointer event. The change is made a moment later rather than inside the event: the
-    /// panel refuses (with an "Unspecified error") when it is asked while it is still moving, which used to close the whole app
-    /// when the pointer was moved quickly over the panel. A refusal is noted and ignored, and the next pointer move tries again.
-    /// </summary>
+    private bool _paneChanging;      // a request is waiting to be made
+    private bool _paneMoving;        // the panel is sliding open or shut
+    private bool? _pendingOpen;      // what the panel should be, once it has stopped
+    private bool _noOpenUntilExit;   // an item was just chosen: do not open again under the pointer that chose it
+    private double _openWidth = 320; // how wide the panel is when open
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _paneRetry, _paneSafety;
+
+    private void WirePane()
+    {
+        _openWidth = Nav.OpenPaneLength;
+        Nav.PaneOpening += (_, _) => StartMoving();
+        Nav.PaneOpened += (_, _) => StopMoving();
+        Nav.PaneClosed += (_, _) => StopMoving();
+    }
+
+    private void StartMoving()
+    {
+        _paneMoving = true;
+        // If a movement's end is ever missed, the panel is not left refusing requests for good.
+        _paneSafety ??= DispatcherQueue.CreateTimer();
+        _paneSafety.Interval = TimeSpan.FromMilliseconds(700);
+        _paneSafety.IsRepeating = false;
+        _paneSafety.Tick -= PaneSafety_Tick;
+        _paneSafety.Tick += PaneSafety_Tick;
+        _paneSafety.Start();
+    }
+
+    private void PaneSafety_Tick(object? sender, object? e) => StopMoving();
+
+    private void StopMoving()
+    {
+        _paneMoving = false;
+        _paneSafety?.Stop();
+        FlushPane();
+    }
+
+    /// <summary>Opens or closes the left panel from a pointer event, now if it is standing still, otherwise when it has stopped.</summary>
     private void SetPane(bool open)
     {
-        if (_paneChanging || Nav.IsPaneOpen == open) return;
+        _pendingOpen = open;
+        if (_paneMoving || _paneChanging) return;
+        FlushPane();
+    }
+
+    private void FlushPane()
+    {
+        if (_pendingOpen is not { } open || _paneMoving || _paneChanging) return;
+        _pendingOpen = null;
+        if (Nav.IsPaneOpen == open) return;
+        if (open ? _noOpenUntilExit : (_paneHeld || _pressHeld)) return;
         _paneChanging = true;
         DispatcherQueue.TryEnqueue(() =>
         {
-            try { if (Nav.IsPaneOpen != open && (open || (!_paneHeld && !_pressHeld))) Nav.IsPaneOpen = open; }
-            catch (Exception ex) { Diagnostics.Note($"The left panel could not be {(open ? "opened" : "closed")}: {ex.Message}"); }
+            try
+            {
+                if (Nav.IsPaneOpen != open && (open || (!_paneHeld && !_pressHeld)))
+                {
+                    if (open) Nav.OpenPaneLength = _openWidth;
+                    Nav.IsPaneOpen = open;
+                }
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.Note($"The left panel could not be {(open ? "opened" : "closed")}: {ex.Message}");
+                _pendingOpen = open;   // tried again in a moment
+                _paneRetry ??= DispatcherQueue.CreateTimer();
+                _paneRetry.Interval = TimeSpan.FromMilliseconds(120);
+                _paneRetry.IsRepeating = false;
+                _paneRetry.Tick -= PaneRetry_Tick;
+                _paneRetry.Tick += PaneRetry_Tick;
+                _paneRetry.Start();
+            }
             finally { _paneChanging = false; }
         });
+    }
+
+    private void PaneRetry_Tick(object? sender, object? e) => FlushPane();
+
+    /// <summary>
+    /// An item of the panel was chosen. Where the panel opens by hand it shuts at once, and stays shut until the pointer has gone out of it,
+    /// so it does not spring open again under the pointer that has just chosen an item.
+    /// </summary>
+    private void PaneItemChosen()
+    {
+        if (AppServices.PanelMode != "hover") return;
+        _noOpenUntilExit = true;
+        _pressHeld = false;
+        if (Nav.IsPaneOpen) SetPane(false);
     }
 
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
@@ -579,7 +663,7 @@ public sealed partial class MainWindow : Window
             _draggedAccount = null;
             FinishDrag();
         };
-        row.Tapped += (_, _) => Nav.SelectedItem = item;   // the row takes the click while it is draggable, so it opens the page itself
+        row.Tapped += (_, _) => { PaneItemChosen(); Nav.SelectedItem = item; };   // the row takes the click while it is draggable, so it opens the page and shuts the panel itself
         row.DropCompleted += (_, _) => FinishDrag();
         // The panel is held open from the press (the pointer leaves the panel just as a drag begins, and the panel would close then); a plain click lets go again.
         row.PointerPressed += (_, _) => { if (!account.IsClosed) HoldForPress(); };
@@ -882,7 +966,9 @@ public sealed partial class MainWindow : Window
         var burst = Environment.TickCount64 - _lastNavigate < 350;
         _lastNavigate = Environment.TickCount64;
         _navigateTimer.Stop();
-        if (!burst) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
+        // While the panel is still open (it shuts as the item is chosen), the page waits a moment so the panel can shut first: building a page keeps the screen busy.
+        var paneShutting = (AppServices.PanelMode != "show" || _narrowWindow) && (Nav.IsPaneOpen || _paneMoving);
+        if (!burst && !paneShutting) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
         else _navigateTimer.Start();
     }
 
