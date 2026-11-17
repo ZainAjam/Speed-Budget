@@ -36,7 +36,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
             Layout.PropertyChanged += Layout_Changed;
             UpdateTableWidth();
             UpdateDetailPanel();
-
             try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
             finally { EntryList.Opacity = 1; }
         };
@@ -67,11 +66,14 @@ public sealed partial class TransactionsPage : Page, IReloadable
         };
     }
 
+
+
     /// <summary>Esc inside a counterparty or budget item pop-up of the table: the row being edited is cancelled as well (the pop-up closes itself).</summary>
     private void PickerEscape(object picker)
     {
-        if (picker is not DependencyObject element || !IsWithin(element, TableRegion) || ViewModel.Selected is null) return;
-        DispatcherQueue.TryEnqueue(ClearEditing);
+        if (picker is not DependencyObject element || !IsWithin(element, TableRegion) || !ViewModel.IsRowEditing) return;
+        var row = RowOf(element);
+        DispatcherQueue.TryEnqueue(() => { if (row is { IsEditing: true }) _ = ViewModel.CancelRowAsync(row); else ClearEditing(); });
     }
 
     // A press on a month line selects it, and so does the start of a drag; the panel should only come out for a click, which is
@@ -104,7 +106,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     private void CloseDetail_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         if (ViewModel.IsSelecting && !ViewModel.IsRowEditing) { ViewModel.IsSelecting = false; args.Handled = true; return; }   // Esc leaves multi-select mode
-        if (ViewModel.SelectedEntry is null) return;   // leave Esc alone when there is nothing to let go of
+        if (ViewModel.SelectedEntry is null && !ViewModel.IsRowEditing) return;   // leave Esc alone when there is nothing to let go of
         args.Handled = true;
         ClearEditing();
     }
@@ -115,8 +117,20 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// </summary>
     private void ClearEditing()
     {
+        // The row that holds the focus is the one that is dropped (Esc in one of several rows being edited drops only that row);
+        // with the focus elsewhere, every row being edited is dropped. The focus is read first, because moving it ends the typing.
+        var focused = RowOf(FocusManager.GetFocusedElement(XamlRoot) as DependencyObject);
         EntryList.Focus(FocusState.Programmatic);
-        _ = ViewModel.CancelEditAsync();
+        if (focused is { IsEditing: true }) _ = ViewModel.CancelRowAsync(focused);
+        else _ = ViewModel.CancelEditAsync();
+    }
+
+    /// <summary>The transaction row an element of the table belongs to, if any.</summary>
+    private static TransactionRow? RowOf(DependencyObject? element)
+    {
+        for (var node = element; node is not null; node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+            if (node is FrameworkElement { DataContext: TransactionRow row }) return row;
+        return null;
     }
 
     /// <summary>
@@ -127,7 +141,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     private void Page_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Escape && ViewModel.IsSelecting && !ViewModel.IsRowEditing) { e.Handled = true; ViewModel.IsSelecting = false; return; }   // Esc leaves multi-select mode
-        if (e.Key is not (VirtualKey.Enter or VirtualKey.Escape) || ViewModel.Selected is null) return;
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Escape) || (ViewModel.Selected is null && !ViewModel.IsRowEditing)) return;
 
         // Esc works wherever the focus is on the page (even with a drop-down open): a new row is deleted, and a row being edited goes
         // back to the values it had before and leaves edit mode.
@@ -143,9 +157,10 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var inField = focused is TextBox or CalendarDatePicker or CheckBox or ComboBox { IsDropDownOpen: false };
         if (!inField) return;
         e.Handled = true;
+        var rowToSave = RowOf(focused);
         EntryList.Focus(FocusState.Programmatic);   // the box hands over what was typed
         // A number box finishes reading its text a moment after it loses focus, so save once that has happened.
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = rowToSave is { IsEditing: true } ? ViewModel.CommitRowAsync(rowToSave) : ViewModel.CommitAllEditsAsync());
     }
 
     /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row that is selected. A row being edited is not let go of.</summary>
@@ -398,7 +413,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         if (sender is not FrameworkElement { DataContext: TransactionRow row } anchor) return;
         if (!row.IsEditing) ViewModel.BeginEdit(row);
-        if (!row.IsEditing) return;   // another row is still being edited
+
         var box = new TextBox { Text = row.Memo, PlaceholderText = "Memo", Width = 280 };
         var flyout = new Flyout { Content = box, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom };
         flyout.Opened += (_, _) => { box.Focus(FocusState.Programmatic); box.SelectAll(); };
@@ -409,10 +424,11 @@ public sealed partial class TransactionsPage : Page, IReloadable
             k.Handled = true;
             row.Memo = box.Text;
             flyout.Hide();
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitRowAsync(row));
         };
         flyout.ShowAt(anchor);
     }
+
 
     private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => FitTable();
 
@@ -454,9 +470,18 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var menu = new MenuFlyout();
         if (ViewModel.IsSelecting)
         {
-            // In multi-select mode the menu only deletes the ticked rows (or this row, when none is ticked yet) or leaves the mode.
+            // In multi-select mode the menu only edits or deletes the ticked rows (or this row, when none is ticked yet) or leaves the mode.
             var chosen = ViewModel.TickedRows();
             if (chosen.Count == 0) chosen = [row];
+            var editChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Edit {chosen.Count} transactions" : "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
+            editChosen.Click += (_, _) =>
+            {
+                // The ticked rows all open for editing together, and multi-select mode is left (each row has its own tick to save it).
+                var rows = chosen.ToList();
+                ViewModel.IsSelecting = false;
+                ViewModel.BeginEditMany(rows);
+            };
+            menu.Items.Add(editChosen);
             var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} transactions" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
             deleteChosen.Click += async (_, _) => await DeleteManyAsync(chosen);
             menu.Items.Add(deleteChosen);
@@ -469,15 +494,33 @@ public sealed partial class TransactionsPage : Page, IReloadable
         {
             if (row.IsEditing)
             {
-                // A row being edited offers to save it (the same as the tick on the row), instead of Edit and Duplicate.
+                // A row being edited offers to save it (the same as the tick on the row), or to drop its changes. With several rows open, all of them can be saved or dropped together.
                 var save = new MenuFlyoutItem { Text = "Save", Icon = new FontIcon { Glyph = "\uE73E" } };
                 save.Click += (_, _) =>
                 {
-                    if (!ReferenceEquals(row, ViewModel.Selected)) return;
                     EntryList.Focus(FocusState.Programmatic);   // the box being typed in hands over what was typed
-                    DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+                    DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitRowAsync(row));
                 };
                 menu.Items.Add(save);
+
+                var discard = new MenuFlyoutItem { Text = "Discard changes", Icon = new FontIcon { Glyph = "\uE711" } };
+                discard.Click += (_, _) => { EntryList.Focus(FocusState.Programmatic); _ = ViewModel.CancelRowAsync(row); };
+                menu.Items.Add(discard);
+
+                if (ViewModel.EditingRows.Count > 1)
+                {
+                    menu.Items.Add(new MenuFlyoutSeparator());
+                    var saveAll = new MenuFlyoutItem { Text = $"Save all {ViewModel.EditingRows.Count} rows being edited", Icon = new FontIcon { Glyph = "\uE74E" } };
+                    saveAll.Click += (_, _) =>
+                    {
+                        EntryList.Focus(FocusState.Programmatic);
+                        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitAllEditsAsync());
+                    };
+                    menu.Items.Add(saveAll);
+                    var discardAll = new MenuFlyoutItem { Text = "Discard all changes", Icon = new FontIcon { Glyph = "\uE74D" } };
+                    discardAll.Click += (_, _) => { EntryList.Focus(FocusState.Programmatic); _ = ViewModel.CancelEditAsync(); };
+                    menu.Items.Add(discardAll);
+                }
             }
             else
             {
@@ -583,9 +626,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>The tick on the row being edited: saves it and takes it out of edit mode, like Enter.</summary>
     private void Accept_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not TransactionRow row || !ReferenceEquals(row, ViewModel.Selected)) return;
+        if ((sender as FrameworkElement)?.DataContext is not TransactionRow row || !row.IsEditing) return;
         EntryList.Focus(FocusState.Programmatic);   // the box being typed in hands over what was typed
-        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitRowAsync(row));
     }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
@@ -604,6 +647,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var count = ViewModel.TickedRows().Count;
         TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
     }
+
 
     private async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)
     {
@@ -667,7 +711,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private async Task DeleteRowAsync(TransactionRow row)
     {
-        if (row.IsNew) { ClearEditing(); return; }   // nothing saved yet: just drop it
+        if (row.IsNew) { _ = ViewModel.CancelRowAsync(row); return; }   // nothing saved yet: just drop it
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,
@@ -802,6 +846,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private void NewTransaction_Click(object sender, RoutedEventArgs e) => NewRow(transfer: false);
 
+    /// <summary>The "+" part of the split button.</summary>
+    private void NewTransactionSplit_Click(SplitButton sender, SplitButtonClickEventArgs e) => NewRow(transfer: false);
+
     /// <summary>Ctrl+N: add a new transaction row.</summary>
     private void NewTransaction_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -830,9 +877,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 await Task.Delay(pass == 0 ? 120 : 50);   // the row's boxes exist once the list has laid it out
                 if (EntryList.ContainerFromItem(row) is DependencyObject container)
                 {
-                    // The editing boxes are only built once the row is being edited, so look again until they are there.
-                    if (transfer) { if (FindFirst<ComboBox>(container) is { } other) { other.Focus(FocusState.Programmatic); return; } }
-                    else if (FindFirst<PayeePicker>(container) is { } picker) { picker.FocusPicker(); return; }
+                    if (transfer) { if (FindFirst<ComboBox>(container) is { } other) other.Focus(FocusState.Programmatic); }
+                    else if (FindFirst<PayeePicker>(container) is { } picker) picker.FocusPicker();
+                    return;
                 }
             }
         }

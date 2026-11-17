@@ -6,6 +6,9 @@ into the release.
 
 ## 0.9.31
 
+- **Several rows can be edited at once.** Press the pencil on as many rows as you like and they all stay open; each has its own tick to save it, and Enter in a row saves just that row (Esc drops just that row). In multi-select mode, right-click and choose **Edit** (or **Edit N transactions**), just like Delete, to open all the ticked rows together. Right-clicking a row that is being edited offers Save, Discard changes and, with several open, Save all and Discard all.
+- **One "+" button adds things.** The three buttons above the table are now a single **+** button: pressing the **+** adds a new transaction, and its arrow offers New transaction, New transfer, a divider line and New month.
+
 - **Pages open much faster, so the side panel no longer stalls while one loads.** A table row used to build every one of its editing boxes (date pickers, counterparty and budget item pickers, number boxes) even though only one row is ever being edited; they are now built only for the row being edited. Opening a table is several times quicker (for example 1.9 s down to 0.05 s to settle on one test account), which is what was freezing the side panel's animation.
 - **The side panel reacts when the pointer comes back in at the window edge.** When the pointer left the window by its edge and returned at the same place, the window sometimes got no pointer event at all, so the panel stayed shut (or stayed open while the pointer was outside). The panel now also checks where the pointer is many times a second, so it follows the pointer however it moves.
 

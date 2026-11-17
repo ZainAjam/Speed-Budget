@@ -569,50 +569,88 @@ public sealed partial class TransactionsViewModel : ObservableObject
             OnPropertyChanged(name);
     }
 
-    private TransactionRow? _editing;
+    // ---- Editing: any number of rows can be open for editing at the same time ----
 
-    /// <summary>Turns edit mode on for a row (the pencil, or a new row). Another row that was being edited is saved first.</summary>
-    /// <summary>True while a row is open for editing. It stays open until it is saved (Enter, or the green check) or dropped (Esc).</summary>
-    public bool IsRowEditing => _editing is { IsEditing: true };
+    private readonly List<TransactionRow> _editingRows = new();
 
-    private const string FinishFirst = "Press Enter or the green check to save the row you are editing first, or Esc to drop its changes.";
+    /// <summary>The rows that are open for editing now.</summary>
+    public IReadOnlyList<TransactionRow> EditingRows => _editingRows;
 
+    /// <summary>True while at least one row is open for editing. A row stays open until it is saved (Enter, or its green check) or dropped (Esc).</summary>
+    public bool IsRowEditing => _editingRows.Any(r => r.IsEditing);
+
+    /// <summary>Turns edit mode on for a row (the pencil, or a new row). Rows that are already open stay open.</summary>
     public void BeginEdit(TransactionRow row)
     {
-        if (_editing is { IsEditing: true } other && !ReferenceEquals(other, row)) { Message = FinishFirst; return; }
         if (!ReferenceEquals(SelectedEntry, row)) SelectedEntry = row;
-        _editing = row;
+        if (!_editingRows.Contains(row)) _editingRows.Add(row);
         row.IsEditing = true;
-    }
-    private TransactionRow? _draft;
-    private bool _rebuilding;
-    /// <summary>A new row that could not be saved when the user moved on stays selected, so what was typed is not lost.</summary>
-    private async Task CommitOnLeaveAsync(TransactionRow row)
-    {
-        if (await row.CommitAsync() || !row.IsNew || !Rows.Contains(row)) return;
-        await Task.Yield();
-        BeginEdit(row);
+        OnPropertyChanged(nameof(IsRowEditing));
     }
 
+    /// <summary>Opens several rows for editing together (the rows ticked in multi-select mode).</summary>
+    public void BeginEditMany(IEnumerable<TransactionRow> rows)
+    {
+        foreach (var row in rows.Where(r => !r.IsNew).ToList()) BeginEdit(row);
+    }
+
+    private void CloseEditing(TransactionRow row)
+    {
+        row.IsEditing = false;
+        _editingRows.Remove(row);
+        OnPropertyChanged(nameof(IsRowEditing));
+    }
+
+    /// <summary>Saves one row and takes it out of edit mode. A new row that is not complete yet stays open.</summary>
+    public async Task CommitRowAsync(TransactionRow row)
+    {
+        if (!await row.CommitAsync()) return;
+        CloseEditing(row);
+        await DeselectIfIdleAsync();
+    }
+
+    /// <summary>Saves every row that is open, one after the other. A row that cannot be saved yet stays open.</summary>
+    public async Task CommitAllEditsAsync()
+    {
+        foreach (var row in _editingRows.ToList()) await CommitRowAsync(row);
+    }
+
+    /// <summary>Throws away the edits made to one row, so it shows its old values, and takes it out of edit mode. A new row just goes away.</summary>
+    public async Task CancelRowAsync(TransactionRow row)
+    {
+        if (row.IsNew)
+        {
+            row.MarkDiscarded();
+            if (ReferenceEquals(_draft, row)) _draft = null;
+            Rows.Remove(row);
+            SyncColumnLayout();
+            Message = "";
+        }
+        else row.Cancel();
+        CloseEditing(row);
+        await DeselectIfIdleAsync();
+    }
+
+    /// <summary>Throws away the edits to every row that is open (and clears the highlight).</summary>
+    public async Task CancelEditAsync()
+    {
+        foreach (var row in _editingRows.ToList()) await CancelRowAsync(row);
+        await DeselectAsync();
+    }
+
+    /// <summary>Once the highlighted row is not being edited, the highlight goes.</summary>
+    private async Task DeselectIfIdleAsync()
+    {
+        if (SelectedEntry is TransactionRow { IsEditing: true }) return;
+        await DeselectAsync();
+    }
+
+    private TransactionRow? _draft;
+    private bool _rebuilding;
 
     partial void OnSelectedEntryChanged(object? value)
     {
-        // A row being edited stays open: clicking another row does not save it or take it out of edit mode. (Saving or dropping it clears the selection, which is let through.)
-        if (_editing is { IsEditing: true } open && value is not null && !ReferenceEquals(open, value) && !_rebuilding)
-        {
-            SelectedEntry = open;
-            return;
-        }
-
-        // Choosing another row saves the edits made to the one being left.
-        if (_editing is { IsDirty: true } leaving && !ReferenceEquals(leaving, value) && !(_rebuilding && leaving.IsNew)) _ = CommitOnLeaveAsync(leaving);
-
-        // Selecting a row only highlights it. A row is edited in place only after its pencil is pressed.
-        if (_editing is not null && !ReferenceEquals(_editing, value))
-        {
-            _editing.IsEditing = false;
-            _editing = null;
-        }
+        // Selecting a row only highlights it. Rows are edited in place only after their pencil is pressed, and stay open until saved or dropped.
         IsMarkerEditing = false;   // a month line is always looked at first
         foreach (var name in new[] { nameof(Selected), nameof(SelectedMarker), nameof(HasSelection), nameof(HasMarkerSelected), nameof(CanChangeSelectedMarker) })
             OnPropertyChanged(name);
@@ -942,8 +980,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         // Rows that are unchanged stay as they are: only what really differs is removed, added or moved, so the table does not flash.
         var current = new Dictionary<string, object>();
         foreach (var row in Rows)
-            if (row is not TransactionRow { IsNew: true } and not TransactionRow { IsEditing: true } && KeyOf(row) is { } key) current.TryAdd(key, row);
-        var final = ordered.Select(row => KeyOf(row) is { } key && current.TryGetValue(key, out var old) && SignatureOf(old) == SignatureOf(row) ? old : row).ToList();
+            if (row is not TransactionRow { IsNew: true } && KeyOf(row) is { } key) current.TryAdd(key, row);
+        var final = ordered.Select(row => KeyOf(row) is { } key && current.TryGetValue(key, out var old) && (old is TransactionRow { IsEditing: true } || SignatureOf(old) == SignatureOf(row)) ? old : row).ToList();   // a row being edited stays as it is, with what was typed in it
 
         var draft = _draft;
         _rebuilding = true;   // changing the list must not save or drop a new row that is being filled in
@@ -972,6 +1010,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
             else Rows.Insert(i, final[i]);
         }
 
+        _editingRows.RemoveAll(r => !wantedRows.Contains(r));   // rows that are gone (deleted, or a new row that was saved) are no longer being edited
+        OnPropertyChanged(nameof(IsRowEditing));
         SelectedEntry = toSelect;
         if (toSelect is TransactionRow { IsNew: true } unsaved) BeginEdit(unsaved);   // a new row being filled in stays open
         _rebuilding = false;
@@ -1185,7 +1225,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public TransactionRow? BeginNew(bool transfer)
     {
         if (_draft is { } existing) { SelectedEntry = existing; return existing; }
-        if (IsRowEditing) { Message = FinishFirst; return null; }
 
         var open = EntryAccounts.Where(a => !a.Name.EndsWith("(closed)")).ToList();
         var account = (AccountId is { } fixedId ? EntryAccounts.FirstOrDefault(a => a.Id == fixedId) : null) ?? open.FirstOrDefault();
@@ -1303,27 +1342,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Throws away the edits made to the row being edited, so it shows its old values, and lets go of it.</summary>
-    public async Task CancelEditAsync()
-    {
-        if (_editing is { IsNew: true } draft)
-        {
-            draft.MarkDiscarded();   // a new row that is cancelled just goes away
-            _draft = null;
-            Rows.Remove(draft);
-            SyncColumnLayout();
-            Message = "";
-        }
-        else _editing?.Cancel();
-        await DeselectAsync();
-    }
-
-    /// <summary>Saves the edits made to the row being edited and lets go of it.</summary>
-    public async Task CommitEditAsync()
-    {
-        if (_editing is { } row && !await row.CommitAsync()) return;   // a new row that is not complete yet stays open
-        await DeselectAsync();
-    }
 
     /// <summary>
     /// Takes the selection off, so no row is being edited. It waits for any edit still being saved first, because
@@ -1402,7 +1420,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public async Task BeginDuplicateAsync(TransactionRow row)
     {
         if (_draft is { } existing) { SelectedEntry = existing; return; }
-        if (IsRowEditing) { Message = FinishFirst; return; }
 
         var source = row.Entity;
         var entity = new TransactionEntity { AccountId = source.AccountId, Date = DateOnly.FromDateTime(DateTime.Today), Payee = source.Payee, Memo = source.Memo, Amount = source.Amount };
