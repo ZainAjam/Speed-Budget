@@ -113,6 +113,7 @@ public sealed partial class MainWindow : Window
         Watcher.Chips.CollectionChanged += (_, _) => UpdateAddButton();
 
         WirePane();
+        StartPointerWatch();
         Nav.PaneOpening += (_, _) => ShowHeadings(true);
         Nav.PaneClosing += (_, args) =>
         {
@@ -386,6 +387,56 @@ public sealed partial class MainWindow : Window
     }
 
     private void PaneRetry_Tick(object? sender, object? e) => FlushPane();
+
+    // ---- Watching the pointer for the "expand on hover" panel ----
+    // The pointer events of the window are not enough on their own: when the pointer leaves the window by its edge and comes back in at the same
+    // place, none arrive, and the panel never reacted. So, as well, the pointer's place is read every moment (a very cheap check).
+
+    private static class Native
+    {
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        public struct POINT { public int X, Y; }
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        public struct RECT { public int Left, Top, Right, Bottom; }
+        [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool ScreenToClient(IntPtr hwnd, ref POINT point);
+        [System.Runtime.InteropServices.DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
+    }
+
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _pointerWatch;
+    private IntPtr _hwnd;
+
+    private void StartPointerWatch()
+    {
+        _pointerWatch = DispatcherQueue.CreateTimer();
+        _pointerWatch.Interval = TimeSpan.FromMilliseconds(70);
+        _pointerWatch.IsRepeating = true;
+        _pointerWatch.Tick += (_, _) => WatchPointer();
+        _pointerWatch.Start();
+    }
+
+    private void WatchPointer()
+    {
+        try
+        {
+            if (AppServices.PanelMode != "hover" || _zoomHold || Nav.XamlRoot is null) return;
+            if (_hwnd == IntPtr.Zero) _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            if (!Native.GetCursorPos(out var point) || !Native.ScreenToClient(_hwnd, ref point) || !Native.GetClientRect(_hwnd, out var client)) return;
+
+            var inside = point.X >= 0 && point.Y >= 0 && point.X < client.Right && point.Y < client.Bottom;
+            var x = point.X / Math.Max(0.5, Nav.XamlRoot.RasterizationScale);
+            if (!inside)
+            {
+                _noOpenUntilExit = false;
+                if (Nav.IsPaneOpen && !_paneHeld && !_pressHeld) SetPane(false);   // the pointer has left the window
+                return;
+            }
+            if (_noOpenUntilExit && x > Nav.CompactPaneLength) _noOpenUntilExit = false;
+            if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
+            else if (Nav.IsPaneOpen && x > _openWidth && !_paneHeld && !_pressHeld) SetPane(false);
+        }
+        catch (Exception ex) { Diagnostics.Note($"The pointer watch failed: {ex.Message}"); }
+    }
 
     /// <summary>
     /// An item of the panel was chosen. Where the panel opens by hand it shuts at once, and stays shut until the pointer has gone out of it,

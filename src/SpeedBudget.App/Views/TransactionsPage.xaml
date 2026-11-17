@@ -60,11 +60,11 @@
                                       Visibility="{x:Bind ShowTick}" AutomationProperties.Name="Select this transaction" />
                         </Border>
                         <TextBlock Grid.Column="1" Text="{x:Bind DateText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="8,7" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                        <CalendarDatePicker Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" Margin="4,3,24,3"
+                        <CalendarDatePicker x:Name="DateEditor" x:Load="{x:Bind IsEditing, Mode=OneWay}" Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" Margin="4,3,24,3"
                                             DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch" PlaceholderText="No date yet"
                                             AutomationProperties.Name="Date" />
                         <!-- Leaves the transaction without a date: it is then expected, shown greyed out and in italics, and changes no balance until it gets a date -->
-                        <Button Grid.Column="1" Visibility="{x:Bind ShowClearDate, Mode=OneWay}" Click="ClearDate_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Width="22" Height="26" Padding="0"
+                        <Button x:Name="ClearDateButton" x:Load="{x:Bind ShowClearDate, Mode=OneWay}" Grid.Column="1" Visibility="{x:Bind ShowClearDate, Mode=OneWay}" Click="ClearDate_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Width="22" Height="26" Padding="0"
                                 Margin="0,0,2,0" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Clear the date"
                                 ToolTipService.ToolTip="Clear the date: the transaction is then expected, with no date yet, and changes no balance until it has one">
                             <FontIcon Glyph="&#xE711;" FontSize="10" />
@@ -74,7 +74,7 @@
                 <Border Grid.Column="1" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}" Visibility="{x:Bind Layout.BankDateVisible, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind BankDateText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                        <CalendarDatePicker Date="{x:Bind BankDateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" PlaceholderText="Bank date"
+                        <CalendarDatePicker x:Name="BankDateEditor" x:Load="{x:Bind IsEditing, Mode=OneWay}" Date="{x:Bind BankDateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" PlaceholderText="Bank date"
                                             DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
                                             AutomationProperties.Name="Bank date (clears the transaction)" />
                     </Grid>
@@ -82,10 +82,10 @@
                 <Border Grid.Column="2" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ShowPayeeText, Mode=OneWay}" />
-                        <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind OtherAccountChoice, Mode=TwoWay}"
+                        <ComboBox x:Name="TransferEditor" x:Load="{x:Bind ShowTransferEditor, Mode=OneWay}" ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind OtherAccountChoice, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind ShowTransferEditor, Mode=OneWay}" PlaceholderText="Other account"
                                   AutomationProperties.Name="The other account in this transfer" ToolTipService.ToolTip="The other account in this transfer" />
-                        <local:PayeePicker ItemsSource="{x:Bind Payees}" Icons="{x:Bind PayeeIcons}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" DeleteRequested="Payee_DeleteRequested"
+                        <local:PayeePicker x:Name="PayeeEditor" x:Load="{x:Bind ShowPayeeEditor, Mode=OneWay}" ItemsSource="{x:Bind Payees}" Icons="{x:Bind PayeeIcons}" SelectedPayee="{x:Bind Payee, Mode=TwoWay}" CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" DeleteRequested="Payee_DeleteRequested"
                                            Visibility="{x:Bind ShowPayeeEditor, Mode=OneWay}"
                                            ToolTipService.ToolTip="The counterparty is who the transaction is with: the person or business you paid, or who paid you." />
                     </Grid>
@@ -94,7 +94,7 @@
                     <Grid>
                         <Grid Visibility="{x:Bind Layout.NotMemoIcon, Mode=OneWay}">
                             <TextBlock Text="{x:Bind Memo, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                            <TextBox Text="{x:Bind Memo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Memo" />
+                            <TextBox x:Name="MemoEditor" x:Load="{x:Bind IsEditing, Mode=OneWay}" Text="{x:Bind Memo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Memo" />
                         </Grid>
                         <!-- In a narrow window the memo is only an icon: its text is the tooltip, and a click opens it in a small box to read or change -->
                         <Button Visibility="{x:Bind Layout.MemoIcon, Mode=OneWay}" Padding="6" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -107,7 +107,7 @@
                     <Grid>
                         <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}"
                                    Tapped="ItemName_Tapped" />
-                        <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"
+                        <local:ItemPicker x:Name="ItemEditor" x:Load="{x:Bind ShowItemEditor, Mode=OneWay}" ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"
                                           AllowSplit="{x:Bind CanSplit}" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}"
                                           ValueOverride="{x:Bind SplitLabel, Mode=OneWay}" />
                     </Grid>
@@ -115,21 +115,21 @@
                 <Border Grid.Column="5" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}" Visibility="{x:Bind Layout.AccountVisible, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind AccountName}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                        <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind AccountChoice, Mode=TwoWay}"
+                        <ComboBox x:Name="AccountEditor" x:Load="{x:Bind IsEditing, Mode=OneWay}" ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind AccountChoice, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Account" />
                     </Grid>
                 </Border>
                 <Border Grid.Column="6" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
-                        <NumberBox app:Money.Format="True" Value="{x:Bind Outflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
+                        <NumberBox x:Name="OutflowEditor" x:Load="{x:Bind ShowAmountEditor, Mode=OneWay}" app:Money.Format="True" Value="{x:Bind Outflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
                                    Visibility="{x:Bind ShowAmountEditor, Mode=OneWay}" AutomationProperties.Name="Outflow" />
                     </Grid>
                 </Border>
                 <Border Grid.Column="7" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
                         <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
-                        <NumberBox app:Money.Format="True" Value="{x:Bind Inflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
+                        <NumberBox x:Name="InflowEditor" x:Load="{x:Bind ShowAmountEditor, Mode=OneWay}" app:Money.Format="True" Value="{x:Bind Inflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
                                    Visibility="{x:Bind ShowAmountEditor, Mode=OneWay}" AutomationProperties.Name="Inflow" />
                     </Grid>
                 </Border>

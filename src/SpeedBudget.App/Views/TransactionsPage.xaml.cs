@@ -36,6 +36,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
             Layout.PropertyChanged += Layout_Changed;
             UpdateTableWidth();
             UpdateDetailPanel();
+
             try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
             finally { EntryList.Opacity = 1; }
         };
@@ -65,8 +66,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
             }
         };
     }
-
-
 
     /// <summary>Esc inside a counterparty or budget item pop-up of the table: the row being edited is cancelled as well (the pop-up closes itself).</summary>
     private void PickerEscape(object picker)
@@ -415,7 +414,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
         flyout.ShowAt(anchor);
     }
 
-
     private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => FitTable();
 
     private void UpdateTableWidth()
@@ -606,7 +604,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
         var count = ViewModel.TickedRows().Count;
         TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
     }
-
 
     private async Task DeleteManyAsync(IReadOnlyList<TransactionRow> rows)
     {
@@ -833,9 +830,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 await Task.Delay(pass == 0 ? 120 : 50);   // the row's boxes exist once the list has laid it out
                 if (EntryList.ContainerFromItem(row) is DependencyObject container)
                 {
-                    if (transfer) { if (FindFirst<ComboBox>(container) is { } other) other.Focus(FocusState.Programmatic); }
-                    else if (FindFirst<PayeePicker>(container) is { } picker) picker.FocusPicker();
-                    return;
+                    // The editing boxes are only built once the row is being edited, so look again until they are there.
+                    if (transfer) { if (FindFirst<ComboBox>(container) is { } other) { other.Focus(FocusState.Programmatic); return; } }
+                    else if (FindFirst<PayeePicker>(container) is { } picker) { picker.FocusPicker(); return; }
                 }
             }
         }
