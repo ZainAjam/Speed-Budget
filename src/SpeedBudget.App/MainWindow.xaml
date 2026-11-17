@@ -11,7 +11,7 @@
     <!-- Zoom only affects the budget and transaction tables (see ZoomBox); nothing else is scaled. -->
     <Grid x:Name="ZoomOuter">
     <Grid x:Name="ZoomHost">
-    <NavigationView x:Name="Nav" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
+    <NavigationView x:Name="Nav" SizeChanged="Nav_SizeChanged" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
                     IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
         <Grid>
             <Grid.RowDefinitions>

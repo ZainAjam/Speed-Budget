@@ -208,7 +208,7 @@
         </DataTemplate>
     </Page.Resources>
 
-    <Grid Margin="32,24">
+    <Grid x:Name="PageRoot" Margin="32,24">
         <StackPanel x:Name="Welcome" Visibility="Collapsed" Spacing="16" MaxWidth="560" HorizontalAlignment="Left">
             <TextBlock Text="Welcome to Speed Budget" Style="{StaticResource TitleTextBlockStyle}" />
             <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyTextBlockStyle}"
@@ -296,7 +296,7 @@
                      Message="{x:Bind ViewModel.Message, Mode=OneWay}" IsClosable="False" />
 
             <!-- The budget table: the month headings and the items below them. Only this is zoomed (see ZoomBox); the title, month buttons and everything else stay at normal size. -->
-            <local:ZoomBox Grid.Row="2" Area="Budget">
+            <local:ZoomBox x:Name="BudgetZoom" Grid.Row="2" Area="Budget">
             <Grid RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -311,7 +311,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MinWidth="240" />
+                    <ColumnDefinition Width="*" MinWidth="{x:Bind ViewModel.NameMin, Mode=OneWay}" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <ItemsControl Grid.Column="1" ItemsSource="{x:Bind ViewModel.Columns}" ItemTemplate="{StaticResource MonthHeaderTemplate}" HorizontalAlignment="Right">
@@ -365,7 +365,7 @@
                     <!-- The names take whatever width is left; the months sit against the right-hand edge of the page. -->
                     <Grid Margin="0,0,16,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="240" />
+                            <ColumnDefinition Width="*" MinWidth="{x:Bind ViewModel.NameMin, Mode=OneWay}" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <!-- Names column -->
@@ -376,7 +376,7 @@
                             <Border Height="16" />
                             <!-- Right-click the title to add a budget group (or, for income, an item) -->
                             <Grid x:Name="InflowTitleRow" Height="48" Padding="12,0,0,2" Background="Transparent" ContextRequested="InflowTitle_ContextRequested">
-                                <TextBlock Text="Cash Received" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                <TextBlock Text="Cash Received" Style="{StaticResource TitleTextBlockStyle}" FontSize="{x:Bind ViewModel.SectionFontSize, Mode=OneWay}" VerticalAlignment="Bottom"
                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
@@ -384,7 +384,7 @@
                             </Border>
                             <Border Height="16" />
                             <Grid x:Name="OutflowTitleRow" Height="48" Padding="12,0,0,2" Background="Transparent" ContextRequested="OutflowTitle_ContextRequested">
-                                <TextBlock Text="Cash Spend Planning" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                                <TextBlock Text="Cash Spend Planning" Style="{StaticResource TitleTextBlockStyle}" FontSize="{x:Bind ViewModel.SectionFontSize, Mode=OneWay}" VerticalAlignment="Bottom"
                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Grid>
                             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">

@@ -26,6 +26,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ContentFrame.SizeChanged += (_, e) => Views.Responsive.Current.SetWidth(e.NewSize.Width);
         WindowPlacement.Attach(this);
         var icon = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
         if (File.Exists(icon)) AppWindow.SetIcon(icon);
@@ -240,6 +241,16 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private bool _narrowWindow;
+
+    private void Nav_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 960;
+        if (narrow == _narrowWindow) return;
+        _narrowWindow = narrow;
+        if (AppServices.PanelMode == "show") ApplyPanelMode();
+    }
+
     private void ApplyPanelMode()
     {
         // A setting was changed, so nothing is being dragged or pressed: let go of any hold, so it cannot stop the panel closing.
@@ -247,9 +258,11 @@ public sealed partial class MainWindow : Window
         _paneHeld = false;
         try
         {
-            ShowHeadings(AppServices.PanelMode == "show");
+            // In a narrow window (for example snapped to half of a small screen) the full panel would take half of it, so it stays a strip of icons.
+            var full = AppServices.PanelMode == "show" && !_narrowWindow;
+            ShowHeadings(full);
             Nav.IsPaneToggleButtonVisible = false;
-            if (AppServices.PanelMode == "show")
+            if (full)
             {
                 Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
                 Nav.IsPaneOpen = true;
@@ -325,7 +338,7 @@ public sealed partial class MainWindow : Window
     /// <summary>The section titles show only while the panel is open: in the narrow strip they would be cut off.</summary>
     private void ShowHeadings(bool open)
     {
-        foreach (var label in _headingLabels) label.Opacity = open || AppServices.PanelMode == "show" ? 1 : 0;
+        foreach (var label in _headingLabels) label.Opacity = open || (AppServices.PanelMode == "show" && !_narrowWindow) ? 1 : 0;
     }
 
     private readonly List<NavigationViewItem> _accountItems = [];

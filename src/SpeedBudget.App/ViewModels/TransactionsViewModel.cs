@@ -307,8 +307,12 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public string Memo
     {
         get => Entity.Memo ?? "";
-        set { if ((Entity.Memo ?? "") == value) return; Entity.Memo = value; Changed(nameof(Memo)); }
+        set { if ((Entity.Memo ?? "") == value) return; Entity.Memo = value; Changed(nameof(Memo)); OnPropertyChanged(nameof(MemoTip)); OnPropertyChanged(nameof(MemoIconOpacity)); }
     }
+
+    /// <summary>For the narrow table, where the memo is an icon: its text is the tooltip, and the icon is faint when there is no memo.</summary>
+    public string MemoTip => string.IsNullOrWhiteSpace(Memo) ? "Add a memo" : Memo;
+    public double MemoIconOpacity => string.IsNullOrWhiteSpace(Memo) ? 0.35 : 1;
 
     public bool IsCleared
     {

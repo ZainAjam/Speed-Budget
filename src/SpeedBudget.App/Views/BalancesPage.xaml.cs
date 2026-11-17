@@ -21,6 +21,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         // A press outside the table lets go of the highlighted line, as on the transactions tables (handled presses count too).
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         ViewModel.SortReloaded += () => DispatcherQueue.TryEnqueue(Sorted);
+        SizeChanged += (_, e) => { var margin = Responsive.PageMargin(e.NewSize.Width); if (PageRoot.Margin != margin) PageRoot.Margin = margin; };
         // A round button at the bottom centre of a long table jumps to the end where the latest line is.
         JumpButton.Attach(LinesList, () => ViewModel.SortIndex == 0, () => ViewModel.ShowMonths ? 0 : ViewModel.Lines.Count);
         ViewModel.Lines.CollectionChanged += (_, _) => JumpButton.Refresh();
@@ -58,10 +59,37 @@ public sealed partial class BalancesPage : Page, IReloadable
 
     private void UpdateTableFit()
     {
-        var width = ViewModel.ShowMonths
-            ? Columns.Get(7) + Columns.Get(8) + Columns.Get(9) + Columns.Get(10)
-            : Columns.LeadWidth.Value + Columns.Get(0) + Columns.Get(1) + Columns.Get(2) + Columns.Get(3) + Columns.Get(4) + Columns.Get(5) + Columns.CommentMin + 170;
+        // The tables fit the room they have: columns narrow, then the comment becomes an icon and the less needed columns go; only below
+        // that is the whole table scaled down (see BalanceColumns.Fit).
+        Columns.Fit(TableHost.ActualWidth);
+        var width = ViewModel.ShowMonths ? Columns.MonthLeast : Columns.DailyLeast;
         if (Math.Abs(TableZoom.NaturalWidth - width) > 0.5) TableZoom.NaturalWidth = width;
+    }
+
+    private void TableHost_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTableFit();
+
+    /// <summary>For the cells whose visibility depends on two things.</summary>
+    public static Visibility Show(bool first, bool second) => first && second ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>A click on the comment icon (the comment is an icon in a narrow window): opens the comment in a small box to read or change.</summary>
+    private void CommentIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: BalanceLine line } anchor) return;
+        if (!line.IsEditing) ViewModel.BeginChange(line);
+        if (!line.IsEditing) return;
+        var box = new TextBox { Text = line.EditComment, PlaceholderText = "Comment (optional)", Width = 280 };
+        var flyout = new Flyout { Content = box, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom };
+        flyout.Opened += (_, _) => { box.Focus(FocusState.Programmatic); box.SelectAll(); };
+        flyout.Closed += (_, _) => line.EditComment = box.Text;
+        box.KeyDown += (_, k) =>
+        {
+            if (k.Key != VirtualKey.Enter) return;
+            k.Handled = true;
+            line.EditComment = box.Text;
+            flyout.Hide();
+            DispatcherQueue.TryEnqueue(async () => await ViewModel.SaveChangeAsync(line));
+        };
+        flyout.ShowAt(anchor);
     }
 
     /// <summary>The totals beside the title; when they do not fit there, they move under it.</summary>

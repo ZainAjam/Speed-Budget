@@ -23,7 +23,7 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
     </Page.Resources>
-    <Grid Margin="32,24" RowSpacing="14">
+    <Grid x:Name="PageRoot" Margin="32,24" RowSpacing="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -113,7 +113,7 @@
 
         <Grid Grid.Row="2">
         <local:ZoomBox x:Name="TableZoom">
-            <Grid RowSpacing="8">
+            <Grid x:Name="TableHost" RowSpacing="8" SizeChanged="TableHost_SizeChanged">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -141,7 +141,7 @@
                             <ColumnDefinition Width="{x:Bind Columns.Withdrawal, Mode=OneWay}" />
                             <ColumnDefinition Width="{x:Bind Columns.Gain, Mode=OneWay}" />
                             <ColumnDefinition Width="*" MinWidth="{x:Bind Columns.CommentMin, Mode=OneWay}" />
-                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="{x:Bind Columns.ActionsWidth, Mode=OneWay}" />
                         </Grid.ColumnDefinitions>
                         <Border Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" Padding="0" Visibility="{x:Bind Columns.Selecting, Mode=OneWay}">
                             <CheckBox x:Name="SelectAllBox" MinWidth="0" Padding="0" HorizontalAlignment="Center" Click="SelectAll_Click" AutomationProperties.Name="Select all lines"
@@ -151,9 +151,9 @@
                         <Border Grid.Column="1" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Date" ToolTipService.ToolTip="The date of the balance" /></Border>
                         <Border Grid.Column="2" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Balance" HorizontalAlignment="Right"
                                    ToolTipService.ToolTip="The balance of the fund on that date, as you read it from the website or statement" /></Border>
-                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Total changes" HorizontalAlignment="Right"
+                        <Border Grid.Column="3" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" Visibility="{x:Bind Columns.TotalVisible, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Total changes" HorizontalAlignment="Right"
                                    ToolTipService.ToolTip="The balance on that date against the very first balance: how much the fund has changed in total since you started, withdrawals included" /></Border>
-                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Daily changes" HorizontalAlignment="Right"
+                        <Border Grid.Column="4" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" Visibility="{x:Bind Columns.DailyVisible, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Daily changes" HorizontalAlignment="Right"
                                    ToolTipService.ToolTip="The balance on that date against the balance on the line before it" /></Border>
                         <Border Grid.Column="5" Style="{StaticResource HeadingBorder}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}"><TextBlock Style="{StaticResource HeadingText}" Text="Withdrawals" HorizontalAlignment="Right"
                                    ToolTipService.ToolTip="Money you took out of the fund on that date. It is not a loss, so it is put back when the gains and losses are worked out" /></Border>
@@ -164,8 +164,8 @@
                         <!-- Drag the right edge of a heading to resize that column, as in the transactions table -->
                         <local:ResizeGrip Grid.Column="1" Tag="0" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="2" Tag="1" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="3" Tag="2" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
-                        <local:ResizeGrip Grid.Column="4" Tag="3" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="3" Tag="2" Visibility="{x:Bind Columns.TotalVisible, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
+                        <local:ResizeGrip Grid.Column="4" Tag="3" Visibility="{x:Bind Columns.DailyVisible, Mode=OneWay}" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="5" Tag="4" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                         <local:ResizeGrip Grid.Column="6" Tag="5" Started="Grip_Started" Moved="Grip_Moved" Completed="Grip_Completed" />
                     </Grid>
@@ -201,13 +201,13 @@
                                         <ColumnDefinition Width="{x:Bind Columns.Withdrawal, Mode=OneWay}" />
                                         <ColumnDefinition Width="{x:Bind Columns.Gain, Mode=OneWay}" />
                                         <ColumnDefinition Width="*" MinWidth="{x:Bind Columns.CommentMin, Mode=OneWay}" />
-                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="{x:Bind Columns.ActionsWidth, Mode=OneWay}" />
                                     </Grid.ColumnDefinitions>
                                     <!-- Lines between the cells -->
                                     <Border Grid.Column="0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
                                     <Border Grid.Column="1" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
-                                    <Border Grid.Column="2" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
-                                    <Border Grid.Column="3" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
+                                    <Border Grid.Column="2" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" Visibility="{x:Bind Columns.TotalVisible, Mode=OneWay}" />
+                                    <Border Grid.Column="3" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" Visibility="{x:Bind Columns.DailyVisible, Mode=OneWay}" />
                                     <Border Grid.Column="4" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
                                     <Border Grid.Column="5" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
                                     <Border Grid.Column="6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="{x:Bind Columns.RightLine, Mode=OneWay}" />
@@ -219,15 +219,20 @@
                                     <NumberBox Grid.Column="1" app:Money.Format="True" Value="{x:Bind EditBalance, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" VerticalAlignment="Center" Margin="4,3"
                                                PlaceholderText="Balance" Loaded="BalanceBox_Loaded"
                                                Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Balance" />
-                                    <TextBlock Grid.Column="2" Text="{x:Bind TotalChangeText}" Foreground="{x:Bind TotalChangeBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind HasFigures}" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind DailyChangeText}" Foreground="{x:Bind DailyChangeBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind HasFigures}" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind TotalChangeText}" Foreground="{x:Bind TotalChangeBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind local:BalancesPage.Show(HasFigures, Columns.TotalVisible), Mode=OneWay}" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind DailyChangeText}" Foreground="{x:Bind DailyChangeBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind local:BalancesPage.Show(HasFigures, Columns.DailyVisible), Mode=OneWay}" />
                                     <TextBlock Grid.Column="4" Text="{x:Bind WithdrawalText}" Foreground="{x:Bind WithdrawalBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
                                     <NumberBox Grid.Column="4" app:Money.Format="True" Value="{x:Bind EditWithdrawal, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" VerticalAlignment="Center" Margin="4,3"
                                                PlaceholderText="Withdrawn" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Amount withdrawn" />
                                     <TextBlock Grid.Column="5" Text="{x:Bind GainText}" Foreground="{x:Bind GainBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" Margin="8,6" Visibility="{x:Bind HasFigures}" />
-                                    <TextBlock Grid.Column="6" Text="{x:Bind CommentText}" VerticalAlignment="Center" Margin="8,6" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind IsViewing, Mode=OneWay}" />
+                                    <TextBlock Grid.Column="6" Text="{x:Bind CommentText}" VerticalAlignment="Center" Margin="8,6" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind local:BalancesPage.Show(IsViewing, Columns.NotCommentIcon), Mode=OneWay}" />
                                     <TextBox Grid.Column="6" Text="{x:Bind EditComment, Mode=TwoWay}" VerticalAlignment="Center" Margin="4,3" PlaceholderText="Comment (optional)"
-                                             Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Comment" />
+                                             Visibility="{x:Bind local:BalancesPage.Show(IsEditing, Columns.NotCommentIcon), Mode=OneWay}" AutomationProperties.Name="Comment" />
+                                    <!-- In a narrow window the comment is only an icon: its text is the tooltip, and a click opens it in a small box -->
+                                    <Button Grid.Column="6" Visibility="{x:Bind Columns.CommentIcon, Mode=OneWay}" Padding="6" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Opacity="{x:Bind CommentIconOpacity}" ToolTipService.ToolTip="{x:Bind CommentTip, Mode=OneWay}" Tag="{x:Bind}" AutomationProperties.Name="Comment" Click="CommentIcon_Click">
+                                        <FontIcon Glyph="&#xE8BD;" FontSize="14" />
+                                    </Button>
                                     <Grid Grid.Column="7" Opacity="{x:Bind Columns.ActionsOpacity, Mode=OneWay}" IsHitTestVisible="{x:Bind Columns.NotSelecting, Mode=OneWay}">
                                     <StackPanel Orientation="Horizontal" Spacing="2" Margin="6,2" Visibility="{x:Bind IsViewing, Mode=OneWay}">
                                         <Button Click="Edit_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"

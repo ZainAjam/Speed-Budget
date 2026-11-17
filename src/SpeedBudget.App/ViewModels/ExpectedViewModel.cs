@@ -14,6 +14,9 @@ public sealed class ExpectedRow(ExpectedTransactionEntity entity, ExpectedViewMo
     public bool ShowItem => owner.ShowItem;
     public string PayeeText => Entity.Payee == "" ? "(no counterparty)" : owner.Owner.WithIcon(Entity.Payee);
     public string MemoText => Entity.Memo ?? "";
+
+    /// <summary>For the narrow layout: when it is expected, the budget item and the memo, on one line.</summary>
+    public string DetailLine => string.Join("  ·  ", new[] { WhenText, ShowItem ? ItemText : "", MemoText }.Where(s => !string.IsNullOrWhiteSpace(s)));
     public string ItemText => Entity.BudgetItemId is { } id ? owner.Owner.ItemOptions.FirstOrDefault(o => o.Id == id)?.Label ?? "" : "";
     public string OutflowText => Entity.Amount < 0 ? Format.Money(-Entity.Amount) : "";
     public string InflowText => Entity.Amount > 0 ? Format.Money(Entity.Amount) : "";

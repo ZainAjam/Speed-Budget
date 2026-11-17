@@ -4,6 +4,15 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.31
+
+- **The app now fits its window by itself, down to half of a small screen.** Instead of running off the side, each screen gives up what it can do without as the window narrows, and only then scales down:
+  - **Transaction tables:** the columns narrow first; then the Bank date column goes, the Memo becomes a small icon (hover for the text, click to read or change it in a small box), the Account column goes, and Cleared shrinks to a tick. Nothing needs scrolling sideways.
+  - **Budget:** one whole month (all its columns) always shows. The names column gives up room first, and its titles shrink to fit. Zoomed in, months narrow a little before one is taken off the screen.
+  - **Balance accounts:** the columns narrow; then the Comment becomes an icon (click to read or change it), and Total changes and Daily changes go. The Report table narrows too.
+  - **Expected transactions:** in a narrow window the boxes are stacked in rows and each expected item is shown on two lines, at a readable size.
+  - **Page margins and the side panel:** margins are slim in a narrow window, and an Expanded side panel stays a strip of icons while the window is narrow. Zoom still works as a refinement: zooming in simply moves a screen to its more compact layout sooner.
+
 ## 0.9.30
 
 - **Budget sections renamed.** "Cash Inflow" is now **Cash Received** and "Cash Outflow" is now **Cash Spend Planning**.

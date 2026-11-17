@@ -13,7 +13,6 @@ public sealed partial class BudgetPage : Page, IReloadable
     // Widths in the XAML: the least the name column is given, and each month's column.
     private const double NameColumnWidth = 240;
     private const double MonthColumnWidth = 330;
-    private const double PageMargins = 64;   // the page's left and right margin, which are not zoomed
     private const double ScrollBarWidth = 20;   // inside the zoomed table
 
     public BudgetViewModel ViewModel { get; } = new();
@@ -30,6 +29,7 @@ public sealed partial class BudgetPage : Page, IReloadable
         InitializeComponent();
         NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;   // kept built between visits, so coming back is quick
         SummaryLabelList.ItemsSource = BudgetViewModel.SummaryLabels;
+        ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(BudgetViewModel.ShowSingleMonth)) DispatcherQueue.TryEnqueue(() => FitMonths(ActualWidth)); };
         Loaded += async (_, _) =>
         {
             AppServices.ZoomChanged += ZoomChanged;
@@ -91,12 +91,29 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// </summary>
     private void FitMonths(double width)
     {
-        // Zoomed in, the months give up some of their spare width (down to a minimum) before one of them is taken off the screen.
+        // The page margin follows the window: slim when it is narrow.
+        var margin = Responsive.PageMargin(width);
+        if (PageRoot.Margin != margin) PageRoot.Margin = margin;
+
+        // The names and one month always fit on the page, however narrow it is: the names column gives up room first (it trims its text),
+        // then the month's columns get tighter, and only below that is the whole table scaled down. Zoomed in, months also give up some of
+        // their spare width (down to a minimum) before one of them is taken off the screen.
         var zoom = AppServices.BudgetZoom;
-        var room = (width - PageMargins) / zoom - ScrollBarWidth - NameColumnWidth;
-        var smallest = zoom > 1.0001 ? BudgetViewModel.MinMonthWidth : MonthColumnWidth;
+        var total = (width - margin.Left - margin.Right) / zoom - ScrollBarWidth;
+        var room = total - NameColumnWidth;
+        var smallest = zoom > 1.0001 ? 285 : MonthColumnWidth;
         var count = Math.Max(1, (int)Math.Floor(room / smallest));
-        ViewModel.SetCapacity(count, Math.Min(MonthColumnWidth, room / count));
+        var name = NameColumnWidth;
+        double month;
+        if (count == 1 || ViewModel.ShowSingleMonth)
+        {
+            var most = ViewModel.ShowSingleMonth ? BudgetViewModel.SingleMonthWidth : MonthColumnWidth;
+            name = Math.Clamp(total - most, 130, NameColumnWidth);
+            month = Math.Clamp(total - name, BudgetViewModel.MinMonthWidth, most);
+        }
+        else month = Math.Min(MonthColumnWidth, room / count);
+        ViewModel.SetCapacity(count, month, name);
+        BudgetZoom.NaturalWidth = 130 + BudgetViewModel.MinMonthWidth + ScrollBarWidth;   // below this the whole table is scaled down
     }
 
     private void ZoomChanged() => DispatcherQueue.TryEnqueue(() => FitMonths(ActualWidth));

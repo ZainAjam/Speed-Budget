@@ -35,17 +35,17 @@ public sealed class BalanceColumns : ObservableObject
     private readonly Microsoft.UI.Dispatching.DispatcherQueue? _queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
     public BalanceColumns() => AppServices.ZoomChanged += () => _queue?.TryEnqueue(() => OnPropertyChanged(string.Empty));
 
-    public GridLength Date => Of(_widths[0]);
-    public GridLength Balance => Of(_widths[1]);
-    public GridLength TotalChange => Of(_widths[2]);
-    public GridLength DailyChange => Of(_widths[3]);
-    public GridLength Withdrawal => Of(_widths[4]);
-    public GridLength Gain => Of(_widths[5]);
-    public double CommentMin => _widths[6];   // the Comment column is as wide as the room left, and never narrower than this
-    public GridLength Month => Of(_widths[7]);
-    public GridLength MonthGains => Of(_widths[8]);
-    public GridLength MonthWithdrawals => Of(_widths[9]);
-    public GridLength MonthLeft => Of(_widths[10]);
+    public GridLength Date => Of(Sq(0));
+    public GridLength Balance => Of(Sq(1) + (CommentIcon ? _extra : 0));
+    public GridLength TotalChange => Of(HideTotal ? 0 : Sq(2));
+    public GridLength DailyChange => Of(HideDaily ? 0 : Sq(3));
+    public GridLength Withdrawal => Of(Sq(4));
+    public GridLength Gain => Of(Sq(5));
+    public double CommentMin => CommentIcon ? CommentIconWidth : Sq(6);   // the Comment column is as wide as the room left, and never narrower than this
+    public GridLength Month => Of(Sq(7));
+    public GridLength MonthGains => Of(Sq(8));
+    public GridLength MonthWithdrawals => Of(Sq(9));
+    public GridLength MonthLeft => Of(Sq(10));
 
     /// <summary>True in selection mode: a column of tick boxes shows at the left of the table.</summary>
     public bool Selecting { get; private set; }
@@ -65,6 +65,68 @@ public sealed class BalanceColumns : ObservableObject
     }
 
     public double[] Snapshot() => (double[])_widths.Clone();
+
+    // ---- Fitting the tables to the room they have ----
+    // The daily table gives up what it can do without as the room gets smaller: its columns shrink toward their narrowest, then the Comment
+    // becomes an icon (its text is the tooltip, a click opens it), then Total changes goes, then Daily changes. Below that the table is scaled.
+
+    public const double CommentIconWidth = 40, ActionsFull = 170, ActionsSmall = 76;
+
+    public bool CommentIcon { get; private set; }
+    public bool HideTotal { get; private set; }
+    public bool HideDaily { get; private set; }
+    public bool NotCommentIcon => !CommentIcon;
+    public bool TotalVisible => !HideTotal;
+    public bool DailyVisible => !HideDaily;
+    public GridLength ActionsWidth => new(_fitted ? ActionsSmall : ActionsFull);
+
+    private bool _fitted;          // true once the room is too small for every column at its own width
+    private double _squeeze = 1;   // daily table: 1 = every column at its own width, 0 = every column at its narrowest
+    private double _monthSqueeze = 1;
+    private double _extra;
+
+    private static double Narrowest(int index) => index switch { 0 => 112, 6 => 120, 7 => 90, 8 or 9 => 100, 10 => 110, _ => 90 };
+    private double Sq(int index) { var user = _widths[index]; var min = Math.Min(user, Narrowest(index)); return min + (user - min) * (index >= MonthFirst ? _monthSqueeze : _squeeze); }
+
+    private double DailyTotal(bool commentIcon, bool hideTotal, bool hideDaily, double squeeze, bool small)
+    {
+        double W(int i) { var user = _widths[i]; var min = Math.Min(user, Narrowest(i)); return min + (user - min) * squeeze; }
+        return (Selecting ? 46 : 0) + W(0) + W(1) + (hideTotal ? 0 : W(2)) + (hideDaily ? 0 : W(3)) + W(4) + W(5) + (commentIcon ? CommentIconWidth : W(6)) + (small ? ActionsSmall : ActionsFull);
+    }
+
+    /// <summary>The least width the daily table can be fitted into without being scaled.</summary>
+    public double DailyLeast => DailyTotal(true, true, true, 0, true);
+
+    /// <summary>The width of the month by month table at its narrowest.</summary>
+    public double MonthLeast => Narrowest(7) + Narrowest(8) + Narrowest(9) + Narrowest(10);
+
+    /// <summary>The width the table in view needs in the state it is in now.</summary>
+    public double NeededNow(bool months) => months ? Sq(7) + Sq(8) + Sq(9) + Sq(10) : DailyTotal(CommentIcon, HideTotal, HideDaily, _squeeze, _fitted);
+
+    public void Fit(double room)
+    {
+        if (!double.IsFinite(room) || room <= 0) return;
+        bool icon = false, noTotal = false, noDaily = false;
+        var steps = new (bool Icon, bool NoTotal, bool NoDaily)[] { (false, false, false), (true, false, false), (true, true, false), (true, true, true) };
+        foreach (var step in steps)
+        {
+            (icon, noTotal, noDaily) = step;
+            if (DailyTotal(icon, noTotal, noDaily, 0, true) <= room) break;
+        }
+        var narrowest = DailyTotal(icon, noTotal, noDaily, 0, true);
+        var widest = DailyTotal(icon, noTotal, noDaily, 1, false);
+        var fitted = widest > room;
+        var squeeze = fitted ? Math.Clamp((room - narrowest) / Math.Max(1, DailyTotal(icon, noTotal, noDaily, 1, true) - narrowest), 0, 1) : 1;
+        var extra = icon ? Math.Max(0, room - DailyTotal(icon, noTotal, noDaily, squeeze, fitted)) : 0;
+
+        var monthWidest = _widths[7] + _widths[8] + _widths[9] + _widths[10];
+        var monthSqueeze = monthWidest <= room ? 1 : Math.Clamp((room - MonthLeast) / Math.Max(1, monthWidest - MonthLeast), 0, 1);
+
+        if (CommentIcon == icon && HideTotal == noTotal && HideDaily == noDaily && _fitted == fitted && Math.Abs(_squeeze - squeeze) < 0.001
+            && Math.Abs(_extra - extra) < 0.5 && Math.Abs(_monthSqueeze - monthSqueeze) < 0.001) return;
+        CommentIcon = icon; HideTotal = noTotal; HideDaily = noDaily; _fitted = fitted; _squeeze = squeeze; _monthSqueeze = monthSqueeze; _extra = Math.Floor(extra);
+        OnPropertyChanged(string.Empty);
+    }
 
     public string Serialize() => string.Join(",", _widths.Select(w => w.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
@@ -146,6 +208,8 @@ public sealed partial class BalanceLine(BalanceRow row) : ObservableObject
     public string GainText { get; } = Format.Money(row.GainLoss);
     public Brush GainBrush { get; } = Format.Signed(row.GainLoss);
     public string CommentText { get; } = row.Comment ?? "";
+    public string CommentTip => CommentText == "" ? "Add a comment" : CommentText;
+    public double CommentIconOpacity => CommentText == "" ? 0.35 : 1;
 
     /// <summary>A line that was just added with Add Entry and is not saved yet: it has no id, and no changes or gains to show.</summary>
     public bool IsNew => Id == Guid.Empty;

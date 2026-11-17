@@ -49,15 +49,15 @@ public sealed partial class ColumnLayout : ObservableObject
     public bool NotSelecting => !Selecting;
     partial void OnSelectingChanged(bool value) { Changed(nameof(DateColumn)); OnPropertyChanged(nameof(SelectColumn)); OnPropertyChanged(nameof(NotSelecting)); }
 
-    public GridLength DateColumn => new(Snap(Date) + SelectExtra);
-    public GridLength BankDateColumn => new(Snap(BankDate));
-    public GridLength CounterpartyColumn => new(Snap(Counterparty));
-    public GridLength MemoColumn => new(Snap(Memo));
-    public GridLength ItemColumn => new(ShowItem ? Snap(Item) : 0);
-    public GridLength AccountColumn => new(ShowAccount ? Snap(Account) : 0);
-    public GridLength OutflowColumn => new(Snap(Outflow));
-    public GridLength InflowColumn => new(Snap(Inflow));
-    public GridLength ClearedColumn => new(Snap(Cleared));
+    public GridLength DateColumn => new(Snap(Squeezed(nameof(Date))) + SelectExtra);
+    public GridLength BankDateColumn => new(HideBankDate ? 0 : Snap(Squeezed(nameof(BankDate))));
+    public GridLength CounterpartyColumn => new(Snap(Squeezed(nameof(Counterparty))) + (MemoIcon ? _extra : 0));
+    public GridLength MemoColumn => new(MemoMin);
+    public GridLength ItemColumn => new(ShowItem ? Snap(Squeezed(nameof(Item))) : 0);
+    public GridLength AccountColumn => new(AccountVisible ? Snap(Squeezed(nameof(Account))) : 0);
+    public GridLength OutflowColumn => new(Snap(Squeezed(nameof(Outflow))));
+    public GridLength InflowColumn => new(Snap(Squeezed(nameof(Inflow))));
+    public GridLength ClearedColumn => new(ClearedTick ? ClearedTickWidth : Snap(Squeezed(nameof(Cleared))));
 
     // The lines of the table are always one screen pixel wide, however far the table is zoomed.
     private static double LineWidth => Math.Abs(AppServices.TransactionsZoom - 1) < 0.0001 ? 1 : 1 / AppServices.TransactionsZoom;
@@ -71,11 +71,91 @@ public sealed partial class ColumnLayout : ObservableObject
         AppServices.ZoomChanged += () => _queue?.TryEnqueue(() =>
         {
             foreach (var name in new[] { nameof(DateColumn), nameof(BankDateColumn), nameof(CounterpartyColumn), nameof(MemoColumn), nameof(ItemColumn),
-                                         nameof(AccountColumn), nameof(OutflowColumn), nameof(InflowColumn), nameof(ClearedColumn),
+                                         nameof(AccountColumn), nameof(OutflowColumn), nameof(InflowColumn), nameof(ClearedColumn), nameof(MemoMin),
                                          nameof(CellLine), nameof(HeadingLine), nameof(ActionLine) })
                 OnPropertyChanged(name);
         });
     public GridLength DetailColumn => new(DetailWidth);
+
+    // ---- Fitting the table to the room it has ----
+    // Instead of running off the side, the table gives up what it can do without as the room gets smaller: first its columns shrink
+    // toward their narrowest, then, one after the other, the Bank date column goes, the Memo becomes a small icon (its text is in a tooltip,
+    // and a click opens it to edit), the Account column goes and the Cleared column shrinks to a tick. Only then is the table scaled down.
+
+    public const double MemoIconWidth = 40, ClearedTickWidth = 44;
+
+    /// <summary>The room the table has, in the table's own units (0 until it is known).</summary>
+    public double Room { get; private set; }
+
+    public bool HideBankDate { get; private set; }
+    public bool MemoIcon { get; private set; }
+    public bool HideAccount { get; private set; }
+    public bool ClearedTick { get; private set; }
+    public bool NotMemoIcon => !MemoIcon;
+    public bool BankDateVisible => !HideBankDate;
+    public bool AccountVisible => ShowAccount && !HideAccount;
+    public string ClearedTitle => ClearedTick ? "✓" : "Cleared";
+
+    private double _squeeze = 1;   // 1: every column at its own width; 0: every column at its narrowest
+    private double _extra;         // room left over when the Memo is an icon, which goes to the Counterparty
+
+    private static double Narrowest(string column) => column switch
+    {
+        nameof(Date) or nameof(BankDate) => 112,
+        nameof(Counterparty) => 100,
+        nameof(Memo) => 90,
+        nameof(Item) or nameof(Account) => 80,
+        nameof(Outflow) or nameof(Inflow) => 84,
+        nameof(Cleared) => 90,
+        _ => 40,
+    };
+
+    private double Squeezed(string column) { var user = Get(column); var min = Math.Min(user, Narrowest(column)); return min + (user - min) * _squeeze; }
+
+    private double Total(bool bankDate, bool memoIcon, bool account, bool clearedTick, double squeeze)
+    {
+        double W(string c) { var user = Get(c); var min = Math.Min(user, Narrowest(c)); return min + (user - min) * squeeze; }
+        return W(nameof(Date)) + SelectExtra + (bankDate ? W(nameof(BankDate)) : 0) + W(nameof(Counterparty)) + (memoIcon ? MemoIconWidth : W(nameof(Memo)))
+            + (ShowItem ? W(nameof(Item)) : 0) + (ShowAccount && account ? W(nameof(Account)) : 0) + W(nameof(Outflow)) + W(nameof(Inflow))
+            + (clearedTick ? ClearedTickWidth : W(nameof(Cleared))) + ActionsMinimum;
+    }
+
+    /// <summary>The width the table needs, in the state it is in now.</summary>
+    public double NeededNow => Total(!HideBankDate, MemoIcon, !HideAccount, ClearedTick, _squeeze);
+
+    /// <summary>The least width the table can be fitted into without being scaled: everything that can be given up has been.</summary>
+    public double NeededLeast => Total(false, true, false, true, 0);
+
+    /// <summary>Works out what shows in the room the table has, and how wide each column is.</summary>
+    public void Fit(double room)
+    {
+        if (!double.IsFinite(room) || room <= 0) return;
+        Room = room;
+        bool bank = true, memo = false, account = true, tick = false;
+        var steps = new (bool Bank, bool Memo, bool Account, bool Tick)[]
+        {
+            (true, false, true, false), (false, false, true, false), (false, true, true, false), (false, true, false, false), (false, true, false, true),
+        };
+        foreach (var step in steps)
+        {
+            (bank, memo, account, tick) = step;
+            if (Total(bank, memo, account, tick, 0) <= room) break;
+        }
+        var narrowest = Total(bank, memo, account, tick, 0);
+        var widest = Total(bank, memo, account, tick, 1);
+        var squeeze = widest <= narrowest ? 1 : Math.Clamp((room - narrowest) / (widest - narrowest), 0, 1);
+        var extra = memo ? Math.Max(0, room - (narrowest + (widest - narrowest) * squeeze)) : 0;
+
+        if (HideBankDate == !bank && MemoIcon == memo && HideAccount == !account && ClearedTick == tick && Math.Abs(_squeeze - squeeze) < 0.001 && Math.Abs(_extra - extra) < 0.5) return;
+        HideBankDate = !bank; MemoIcon = memo; HideAccount = !account; ClearedTick = tick; _squeeze = squeeze; _extra = Math.Floor(extra);
+        foreach (var name in new[] { nameof(HideBankDate), nameof(MemoIcon), nameof(HideAccount), nameof(ClearedTick), nameof(NotMemoIcon), nameof(BankDateVisible), nameof(AccountVisible), nameof(ClearedTitle),
+                                     nameof(DateColumn), nameof(BankDateColumn), nameof(CounterpartyColumn), nameof(MemoColumn), nameof(MemoMin), nameof(ItemColumn), nameof(AccountColumn),
+                                     nameof(OutflowColumn), nameof(InflowColumn), nameof(ClearedColumn), nameof(NeededNow), nameof(NeededLeast) })
+            OnPropertyChanged(name);
+    }
+
+    /// <summary>The Memo column's least width: the star column takes whatever room is left above it.</summary>
+    public double MemoMin => MemoIcon ? MemoIconWidth : Snap(Squeezed(nameof(Memo)));
 
     /// <summary>What the table needs: every column at its own width, and the last one at least wide enough for the delete button.</summary>
     public double FixedTotal => Date + SelectExtra + BankDate + Counterparty + Memo + (ShowItem ? Item : 0) + (ShowAccount ? Account : 0) + Outflow + Inflow + Cleared + ActionsMinimum;
@@ -91,7 +171,7 @@ public sealed partial class ColumnLayout : ObservableObject
     partial void OnClearedChanged(double value) => Changed(nameof(ClearedColumn));
     partial void OnDetailWidthChanged(double value) => OnPropertyChanged(nameof(DetailColumn));
     partial void OnShowItemChanged(bool value) => Changed(nameof(ItemColumn));
-    partial void OnShowAccountChanged(bool value) => Changed(nameof(AccountColumn));
+    partial void OnShowAccountChanged(bool value) { Changed(nameof(AccountColumn)); OnPropertyChanged(nameof(AccountVisible)); }
 
     private void Changed(string column)
     {

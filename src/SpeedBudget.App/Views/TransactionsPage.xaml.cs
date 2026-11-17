@@ -39,14 +39,15 @@ public sealed partial class TransactionsPage : Page, IReloadable
             try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
             finally { EntryList.Opacity = 1; }
         };
-        Unloaded += (_, _) => { Layout.PropertyChanged -= Layout_Changed; EditEscape.Pressed -= PickerEscape; };
-        Loaded += (_, _) => { EditEscape.Pressed -= PickerEscape; EditEscape.Pressed += PickerEscape; };
+        Unloaded += (_, _) => { Layout.PropertyChanged -= Layout_Changed; EditEscape.Pressed -= PickerEscape; Responsive.Current.PropertyChanged -= Responsive_Changed; };
+        Loaded += (_, _) => { EditEscape.Pressed -= PickerEscape; EditEscape.Pressed += PickerEscape; Responsive.Current.PropertyChanged -= Responsive_Changed; Responsive.Current.PropertyChanged += Responsive_Changed; FitExpected(); };
         ViewModel.Expected.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(ExpectedViewModel.IsOpen)) _ = UpdateExpectedPanelAsync();
             if (e.PropertyName == nameof(ExpectedViewModel.ShowItem)) FitExpected();
         };
         FitExpected();
+        SizeChanged += (_, e) => ApplyPageSize(e.NewSize.Width);
         // A round button at the bottom centre of a long table jumps to the end where the latest row is.
         JumpButton.Attach(EntryList, () => ViewModel.SortIndex == 0, () => ViewModel.Rows.Count);
         ViewModel.Rows.CollectionChanged += (_, _) => JumpButton.Refresh();
@@ -258,7 +259,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
 
     private void Layout_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        UpdateTableWidth();
+        if (e.PropertyName is nameof(ColumnLayout.ShowItem) or nameof(ColumnLayout.ShowAccount) or nameof(ColumnLayout.Selecting)) FitTable();
+        else UpdateTableWidth();
+        if (e.PropertyName == nameof(ColumnLayout.ClearedTitle)) ClearedHeading.Title = Layout.ClearedTitle;
         if (e.PropertyName == nameof(ColumnLayout.DetailWidth)) UpdateDetailPanel();
     }
 
@@ -453,11 +456,57 @@ public sealed partial class TransactionsPage : Page, IReloadable
         }
     }
 
-    private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTableWidth();
+    /// <summary>
+    /// The page margin, and the panels that sit on the page's edges, follow the window's width; the table is fitted to the room it has.
+    /// </summary>
+    private void ApplyPageSize(double width)
+    {
+        var margin = Responsive.PageMargin(width);
+        if (PageRoot.Margin != margin)
+        {
+            PageRoot.Margin = margin;
+            ExpectedHost.Margin = new Thickness(-margin.Left, 0, -margin.Right, -margin.Bottom);
+            ExpectedHost.Padding = new Thickness(margin.Left, 16, margin.Right, 16);
+        }
+    }
+
+    /// <summary>Works out which columns show in the room the table has (see <see cref="ColumnLayout.Fit"/>), and scales the table only when even the least will not fit.</summary>
+    private void FitTable()
+    {
+        Layout.Fit(TableScroll.ActualWidth);
+        ClearedHeading.Title = Layout.ClearedTitle;
+        var least = Layout.NeededLeast;
+        if (Math.Abs(TableZoom.NaturalWidth - least) > 0.5) TableZoom.NaturalWidth = least;
+        UpdateTableWidth();
+    }
+
+    /// <summary>A click on the memo icon (the memo is an icon in a narrow window): opens the memo in a small box to read or change.</summary>
+    private void MemoIcon_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: TransactionRow row } anchor) return;
+        if (!row.IsEditing) ViewModel.BeginEdit(row);
+        if (!row.IsEditing) return;   // another row is still being edited
+        var box = new TextBox { Text = row.Memo, PlaceholderText = "Memo", Width = 280 };
+        var flyout = new Flyout { Content = box, Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom };
+        flyout.Opened += (_, _) => { box.Focus(FocusState.Programmatic); box.SelectAll(); };
+        flyout.Closed += (_, _) => row.Memo = box.Text;
+        box.KeyDown += (_, k) =>
+        {
+            if (k.Key != VirtualKey.Enter) return;
+            k.Handled = true;
+            row.Memo = box.Text;
+            flyout.Hide();
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => _ = ViewModel.CommitEditAsync());
+        };
+        flyout.ShowAt(anchor);
+    }
+
+
+    private void TableScroll_SizeChanged(object sender, SizeChangedEventArgs e) => FitTable();
 
     private void UpdateTableWidth()
     {
-        var width = Math.Max(TableScroll.ActualWidth, Layout.FixedTotal);
+        var width = Math.Max(TableScroll.ActualWidth, Layout.NeededNow);
         // Zoomed, the width is nudged (by less than a pixel) so the Memo column ends on a whole screen pixel, and so do the columns after it.
         var zoom = AppServices.TransactionsZoom;
         if (Math.Abs(zoom - 1) > 0.0001 && width > ColumnLayout.ActionsMinimum) width = Math.Round((width - ColumnLayout.ActionsMinimum) * zoom) / zoom + ColumnLayout.ActionsMinimum;
@@ -762,9 +811,12 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// The expected transactions' headings, boxes and list are made smaller, as far as it takes, to fit a whole row in a narrow window
     /// (a row needs about 1290 pixels, 1490 with the budget item column) instead of running off the side.
     /// </summary>
+    private void Responsive_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e) { if (e.PropertyName == nameof(Responsive.Narrow)) FitExpected(); }
+
     private void FitExpected()
     {
-        var natural = 1286 + (ViewModel.Expected.ShowItem ? 200 : 0);
+        // In a narrow window the boxes and rows have their own layouts, so nothing is scaled; otherwise a row is scaled to fit if it must be.
+        var natural = Responsive.Current.Narrow ? 0 : 1286 + (ViewModel.Expected.ShowItem ? 200 : 0);
         foreach (var zoom in new[] { ExpectedZoomHeading, ExpectedZoomForm, ExpectedZoomList })
         {
             zoom.MinimumFit = 0.3;
