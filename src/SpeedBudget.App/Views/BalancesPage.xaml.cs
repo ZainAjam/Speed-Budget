@@ -69,6 +69,16 @@ public sealed partial class BalancesPage : Page, IReloadable
         if (width > 0 && !double.IsNaN(width) && !(Math.Abs(HeaderGrid.Width - width) < 0.5)) HeaderGrid.Width = width;
     }
 
+    /// <summary>The buttons are made smaller together, in place, when the window is narrower than they need.</summary>
+    private void Buttons_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var inf = new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity);
+        LeftButtons.Measure(inf); RightButtons.Measure(inf);
+        var natural = Math.Ceiling(LeftButtons.DesiredSize.Width + RightButtons.DesiredSize.Width + 16);
+        var width = Math.Max(natural, ButtonsHost.ActualWidth);
+        if (width > 0 && !(Math.Abs(ButtonsGrid.Width - width) < 0.5)) ButtonsGrid.Width = width;
+    }
+
     public Task ReloadAsync() => ViewModel.AccountId == Guid.Empty ? Task.CompletedTask : ViewModel.LoadAsync(ViewModel.AccountId);
 
     private void Daily_Click(object sender, RoutedEventArgs e)
@@ -76,6 +86,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         ViewModel.ShowMonths = false;
         DailyButton.IsChecked = true;
         MonthButton.IsChecked = false;
+        DispatcherQueue.TryEnqueue(() => Buttons_SizeChanged(this, null!));
     }
 
     private void Month_Click(object sender, RoutedEventArgs e)
@@ -83,6 +94,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         ViewModel.ShowMonths = true;
         MonthButton.IsChecked = true;
         DailyButton.IsChecked = false;
+        DispatcherQueue.TryEnqueue(() => Buttons_SizeChanged(this, null!));
     }
 
     /// <summary>Add Entry: a new line opens at the top of the list, ready to be filled in.</summary>

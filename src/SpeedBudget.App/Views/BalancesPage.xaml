@@ -69,16 +69,18 @@
         </Grid>
 
         <!-- Add Entry on the left; which table to look at, and the Excel import, on the right -->
-        <Grid Grid.Row="1">
+        <Grid x:Name="ButtonsHost" Grid.Row="1" SizeChanged="Buttons_SizeChanged">
+        <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left" VerticalAlignment="Top">
+        <Grid x:Name="ButtonsGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}">
+            <StackPanel x:Name="LeftButtons" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}">
                 <Button Content="Add Entry" Style="{StaticResource AccentButtonStyle}" Click="AddEntry_Click"
                         ToolTipService.ToolTip="Add the balance on a date, with anything you took out and a comment if you like" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <StackPanel x:Name="RightButtons" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                 <ToggleButton x:Name="DailyButton" Content="Daily balances" IsChecked="True" Click="Daily_Click" />
                 <ToggleButton x:Name="MonthButton" Content="By month" Click="Month_Click" />
                 <!-- The overflow menu: import from and export to Excel -->
@@ -97,6 +99,8 @@
                     </Button.Flyout>
                 </Button>
             </StackPanel>
+        </Grid>
+        </Viewbox>
         </Grid>
 
         <local:ZoomBox x:Name="TableZoom" Grid.Row="2">

@@ -6,7 +6,7 @@ into the release.
 
 ## 0.9.28
 
-- **The title and totals of a balance account shrink in place as the window narrows.** Instead of dropping under the title, the account name and the totals at the top (Original balance, Balance now and the gains, withdrawals and net figures) now get smaller together, as the table below does.
+- **The title, totals and buttons of a balance account shrink in place as the window narrows.** Instead of dropping under the title, the account name and the totals at the top (Original balance, Balance now and the gains, withdrawals and net figures) now get smaller together, and so do the buttons below them (Add Entry, Daily balances, By month and the ⋯ menu), as the table does.
 
 ## 0.9.27
 
