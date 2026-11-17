@@ -31,13 +31,21 @@
         </Grid.RowDefinitions>
 
         <!-- The account, and its totals since the first balance -->
-        <Grid ColumnSpacing="32">
+        <Grid x:Name="HeaderGrid" ColumnSpacing="32" RowSpacing="10" SizeChanged="Header_SizeChanged">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="0" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.Title, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="24" VerticalAlignment="Bottom">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="TitleText" Text="{x:Bind ViewModel.Title, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            <!-- The totals sit at the top right; when there is not room for them beside the title they drop under it, and scroll sideways if still too wide -->
+            <ScrollViewer x:Name="TotalsScroll" Grid.Column="1" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled"
+                          VerticalAlignment="Bottom" HorizontalAlignment="Right">
+            <StackPanel x:Name="TotalsPanel" Orientation="Horizontal" Spacing="24" VerticalAlignment="Bottom">
                 <StackPanel ToolTipService.ToolTip="The balance on the very first line: what the fund was worth when you started">
                     <TextBlock Text="Original balance" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Text="{x:Bind ViewModel.OriginalText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -60,6 +68,7 @@
                     <TextBlock Text="{x:Bind ViewModel.ChangeText, Mode=OneWay}" Foreground="{x:Bind ViewModel.ChangeBrush, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- Add Entry on the left; which table to look at, and the Excel import, on the right -->
@@ -93,7 +102,7 @@
             </StackPanel>
         </Grid>
 
-        <local:ZoomBox Grid.Row="2">
+        <local:ZoomBox x:Name="TableZoom" Grid.Row="2">
             <Grid RowSpacing="8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

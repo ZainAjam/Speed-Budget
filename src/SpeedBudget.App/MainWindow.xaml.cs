@@ -861,6 +861,29 @@ public sealed partial class MainWindow : Window
         else if (_onTransactions) AppServices.SetZoomArea(ZoomArea.Transactions);
         _accountPage = tag is not null && tag.StartsWith("tx:") && Guid.TryParse(tag.AsSpan(3), out var page) ? page : null;
         UpdateWatcherStrip();
+        // Switching quickly from one screen to the next only opens the one the user stops on: every screen that is opened and thrown away
+        // again within a moment is a chance for the windowing system to fall over mid-way through building it.
+        _pendingTag = tag; _pendingParameter = parameter;
+        _navigateTimer ??= CreateNavigateTimer();
+        _navigateTimer.Stop();
+        _navigateTimer.Start();
+    }
+
+    private string? _pendingTag;
+    private object? _pendingParameter;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _navigateTimer;
+
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer CreateNavigateTimer()
+    {
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(120);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => { try { Navigate(_pendingTag, _pendingParameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {_pendingTag}: {ex.Message}"); } };
+        return timer;
+    }
+
+    private void Navigate(string? tag, object? parameter)
+    {
         switch (tag)
         {
             case "budget": ContentFrame.Navigate(typeof(BudgetPage), parameter); break;

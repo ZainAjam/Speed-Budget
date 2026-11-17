@@ -22,15 +22,53 @@ public sealed partial class BalancesPage : Page, IReloadable
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
     }
 
-    protected override void OnNavigatedFrom(NavigationEventArgs e) => BalanceLine.TickChanged -= Line_TickChanged;
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        BalanceLine.TickChanged -= Line_TickChanged;
+        Columns.PropertyChanged -= Columns_Changed;
+        ViewModel.PropertyChanged -= Columns_Changed;
+    }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         BalanceLine.TickChanged -= Line_TickChanged;
         BalanceLine.TickChanged += Line_TickChanged;
+        Columns.PropertyChanged -= Columns_Changed;
+        Columns.PropertyChanged += Columns_Changed;
+        ViewModel.PropertyChanged -= Columns_Changed;
+        ViewModel.PropertyChanged += Columns_Changed;
         SetSelecting(false);   // selection mode never carries over from another table
-        await LoadColumnsAsync();
-        if (e.Parameter is Guid accountId) await ViewModel.LoadAsync(accountId);
+        try
+        {
+            await LoadColumnsAsync();
+            if (e.Parameter is Guid accountId) await ViewModel.LoadAsync(accountId);
+        }
+        catch (Exception ex) { Diagnostics.Note($"balances page could not load: {ex.Message}"); }   // switching accounts quickly may leave this page behind
+        UpdateTableFit();
+    }
+
+    /// <summary>When the window is too narrow for the table at full size, the table is made smaller to fit instead of being cut off.</summary>
+    private void Columns_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => UpdateTableFit();
+
+    private void UpdateTableFit()
+    {
+        var width = ViewModel.ShowMonths
+            ? Columns.Get(7) + Columns.Get(8) + Columns.Get(9) + Columns.Get(10)
+            : Columns.LeadWidth.Value + Columns.Get(0) + Columns.Get(1) + Columns.Get(2) + Columns.Get(3) + Columns.Get(4) + Columns.Get(5) + Columns.CommentMin + 170;
+        if (Math.Abs(TableZoom.NaturalWidth - width) > 0.5) TableZoom.NaturalWidth = width;
+    }
+
+    /// <summary>The totals beside the title; when they do not fit there, they move under it.</summary>
+    private void Header_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        TitleText.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        TotalsPanel.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        var stacked = TitleText.DesiredSize.Width + HeaderGrid.ColumnSpacing + TotalsPanel.DesiredSize.Width > e.NewSize.Width;
+        var row = stacked ? 1 : 0;
+        if (Grid.GetRow(TotalsScroll) == row) return;
+        Grid.SetRow(TotalsScroll, row);
+        Grid.SetColumn(TotalsScroll, stacked ? 0 : 1);
+        Grid.SetColumnSpan(TotalsScroll, stacked ? 2 : 1);
     }
 
     public Task ReloadAsync() => ViewModel.AccountId == Guid.Empty ? Task.CompletedTask : ViewModel.LoadAsync(ViewModel.AccountId);

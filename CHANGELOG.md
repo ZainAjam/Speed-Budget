@@ -4,6 +4,11 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.27
+
+- **A balance account's screen no longer empties when the window is made narrow.** The title used to be squeezed until it wrapped one letter per line and pushed the whole page out of view. Now the totals drop under the title when there is no room beside it (and scroll sideways if still too wide), and the table is made smaller to fit instead of being cut off.
+- **Switching quickly between accounts is steadier.** The app now opens only the account you stop on instead of building every screen you pass through, which was making it close when the side panel was clicked through quickly.
+
 ## 0.9.26
 
 - **Accounts in the side panel can be dragged into any order.** Drag an account under Transactions to where you want it, budget or tracking accounts alike; the side panel stays open while you drag and after you let go (it closes when the pointer moves away). All Bank Accounts always stays first and Add bank account always stays last. Until you drag one, budget accounts are listed first and tracking accounts second.
