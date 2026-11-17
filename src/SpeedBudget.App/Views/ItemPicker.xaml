@@ -1,7 +1,8 @@
 <UserControl x:Class="SpeedBudget.App.Views.ItemPicker"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:SpeedBudget.App.ViewModels">
+    xmlns:vm="using:SpeedBudget.App.ViewModels"
+    xmlns:local="using:SpeedBudget.App.Views">
     <!-- Spacing 8 matches the gap between a header and its box on the built-in controls, so rows of fields line up. -->
     <StackPanel Spacing="8">
         <TextBlock x:Name="HeaderText" Visibility="Collapsed" />
@@ -19,24 +20,39 @@
                     <StackPanel Width="400" Spacing="8">
                         <TextBox x:Name="SearchBox" PlaceholderText="Search items" TextChanged="Search_TextChanged" KeyDown="Search_KeyDown" />
                         <ListView x:Name="ResultList" MaxHeight="340" SelectionMode="None" IsItemClickEnabled="True" ItemClick="Result_ItemClick">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="Padding" Value="12,0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ItemOption">
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <FontIcon Glyph="&#xE735;" FontSize="12" Foreground="#E9B72C" VerticalAlignment="Center" Visibility="{x:Bind FrequentShown}" ToolTipService.ToolTip="One of your most used items" />
-                                            <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" Foreground="{x:Bind BalanceBrush}"
-                                                   Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                        <Button Grid.Column="2" Click="Edit_Click" Visibility="{x:Bind CanEdit}" Padding="6" Background="Transparent" BorderThickness="0"
-                                                AutomationProperties.Name="Edit" ToolTipService.ToolTip="Edit">
-                                            <FontIcon Glyph="&#xE70F;" FontSize="12" Foreground="#E9B72C" />
-                                        </Button>
+                                <DataTemplate x:DataType="local:PickerRow">
+                                    <Grid>
+                                        <!-- An item (or the split / add row) -->
+                                        <Grid ColumnSpacing="12" Padding="0,10" Visibility="{x:Bind IsContent}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon Glyph="&#xE735;" FontSize="12" Foreground="#E9B72C" VerticalAlignment="Center" Visibility="{x:Bind ShowStar}" ToolTipService.ToolTip="One of your most used items" />
+                                                <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" Foreground="{x:Bind BalanceBrush}"
+                                                       Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
+                                            <Button Grid.Column="2" Click="Edit_Click" Visibility="{x:Bind CanEdit}" Padding="6" Background="Transparent" BorderThickness="0"
+                                                    AutomationProperties.Name="Edit" ToolTipService.ToolTip="Edit">
+                                                <FontIcon Glyph="&#xE70F;" FontSize="12" Foreground="#E9B72C" />
+                                            </Button>
+                                        </Grid>
+                                        <!-- A group's small title -->
+                                        <TextBlock Text="{x:Bind GroupTitle}" Visibility="{x:Bind IsHeader}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                                                   Margin="0,12,0,2" FontWeight="SemiBold" />
+                                        <!-- A divider line -->
+                                        <Rectangle Visibility="{x:Bind IsDivider}" Height="1" Margin="0,6" Fill="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

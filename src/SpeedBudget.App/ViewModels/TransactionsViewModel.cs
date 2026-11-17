@@ -18,6 +18,9 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
     public ItemKind? Kind { get; } = kind;
     public Guid? GroupId { get; } = groupId;
 
+    /// <summary>The name of the group the item is in (an item's full name reads "Group › Item").</summary>
+    public string GroupName => Name.Contains(" › ") ? Name[..Name.IndexOf(" › ", StringComparison.Ordinal)] : "";
+
     /// <summary>The item on its own, as shown in a table row or a closed drop-down: its icon and name, without its group.</summary>
     public string Label { get; } = label == "" ? name : label;
 

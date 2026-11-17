@@ -121,27 +121,53 @@ public sealed partial class ItemPicker : UserControl
         SearchBox.Focus(FocusState.Programmatic);
     }
 
+    /// <summary>The real budget items that match what was typed, in their groups' order ("no item" is not offered).</summary>
     private List<ItemOption> Matches(string text)
     {
-        var all = ItemsSource?.ToList() ?? new List<ItemOption>();
+        var all = (ItemsSource ?? Enumerable.Empty<ItemOption>()).Where(o => o.Id is not null).ToList();
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        // The few items used most come first (most used first); the rest stay in their groups.
-        return all.Where(o => words.All(w => o.Name.Contains(w, StringComparison.OrdinalIgnoreCase)))
-            .OrderByDescending(o => o.IsFrequent).ThenByDescending(o => o.IsFrequent ? o.UseCount : 0).ToList();
+        return all.Where(o => words.All(w => o.Name.Contains(w, StringComparison.OrdinalIgnoreCase))).ToList();
     }
 
     private bool Exists(string typed) =>
         (ItemsSource ?? Enumerable.Empty<ItemOption>()).Any(o => o.Id is not null && string.Equals(o.ShortName, typed, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Lists the matches, with an "Add" row first when the typed text isn't already an item.</summary>
+    private static PickerRow Divider() => new() { IsDivider = true };
+
+    /// <summary>
+    /// Lists the choices: the "Add" row first when the typed text isn't already an item, then "Split", a divider, the three most used items,
+    /// a divider, and then every item under a small title for its group. While typing, only the matches are listed, under their groups.
+    /// </summary>
     private void Refresh()
     {
         var typed = SearchBox.Text.Trim();
-        var rows = Matches(typed);
+        var matches = Matches(typed);
+        foreach (var option in matches) option.PencilShown = AllowEdit;
+
+        var rows = new List<PickerRow>();
         if (AllowCreate && typed != "" && !Exists(typed))
-            rows.Insert(0, new ItemOption(null, $"➕ Add “{typed}” as a new budget item…", null) { IsCreateRow = true });
-        if (AllowSplit) rows.Insert(0, new ItemOption(null, "Split between several items…", null) { IsSplitRow = true });
-        foreach (var row in rows) row.PencilShown = AllowEdit && row.Id is not null;
+            rows.Add(new PickerRow { Option = new ItemOption(null, $"➕ Add “{typed}” as a new budget item…", null) { IsCreateRow = true } });
+        if (AllowSplit) rows.Add(new PickerRow { Option = new ItemOption(null, "Split between several items…", null) { IsSplitRow = true } });
+
+        if (typed == "")
+        {
+            var top = matches.Where(o => o.IsFrequent).OrderByDescending(o => o.UseCount).Take(3).ToList();
+            if (top.Count > 0)
+            {
+                if (rows.Count > 0) rows.Add(Divider());
+                rows.AddRange(top.Select(o => new PickerRow { Option = o, ShowStar = true }));
+            }
+        }
+        if (rows.Count > 0 && matches.Count > 0) rows.Add(Divider());
+
+        string? group = null;
+        foreach (var option in matches)
+        {
+            var name = option.GroupName;
+            if (name != "" && name != group) rows.Add(new PickerRow { GroupTitle = name });
+            group = name;
+            rows.Add(new PickerRow { Option = option });
+        }
         ResultList.ItemsSource = rows;
     }
 
@@ -165,7 +191,7 @@ public sealed partial class ItemPicker : UserControl
 
         if (AllowCreate && typed != "" && ctrl && exact is null) Create(typed);
         else if (exact is not null) Choose(exact);
-        else if (typed == "" && matches.Count > 0) Choose(matches.FirstOrDefault(o => o.Id is null) ?? matches[0]);   // as before: Enter on an empty search picks the first row of the plain list, "no item"
+        else if (typed == "") return;   // nothing typed and nothing chosen: Enter does nothing
         else if (firstReal is not null) Choose(firstReal);
         else if (AllowCreate && typed != "") Create(typed);
         else return;
@@ -174,7 +200,7 @@ public sealed partial class ItemPicker : UserControl
 
     private void Result_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not ItemOption option) return;
+        if (e.ClickedItem is not PickerRow { CanChoose: true, Option: { } option }) return;
         if (option.IsSplitRow)
         {
             PickerFlyout.Hide();
@@ -186,7 +212,7 @@ public sealed partial class ItemPicker : UserControl
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not ItemOption { Id: not null } option) return;
+        if ((sender as FrameworkElement)?.DataContext is not PickerRow { Option: { Id: not null } option }) return;
         PickerFlyout.Hide();
         EditRequested?.Invoke(this, option);
     }
