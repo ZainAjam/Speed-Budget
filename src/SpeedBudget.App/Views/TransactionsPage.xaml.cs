@@ -39,14 +39,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
             try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
             finally { EntryList.Opacity = 1; }
         };
-        Unloaded += (_, _) => { Layout.PropertyChanged -= Layout_Changed; EditEscape.Pressed -= PickerEscape; Responsive.Current.PropertyChanged -= Responsive_Changed; };
-        Loaded += (_, _) => { EditEscape.Pressed -= PickerEscape; EditEscape.Pressed += PickerEscape; Responsive.Current.PropertyChanged -= Responsive_Changed; Responsive.Current.PropertyChanged += Responsive_Changed; FitExpected(); };
-        ViewModel.Expected.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(ExpectedViewModel.IsOpen)) _ = UpdateExpectedPanelAsync();
-            if (e.PropertyName == nameof(ExpectedViewModel.ShowItem)) FitExpected();
-        };
-        FitExpected();
+        Unloaded += (_, _) => { Layout.PropertyChanged -= Layout_Changed; EditEscape.Pressed -= PickerEscape; };
+        Loaded += (_, _) => { EditEscape.Pressed -= PickerEscape; EditEscape.Pressed += PickerEscape; };
         SizeChanged += (_, e) => ApplyPageSize(e.NewSize.Width);
         // A round button at the bottom centre of a long table jumps to the end where the latest row is.
         JumpButton.Attach(EntryList, () => ViewModel.SortIndex == 0, () => ViewModel.Rows.Count);
@@ -73,80 +67,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
     }
 
 
-    // ---- Expected transactions ----
-
-    private int _expectedChange;
-
-    /// <summary>Rises from the bar along the bottom when opened, and drops back out of sight when closed.</summary>
-    private async Task UpdateExpectedPanelAsync()
-    {
-        var change = ++_expectedChange;
-        if (ExpectedHost.TranslationTransition is null)
-            ExpectedHost.TranslationTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(200) };
-
-        var hidden = new System.Numerics.Vector3(0, (float)ExpectedHost.Height + 40, 0);
-        if (ViewModel.Expected.IsOpen)
-        {
-            ExpectedHost.Translation = hidden;
-            ExpectedHost.Visibility = Visibility.Visible;
-            await Task.Delay(30);   // let it show at the bottom first, so there is something to slide from
-            if (change == _expectedChange) ExpectedHost.Translation = System.Numerics.Vector3.Zero;
-        }
-        else
-        {
-            ExpectedHost.Translation = hidden;
-            await Task.Delay(220);
-            if (change == _expectedChange) ExpectedHost.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void ExpectedToggle_Click(object sender, RoutedEventArgs e) => ViewModel.Expected.IsOpen = !ViewModel.Expected.IsOpen;
-
-    private async void ExpectedSave_Click(object sender, RoutedEventArgs e) => await ViewModel.Expected.SaveFormAsync();
-
-    private void ExpectedCancel_Click(object sender, RoutedEventArgs e) => ViewModel.Expected.CancelEdit();
-
-    private void ExpectedEdit_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.Tag is ExpectedRow row) ViewModel.Expected.BeginEdit(row);
-    }
-
-    private async void ExpectedDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.Tag is ExpectedRow row) await ViewModel.Expected.DeleteAsync(row);
-    }
-
-    /// <summary>"Happened": asks the date it happened, then records it in the transactions table and takes it off this list.</summary>
-    private async void ExpectedHappened_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.Tag is not ExpectedRow row) return;
-        var date = new CalendarDatePicker
-        {
-            Date = DateTimeOffset.Now, DateFormat = "{day.integer} {month.abbreviated} {year.full}", HorizontalAlignment = HorizontalAlignment.Stretch,
-            Header = "Date it happened",
-        };
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "It happened",
-            PrimaryButtonText = "Add to transactions",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-            Content = new StackPanel
-            {
-                Spacing = 12, MinWidth = 340,
-                Children =
-                {
-                    new TextBlock { Text = $"{row.PayeeText}   {row.OutflowText}{row.InflowText}", Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"], TextWrapping = TextWrapping.Wrap },
-                    new TextBlock { Text = "It is added to the transactions table on this date, and leaves the expected list.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 },
-                    date,
-                },
-            },
-        };
-        dialog.PrimaryButtonClick += (_, args) => { if (date.Date is null) args.Cancel = true; };
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary || date.Date is not { } picked) return;
-        await ViewModel.Expected.RecordAsync(row, DateOnly.FromDateTime(picked.DateTime));
-    }
 
     /// <summary>Esc inside a counterparty or budget item pop-up of the table: the row being edited is cancelled as well (the pop-up closes itself).</summary>
     private void PickerEscape(object picker)
@@ -211,10 +131,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (e.Key is not (VirtualKey.Enter or VirtualKey.Escape) || ViewModel.Selected is null) return;
 
         // Esc works wherever the focus is on the page (even with a drop-down open): a new row is deleted, and a row being edited goes
-        // back to the values it had before and leaves edit mode. The Expected transactions flyout keeps its own Esc.
+        // back to the values it had before and leaves edit mode.
         if (e.Key == VirtualKey.Escape)
         {
-            if (FocusManager.GetFocusedElement(XamlRoot) is DependencyObject where && IsWithin(where, ExpectedHost)) return;
             e.Handled = true;
             ClearEditing();
             return;
@@ -233,9 +152,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>A press anywhere outside the table (and the month line panel) lets go of the row that is selected. A row being edited is not let go of.</summary>
     private void Page_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        // The Expected transactions flyout closes when something outside it (and its bar) is pressed.
-        if (ViewModel.Expected.IsOpen && !IsWithin(e.OriginalSource as DependencyObject, ExpectedHost) && !IsWithin(e.OriginalSource as DependencyObject, ExpectedBar))
-            ViewModel.Expected.IsOpen = false;
         if (ViewModel.SelectedEntry is null || ViewModel.IsRowEditing) return;   // a row being edited is only left with Enter, the green check or Esc
         var source = e.OriginalSource as DependencyObject;
         if (IsWithin(source, TableRegion) || IsWithin(source, DetailHost)) return;
@@ -465,8 +381,6 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (PageRoot.Margin != margin)
         {
             PageRoot.Margin = margin;
-            ExpectedHost.Margin = new Thickness(-margin.Left, 0, -margin.Right, -margin.Bottom);
-            ExpectedHost.Padding = new Thickness(margin.Left, 16, margin.Right, 16);
         }
     }
 
@@ -807,24 +721,13 @@ public sealed partial class TransactionsPage : Page, IReloadable
         await dialog.ShowAsync();
     }
 
-    /// <summary>
-    /// The expected transactions' headings, boxes and list are made smaller, as far as it takes, to fit a whole row in a narrow window
-    /// (a row needs about 1290 pixels, 1490 with the budget item column) instead of running off the side.
-    /// </summary>
-    private void Responsive_Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs e) { if (e.PropertyName == nameof(Responsive.Narrow)) FitExpected(); }
-
-    private void FitExpected()
-    {
-        // In a narrow window the boxes and rows have their own layouts, so nothing is scaled; otherwise a row is scaled to fit if it must be.
-        var natural = Responsive.Current.Narrow ? 0 : 1286 + (ViewModel.Expected.ShowItem ? 200 : 0);
-        foreach (var zoom in new[] { ExpectedZoomHeading, ExpectedZoomForm, ExpectedZoomList })
-        {
-            zoom.MinimumFit = 0.3;
-            zoom.NaturalWidth = natural;
-        }
-    }
-
     private void Transfer_Click(object sender, RoutedEventArgs e) => NewRow(transfer: true);
+
+    /// <summary>The x in the date cell: the transaction is left with no date, which makes it an expected transaction.</summary>
+    private void ClearDate_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is TransactionRow row) row.DateOffset = null;
+    }
 
     /// <summary>
     /// Oldest first puts what was added last at the bottom: bring it into view, so the user can see it (and add the next one)

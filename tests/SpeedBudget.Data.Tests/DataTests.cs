@@ -18,7 +18,7 @@ public sealed class DataTests : IDisposable
         var options = new DbContextOptionsBuilder<SpeedBudgetDb>().UseSqlite(_connection).Options;
         _db = new SpeedBudgetDb(options, new HlcClock("devicea", () => _wall));
         _db.Database.Migrate();
-        _store = new BudgetStore(_db);
+        _store = new BudgetStore(_db) { Today = () => new DateOnly(2030, 1, 1) };   // so the dates the tests use have all happened
     }
 
     public void Dispose()

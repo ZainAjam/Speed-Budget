@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.31
 
+- **The Expected transactions panel is gone: expected transactions now live in the transaction table.** A transaction recorded with a **future date** is a *scheduled* transaction, and one recorded with **no date and no bank date** (press the small x in the date box while editing to clear it) is an *expected* transaction with no date yet. Both are greyed out and in italics, and neither changes any account balance or budget figure. A scheduled one becomes an ordinary transaction by itself when its date arrives; an undated one becomes ordinary once it is given a date or a bank date (a bank date also clears it, and the transaction takes that date). Anything left in the old Expected list moves into the table the first time this version opens: dated ones become scheduled transactions (a repeating one, its next date) and ones without a date become undated. In Excel, an undated transaction has an empty Date, and a row with an empty Date is imported as one. Transactions dated in the future no longer count in the budget until their date arrives.
+
 - **A tidier budget item drop-down.** "(no item)" is gone from the list. It now reads: Split between several items, then a **Most used budget items** heading with your three most used items (each with a star), and then every budget item under a heading for its group. The headings are bold and in the app's accent colour. Typing in the search box lists just the matches, still under their groups. Enter on an empty search no longer picks anything.
 
 - **The app now fits its window by itself, down to half of a small screen.** Instead of running off the side, each screen gives up what it can do without as the window narrows, and only then scales down:

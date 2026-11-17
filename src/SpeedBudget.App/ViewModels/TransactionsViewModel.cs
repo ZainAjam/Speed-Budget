@@ -186,7 +186,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     // ---- Editing session: changes are held until committed, and can be thrown away ----
 
-    private sealed record Snapshot(DateOnly Date, DateOnly? BankDate, string Payee, string? Memo, bool IsCleared, long Amount,
+    private sealed record Snapshot(DateOnly Date, bool Undated, DateOnly? BankDate, string Payee, string? Memo, bool IsCleared, long Amount,
         Guid AccountId, ItemOption Item, Guid? OtherAccountId, int? LineOverride, IReadOnlyList<(Guid? ItemId, long Amount, string? Memo)>? Splits);
 
     private Snapshot? _before;
@@ -199,7 +199,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     private void TakeSnapshot()
     {
-        _before = new Snapshot(Entity.Date, Entity.BankDate, Entity.Payee, Entity.Memo, Entity.IsCleared, Entity.Amount,
+        _before = new Snapshot(Entity.Date, Entity.IsUndated, Entity.BankDate, Entity.Payee, Entity.Memo, Entity.IsCleared, Entity.Amount,
             Entity.AccountId, _item, OtherAccountId, _lineOverride, _draftSplits);
         _dirty = _dirtyDate = _dirtySplit = _dirtyStructural = false;
     }
@@ -220,6 +220,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     {
         if (_before is not { } b) return;
         Entity.Date = b.Date;
+        Entity.IsUndated = b.Undated;
         Entity.BankDate = b.BankDate;
         Entity.Payee = b.Payee;
         Entity.Memo = b.Memo;
@@ -238,7 +239,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     {
         if (value) TakeSnapshot();
         foreach (var n in new[] { nameof(ShowPayeeEditor), nameof(ShowTransferEditor), nameof(ShowPayeeText), nameof(ShowAmountEditor), nameof(ShowAmountText),
-                                  nameof(ShowItemEditor), nameof(SplitLabel), nameof(ShowItemText), nameof(NotEditing) })
+                                  nameof(ShowItemEditor), nameof(SplitLabel), nameof(ShowItemText), nameof(NotEditing), nameof(ExpectedOpacity), nameof(ShowClearDate) })
             OnPropertyChanged(n);
     }
 
@@ -268,18 +269,50 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
 
     private ItemOption _item = item;
 
+    private static readonly string[] DateNames =
+        [nameof(DateOffset), nameof(DateText), nameof(IsExpectedNow), nameof(ExpectedOpacity), nameof(ExpectedFontStyle), nameof(HasDate), nameof(ShowClearDate)];
+
+    /// <summary>
+    /// The date the transaction happened. Clearing it, when there is no bank date either, makes the transaction expected with no date: it is
+    /// shown greyed out and in italics and changes no balance, until it is given a date (or a bank date).
+    /// </summary>
     public DateTimeOffset? DateOffset
     {
-        get => new DateTimeOffset(Entity.Date.ToDateTime(TimeOnly.MinValue));
+        get => Entity.IsUndated ? null : new DateTimeOffset(Entity.Date.ToDateTime(TimeOnly.MinValue));
         set
         {
-            if (value is not { } v) return;
+            if (value is not { } v)
+            {
+                if (Entity.IsUndated) return;
+                if (Entity.BankDate is { } bank)
+                {
+                    if (bank == Entity.Date) return;
+                    Entity.Date = bank;   // the bank date stands in for it
+                }
+                else
+                {
+                    Entity.IsUndated = true;
+                    Entity.Date = TransactionEntity.UndatedPlace;
+                }
+                Changed(DateNames, dateChanged: true);
+                return;
+            }
             var date = DateOnly.FromDateTime(v.DateTime);
-            if (date == Entity.Date) return;
+            if (date == Entity.Date && !Entity.IsUndated) return;
+            Entity.IsUndated = false;
             Entity.Date = date;
-            Changed(new[] { nameof(DateOffset), nameof(DateText) }, dateChanged: true);
+            Changed(DateNames, dateChanged: true);
         }
     }
+
+    /// <summary>False for an expected transaction that has no date yet.</summary>
+    public bool HasDate => !Entity.IsUndated;
+    public bool ShowClearDate => IsEditing && HasDate;
+
+    /// <summary>Scheduled (dated in the future) or without a date: it has not happened yet, so it is greyed out and in italics, and changes no balance.</summary>
+    public bool IsExpectedNow => Entity.IsExpected(DateOnly.FromDateTime(DateTime.Today));
+    public double ExpectedOpacity => IsExpectedNow && !IsEditing ? 0.5 : 1;
+    public Windows.UI.Text.FontStyle ExpectedFontStyle => IsExpectedNow ? Windows.UI.Text.FontStyle.Italic : Windows.UI.Text.FontStyle.Normal;
 
     public DateTimeOffset? BankDateOffset
     {
@@ -288,10 +321,17 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         {
             DateOnly? date = value is { } v ? DateOnly.FromDateTime(v.DateTime) : null;
             if (date == Entity.BankDate) return;
+            var wasUndated = Entity.IsUndated;
             Entity.BankDate = date;
-            // As in the sheet, entering a bank date clears the transaction.
-            if (date is not null) Entity.IsCleared = true;
-            Changed(new[] { nameof(BankDateOffset), nameof(BankDateText), nameof(IsCleared) });
+            // As in the sheet, entering a bank date clears the transaction. An expected transaction with no date becomes an ordinary one, on that date.
+            if (date is not null)
+            {
+                Entity.IsCleared = true;
+                if (wasUndated) { Entity.IsUndated = false; Entity.Date = date.Value; }
+            }
+            var names = new List<string> { nameof(BankDateOffset), nameof(BankDateText), nameof(IsCleared) };
+            if (wasUndated && date is not null) names.AddRange(DateNames);
+            Changed(names.ToArray(), dateChanged: wasUndated && date is not null);
         }
     }
 
@@ -356,7 +396,7 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
         set => SetAmount(AppServices.ToCents(value), nameof(Inflow));
     }
 
-    public string DateText => Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+    public string DateText => Entity.IsUndated ? "" : Entity.Date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
     public string BankDateText => Entity.BankDate is { } bank ? bank.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : "";
     /// <summary>A transfer between two accounts that are both in the budget (or both outside it) has no budget item: it moves money, not budget.</summary>
     public string ItemName => IsSplit ? $"Split ({LineCount} lines)"
@@ -467,16 +507,11 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     public TransactionsViewModel()
     {
-        Expected = new ExpectedViewModel(this);
         Filters.Changed += OnFiltersChanged;
         Rows.CollectionChanged += (_, _) => TicksChanged();
     }
 
-    /// <summary>Lets the Expected transactions flyout take its turn with everything else this page does to the database.</summary>
-    internal SemaphoreSlim Gate => _gate;
 
-    /// <summary>The expected transactions of the account on show, shown in the flyout along the bottom of the page.</summary>
-    public ExpectedViewModel Expected { get; }
     private List<AccountEntity> _accounts = new();
     private IReadOnlyList<PayeeHint> _hints = Array.Empty<PayeeHint>();
     private bool _loaded;
@@ -687,8 +722,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         await _gate.WaitAsync();
         try
         {
-            try { await _store.RecordDueExpectedAsync(DateOnly.FromDateTime(DateTime.Today)); }
-            catch (Exception ex) { Message = $"Could not record the expected transactions that came due: {ex.Message}"; }
             _accounts = await _store.GetAccountsAsync();
             var groups = await _store.GetGroupsAsync();
             var items = await _store.GetItemsAsync();
@@ -720,7 +753,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
             await LoadRowsAsync(null);
         }
         finally { _gate.Release(); }
-        await Expected.LoadAsync();
     }
 
     private async Task LoadPayeesAsync()
@@ -1200,7 +1232,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
         // A date that a month line sits on could be in either month, so ask which.
         int? dayOrder = null;
-        var touchesBudget = onBudget || (row.IsTransfer && row.OtherAccountId is { } other && IsOnBudget(other));
+        var touchesBudget = (onBudget || (row.IsTransfer && row.OtherAccountId is { } other && IsOnBudget(other))) && !row.IsExpectedNow;   // an expected transaction is in no month yet
         if (touchesBudget && AskMonthAsync is { } ask)
         {
             var (ok, order) = await ask(e.Date);
@@ -1217,6 +1249,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 var (from, to) = e.Amount <= 0 ? (e.AccountId, row.OtherAccountId!.Value) : (row.OtherAccountId!.Value, e.AccountId);   // with nothing typed, this account is the one paying
                 var (outgoing, incoming) = await _store.AddTransferAsync(from, to, e.Date, Math.Abs(e.Amount),
                     string.IsNullOrWhiteSpace(e.Memo) ? null : e.Memo.Trim(), row.Item.Id, dayOrder);
+                outgoing.IsUndated = incoming.IsUndated = e.IsUndated;
                 var mine = e.Amount <= 0 ? outgoing : incoming;
                 mine.IsCleared = e.IsCleared;
                 mine.BankDate = e.BankDate;
@@ -1249,38 +1282,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>
-    /// An expected transaction has happened: records it in the table on the given date (asking which month if that date is on a
-    /// month line) and takes it off the expected list. False when it was not recorded.
-    /// </summary>
-    public async Task<bool> RecordExpectedAsync(ExpectedTransactionEntity expected, DateOnly date)
-    {
-        if (_draft is not null) { Message = "Finish or cancel the row you are adding first."; return false; }
-        var account = EntryAccounts.FirstOrDefault(a => a.Id == expected.AccountId);
-        if (account is null) return false;
-
-        var item = expected.BudgetItemId is { } id ? ItemOptions.FirstOrDefault(o => o.Id == id) ?? NoItem : NoItem;
-        var entity = new TransactionEntity { AccountId = expected.AccountId, Date = date, Payee = expected.Payee, Memo = expected.Memo, Amount = expected.Amount };
-        var row = new TransactionRow(entity, item, account.Name, 1, this) { IsNew = true };
-        if (!await CommitNewAsync(row)) return false;
-
-        await _gate.WaitAsync();
-        try
-        {
-            // A repeating one stays on the list and moves on to its next date after the date it was recorded on (never backwards).
-            if (expected.Kind == ExpectedKind.Repeating)
-            {
-                var next = expected.ExpectedDate ?? date;
-                while (next <= date) next = ExpectedSchedule.Next(next, expected.Repeat, expected.AnchorDay);
-                expected.ExpectedDate = next;
-                await _store.UpdateExpectedAsync(expected);
-            }
-            else await _store.DeleteExpectedAsync(expected);
-        }
-        catch (Exception ex) { Message = $"The transaction was recorded, but it could not be taken off the expected list: {ex.Message}"; return false; }
-        finally { _gate.Release(); }
-        return true;
-    }
 
     /// <summary>Budget accounts need an item on every line; tracked accounts may leave lines unassigned.</summary>
     public bool RequiresItem(TransactionRow row) => false;   // an item is never required; a split can leave lines unassigned too

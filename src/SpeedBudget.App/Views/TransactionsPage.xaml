@@ -35,7 +35,7 @@
 
         <DataTemplate x:Key="TransactionTemplate" x:DataType="vm:TransactionRow">
             <!-- A transaction is edited in place: the selected row swaps its text for boxes. Right-click offers Edit and Delete. -->
-            <Grid Background="Transparent" ContextRequested="Row_ContextRequested" Tapped="Row_Tapped">
+            <Grid Background="Transparent" ContextRequested="Row_ContextRequested" Tapped="Row_Tapped" Opacity="{x:Bind ExpectedOpacity, Mode=OneWay}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{x:Bind Layout.DateColumn, Mode=OneWay}" />
                     <ColumnDefinition Width="{x:Bind Layout.BankDateColumn, Mode=OneWay}" />
@@ -59,15 +59,21 @@
                             <CheckBox IsChecked="{x:Bind IsTicked, Mode=TwoWay}" MinWidth="0" MinHeight="0" Height="24" Padding="0" Width="28" HorizontalAlignment="Center" VerticalAlignment="Center"
                                       Visibility="{x:Bind ShowTick}" AutomationProperties.Name="Select this transaction" />
                         </Border>
-                        <TextBlock Grid.Column="1" Text="{x:Bind DateText, Mode=OneWay}" Margin="8,7" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
-                        <CalendarDatePicker Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" Margin="4,3"
-                                            DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
+                        <TextBlock Grid.Column="1" Text="{x:Bind DateText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="8,7" VerticalAlignment="Center" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <CalendarDatePicker Grid.Column="1" Date="{x:Bind DateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" Margin="4,3,24,3"
+                                            DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch" PlaceholderText="No date yet"
                                             AutomationProperties.Name="Date" />
+                        <!-- Leaves the transaction without a date: it is then expected, shown greyed out and in italics, and changes no balance until it gets a date -->
+                        <Button Grid.Column="1" Visibility="{x:Bind ShowClearDate, Mode=OneWay}" Click="ClearDate_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Width="22" Height="26" Padding="0"
+                                Margin="0,0,2,0" Background="Transparent" BorderThickness="0" AutomationProperties.Name="Clear the date"
+                                ToolTipService.ToolTip="Clear the date: the transaction is then expected, with no date yet, and changes no balance until it has one">
+                            <FontIcon Glyph="&#xE711;" FontSize="10" />
+                        </Button>
                     </Grid>
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}" Visibility="{x:Bind Layout.BankDateVisible, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind BankDateText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind BankDateText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
                         <CalendarDatePicker Date="{x:Bind BankDateOffset, Mode=TwoWay}" Visibility="{x:Bind IsEditing, Mode=OneWay}" PlaceholderText="Bank date"
                                             DateFormat="{}{day.integer} {month.abbreviated} {year.full}" MinWidth="0" HorizontalAlignment="Stretch"
                                             AutomationProperties.Name="Bank date (clears the transaction)" />
@@ -75,7 +81,7 @@
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ShowPayeeText, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind PayeeText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Visibility="{x:Bind ShowPayeeText, Mode=OneWay}" />
                         <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind OtherAccountChoice, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind ShowTransferEditor, Mode=OneWay}" PlaceholderText="Other account"
                                   AutomationProperties.Name="The other account in this transfer" ToolTipService.ToolTip="The other account in this transfer" />
@@ -87,7 +93,7 @@
                 <Border Grid.Column="3" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
                         <Grid Visibility="{x:Bind Layout.NotMemoIcon, Mode=OneWay}">
-                            <TextBlock Text="{x:Bind Memo, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                            <TextBlock Text="{x:Bind Memo, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
                             <TextBox Text="{x:Bind Memo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Memo" />
                         </Grid>
                         <!-- In a narrow window the memo is only an icon: its text is the tooltip, and a click opens it in a small box to read or change -->
@@ -99,7 +105,7 @@
                 </Border>
                 <Border Grid.Column="4" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}" Visibility="{x:Bind Layout.ShowItem, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}"
+                        <TextBlock Text="{x:Bind ItemName, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind ShowItemText, Mode=OneWay}"
                                    Tapped="ItemName_Tapped" />
                         <local:ItemPicker ItemsSource="{x:Bind ItemOptions}" SelectedItem="{x:Bind Item, Mode=TwoWay}" CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"
                                           AllowSplit="{x:Bind CanSplit}" SplitRequested="Item_SplitRequested" Visibility="{x:Bind ShowItemEditor, Mode=OneWay}"
@@ -108,21 +114,21 @@
                 </Border>
                 <Border Grid.Column="5" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}" Visibility="{x:Bind Layout.AccountVisible, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind AccountName}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind AccountName}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" Visibility="{x:Bind NotEditing, Mode=OneWay}" />
                         <ComboBox ItemsSource="{x:Bind Accounts}" DisplayMemberPath="Name" SelectedItem="{x:Bind AccountChoice, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch" MinWidth="0" Visibility="{x:Bind IsEditing, Mode=OneWay}" AutomationProperties.Name="Account" />
                     </Grid>
                 </Border>
                 <Border Grid.Column="6" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind OutflowText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
                         <NumberBox app:Money.Format="True" Value="{x:Bind Outflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
                                    Visibility="{x:Bind ShowAmountEditor, Mode=OneWay}" AutomationProperties.Name="Outflow" />
                     </Grid>
                 </Border>
                 <Border Grid.Column="7" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}">
                     <Grid>
-                        <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind InflowText, Mode=OneWay}" FontStyle="{x:Bind ExpectedFontStyle, Mode=OneWay}" Margin="4,4" HorizontalTextAlignment="Right" VerticalAlignment="Center" Visibility="{x:Bind ShowAmountText, Mode=OneWay}" />
                         <NumberBox app:Money.Format="True" Value="{x:Bind Inflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0" PlaceholderText="0.00"
                                    Visibility="{x:Bind ShowAmountEditor, Mode=OneWay}" AutomationProperties.Name="Inflow" />
                     </Grid>
@@ -359,229 +365,6 @@
         </local:ZoomBox>
         <local:JumpToLatestButton x:Name="JumpButton" />
         </Grid>
-
-            <!-- Expected transactions: a flyout that rises from the bar along the bottom. Things that are coming but have not happened yet are kept
-                 here, and each moves into the table, with the date it happened, when it does. -->
-            <Grid x:Name="ExpectedHost" Grid.Row="3" Grid.RowSpan="2" VerticalAlignment="Bottom" Height="340" Margin="-32,0,-32,-24" Padding="32,16,32,16"
-                  Visibility="Collapsed" RowSpacing="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <!-- The panel's solid background is a shape of its own: a Grid's or Border's own Background lets the table show through at some zoom levels below 100%. -->
-                <Rectangle Grid.RowSpan="5" Margin="-32,-16,-32,-16" Fill="{ThemeResource SolidBackgroundFillColorSecondaryBrush}" RadiusX="8" RadiusY="8" IsHitTestVisible="False" />
-                <Border Grid.RowSpan="5" Margin="-32,-16,-32,-16" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" CornerRadius="8,8,0,0" IsHitTestVisible="False" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="{x:Bind ViewModel.Expected.CountText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
-                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap"
-                                   Text="Things you expect that have not happened yet. They do not change any balance or budget. When one has no known date, press the tick when it happens and give the date." />
-                    </StackPanel>
-                    <Button Grid.Column="1" Click="ExpectedToggle_Click" Background="Transparent" BorderThickness="0" VerticalAlignment="Top"
-                            AutomationProperties.Name="Close expected transactions" ToolTipService.ToolTip="Close">
-                        <FontIcon Glyph="&#xE70D;" FontSize="12" />
-                    </Button>
-                </Grid>
-                <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.Expected.HasMessage, Mode=OneWay}" Severity="Warning" IsClosable="False"
-                         Message="{x:Bind ViewModel.Expected.Message, Mode=OneWay}" />
-                <!-- Headings, then the boxes for a new expected transaction, then the list. All three share the same columns. -->
-                <!-- The headings, the boxes and the list zoom with the recorded transactions table, and share its zoom controls. -->
-                <local:ZoomBox x:Name="ExpectedZoomHeading" Grid.Row="2" Visibility="{x:Bind local:Responsive.Current.NotNarrow, Mode=OneWay}">
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="190" />
-                            <ColumnDefinition Width="*" MinWidth="120" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="245" />
-                            <ColumnDefinition Width="285" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="170" />
-                        </Grid.ColumnDefinitions>
-                    <TextBlock Text="Counterparty" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="1" Text="Memo" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="2" Text="Budget item" Width="200" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
-                               Visibility="{x:Bind ViewModel.Expected.ShowItem, Mode=OneWay}" />
-                    <TextBlock Grid.Column="3" Grid.ColumnSpan="2" Text="When" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="5" Text="Outflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                    <TextBlock Grid.Column="6" Text="Inflow" HorizontalTextAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
-                </Grid>
-                </local:ZoomBox>
-                <local:ZoomBox x:Name="ExpectedZoomForm" Grid.Row="3" Visibility="{x:Bind local:Responsive.Current.NotNarrow, Mode=OneWay}">
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="190" />
-                            <ColumnDefinition Width="*" MinWidth="120" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="245" />
-                            <ColumnDefinition Width="285" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="170" />
-                        </Grid.ColumnDefinitions>
-                    <local:PayeePicker ItemsSource="{x:Bind ViewModel.Payees}" Icons="{x:Bind ViewModel.PayeeIcons}" SelectedPayee="{x:Bind ViewModel.Expected.FormPayee, Mode=TwoWay}"
-                                       CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" DeleteRequested="Payee_DeleteRequested" />
-                    <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Expected.FormMemo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" AutomationProperties.Name="Memo" />
-                    <local:ItemPicker Grid.Column="2" Width="200" ItemsSource="{x:Bind ViewModel.ItemOptions}" SelectedItem="{x:Bind ViewModel.Expected.FormItem, Mode=TwoWay}"
-                                      CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"
-                                      Visibility="{x:Bind ViewModel.Expected.ShowItem, Mode=OneWay}" />
-                    <ComboBox Grid.Column="3" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Expected.KindNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormKind, Mode=TwoWay}"
-                              AutomationProperties.Name="When it is expected" />
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
-                        <CalendarDatePicker Width="125" Date="{x:Bind ViewModel.Expected.FormDate, Mode=TwoWay}" PlaceholderText="Date" DateFormat="{}{day.integer} {month.abbreviated} {year.full}"
-                                            Visibility="{x:Bind ViewModel.Expected.ShowDate, Mode=OneWay}" AutomationProperties.Name="Expected date" />
-                        <ComboBox Width="150" ItemsSource="{x:Bind ViewModel.Expected.RepeatNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormRepeat, Mode=TwoWay}"
-                                  Visibility="{x:Bind ViewModel.Expected.ShowRepeat, Mode=OneWay}" AutomationProperties.Name="How often it repeats" />
-                    </StackPanel>
-                    <NumberBox Grid.Column="5" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormOutflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
-                               PlaceholderText="0.00" AutomationProperties.Name="Outflow" />
-                    <NumberBox Grid.Column="6" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormInflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
-                               PlaceholderText="0.00" AutomationProperties.Name="Inflow" />
-                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="8">
-                        <Button Content="{x:Bind ViewModel.Expected.SaveText, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" Click="ExpectedSave_Click" />
-                        <Button Content="Cancel" Click="ExpectedCancel_Click" Visibility="{x:Bind ViewModel.Expected.CanCancelEdit, Mode=OneWay}" />
-                    </StackPanel>
-                </Grid>
-                </local:ZoomBox>
-                <!-- The same boxes, stacked in rows, for a narrow window -->
-                <Grid Grid.Row="3" ColumnSpacing="8" RowSpacing="8" Visibility="{x:Bind local:Responsive.Current.Narrow, Mode=OneWay}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <local:PayeePicker HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Payees}" Icons="{x:Bind ViewModel.PayeeIcons}" SelectedPayee="{x:Bind ViewModel.Expected.FormPayee, Mode=TwoWay}"
-                                       CreateRequested="Payee_CreateRequested" EditRequested="Payee_EditRequested" DeleteRequested="Payee_DeleteRequested" />
-                    <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Expected.FormMemo, Mode=TwoWay}" PlaceholderText="Memo" MinWidth="0" AutomationProperties.Name="Memo" />
-                    <local:ItemPicker Grid.Row="1" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.ItemOptions}" SelectedItem="{x:Bind ViewModel.Expected.FormItem, Mode=TwoWay}"
-                                      CreateRequested="Item_CreateRequested" AllowEdit="True" EditRequested="Item_EditRequested"
-                                      Visibility="{x:Bind ViewModel.Expected.ShowItem, Mode=OneWay}" />
-                    <ComboBox Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.Expected.KindNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormKind, Mode=TwoWay}"
-                              AutomationProperties.Name="When it is expected" />
-                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-                        <CalendarDatePicker Width="125" Date="{x:Bind ViewModel.Expected.FormDate, Mode=TwoWay}" PlaceholderText="Date" DateFormat="{}{day.integer} {month.abbreviated} {year.full}"
-                                            Visibility="{x:Bind ViewModel.Expected.ShowDate, Mode=OneWay}" AutomationProperties.Name="Expected date" />
-                        <ComboBox Width="150" ItemsSource="{x:Bind ViewModel.Expected.RepeatNames}" SelectedIndex="{x:Bind ViewModel.Expected.FormRepeat, Mode=TwoWay}"
-                                  Visibility="{x:Bind ViewModel.Expected.ShowRepeat, Mode=OneWay}" AutomationProperties.Name="How often it repeats" />
-                    </StackPanel>
-                    <NumberBox Grid.Row="3" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormOutflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
-                               PlaceholderText="Outflow 0.00" AutomationProperties.Name="Outflow" />
-                    <NumberBox Grid.Row="3" Grid.Column="1" app:Money.Format="True" Value="{x:Bind ViewModel.Expected.FormInflow, Mode=TwoWay}" SpinButtonPlacementMode="Hidden" MinWidth="0"
-                               PlaceholderText="Inflow 0.00" AutomationProperties.Name="Inflow" />
-                    <StackPanel Grid.Row="4" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-                        <Button Content="{x:Bind ViewModel.Expected.SaveText, Mode=OneWay}" Style="{StaticResource AccentButtonStyle}" Click="ExpectedSave_Click" />
-                        <Button Content="Cancel" Click="ExpectedCancel_Click" Visibility="{x:Bind ViewModel.Expected.CanCancelEdit, Mode=OneWay}" />
-                    </StackPanel>
-                </Grid>
-                <local:ZoomBox x:Name="ExpectedZoomList" Grid.Row="4">
-                <ListView ItemsSource="{x:Bind ViewModel.Expected.Rows}" SelectionMode="None">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="MinHeight" Value="0" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ExpectedRow">
-                            <Grid>
-                            <Grid ColumnSpacing="8" Padding="0,4" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Visibility="{x:Bind local:Responsive.Current.NotNarrow, Mode=OneWay}">
-                                <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="190" />
-                            <ColumnDefinition Width="*" MinWidth="120" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="245" />
-                            <ColumnDefinition Width="285" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="170" />
-                        </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind PayeeText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind MemoText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85" />
-                                <TextBlock Grid.Column="2" Text="{x:Bind ItemText}" Width="200" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Opacity="0.85"
-                                           Visibility="{x:Bind ShowItem}" />
-                                <StackPanel Grid.Column="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" ToolTipService.ToolTip="{x:Bind WhenTip}">
-                                    <FontIcon Glyph="{x:Bind WhenGlyph}" FontSize="12" Opacity="0.8" />
-                                    <TextBlock Text="{x:Bind WhenText}" TextTrimming="CharacterEllipsis" Opacity="0.85" />
-                                </StackPanel>
-                                <TextBlock Grid.Column="5" Text="{x:Bind OutflowText}" Foreground="{x:Bind OutflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="6" Text="{x:Bind InflowText}" Foreground="{x:Bind InflowBrush}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="2">
-                                    <Button Click="ExpectedHappened_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
-                                            AutomationProperties.Name="It happened: move it to the recorded transactions" ToolTipService.ToolTip="It happened: move it to the recorded transactions">
-                                        <FontIcon Glyph="&#xE8DE;" FontSize="14" Foreground="#2FB36D" />
-                                    </Button>
-                                    <Button Click="ExpectedEdit_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
-                                            AutomationProperties.Name="Edit this expected transaction" ToolTipService.ToolTip="Edit">
-                                        <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="#E9B72C" />
-                                    </Button>
-                                    <Button Click="ExpectedDelete_Click" Tag="{x:Bind}" Padding="7" Background="Transparent" BorderThickness="0"
-                                            AutomationProperties.Name="Delete this expected transaction" ToolTipService.ToolTip="Delete">
-                                        <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
-                            <!-- The same row on two lines, for a narrow window: who and how much, then when, the item and the memo, with the buttons -->
-                            <Grid Padding="0,6" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" RowSpacing="2" ColumnSpacing="8"
-                                  Visibility="{x:Bind local:Responsive.Current.Narrow, Mode=OneWay}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="{x:Bind PayeeText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                                    <TextBlock Text="{x:Bind OutflowText}" Foreground="{x:Bind OutflowBrush}" />
-                                    <TextBlock Text="{x:Bind InflowText}" Foreground="{x:Bind InflowBrush}" />
-                                </StackPanel>
-                                <TextBlock Grid.Row="1" Text="{x:Bind DetailLine}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.75" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                           ToolTipService.ToolTip="{x:Bind DetailLine}" />
-                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="0">
-                                    <Button Click="ExpectedHappened_Click" Tag="{x:Bind}" Padding="5" Background="Transparent" BorderThickness="0"
-                                            AutomationProperties.Name="It happened: move it to the recorded transactions" ToolTipService.ToolTip="It happened: move it to the recorded transactions">
-                                        <FontIcon Glyph="&#xE8DE;" FontSize="13" Foreground="#2FB36D" />
-                                    </Button>
-                                    <Button Click="ExpectedEdit_Click" Tag="{x:Bind}" Padding="5" Background="Transparent" BorderThickness="0"
-                                            AutomationProperties.Name="Edit this expected transaction" ToolTipService.ToolTip="Edit">
-                                        <FontIcon Glyph="&#xE70F;" FontSize="13" Foreground="#E9B72C" />
-                                    </Button>
-                                    <Button Click="ExpectedDelete_Click" Tag="{x:Bind}" Padding="5" Background="Transparent" BorderThickness="0"
-                                            AutomationProperties.Name="Delete this expected transaction" ToolTipService.ToolTip="Delete">
-                                        <FontIcon Glyph="&#xE74D;" FontSize="13" />
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
-                            </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                </local:ZoomBox>
-            </Grid>
-
-            <!-- The bar along the bottom of an account's page that opens the Expected transactions flyout -->
-            <Button x:Name="ExpectedBar" Grid.Row="4" HorizontalAlignment="Left" Click="ExpectedToggle_Click" Padding="14,8"
-                    Visibility="{x:Bind ViewModel.Expected.ShowBar, Mode=OneWay}" AutomationProperties.Name="Expected transactions">
-                <StackPanel Orientation="Horizontal" Spacing="10">
-                    <FontIcon Glyph="&#xE70E;" FontSize="12" />
-                    <TextBlock Text="{x:Bind ViewModel.Expected.CountText, Mode=OneWay}" />
-                </StackPanel>
-            </Button>
 
             <!-- The month line panel floats over the table from the right edge. It slides in while a month line is selected. Transactions are edited in their own rows. -->
             <Grid x:Name="DetailHost" Grid.Row="3" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,0,-32,-24"

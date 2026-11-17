@@ -5,7 +5,7 @@ using SpeedBudget.Core;
 namespace SpeedBudget.Data;
 
 /// <summary>One usable line of a transactions file. Amount is signed: money in is positive, money out is negative.</summary>
-public sealed record TransactionImportRow(int Line, DateOnly Date, string Payee, string? Memo, string? ItemName, string? AccountName, long Amount, bool Cleared, string? MonthLabel = null)
+public sealed record TransactionImportRow(int Line, DateOnly Date, string Payee, string? Memo, string? ItemName, string? AccountName, long Amount, bool Cleared, string? MonthLabel = null, bool Undated = false)
 {
     /// <summary>A "New Month" line rather than a transaction: it starts the month named by <see cref="MonthLabel"/>.</summary>
     public bool IsMonth => MonthLabel is not null;
@@ -89,8 +89,11 @@ public static class TransactionImport
                 continue;
             }
 
-            if (!BalanceImport.TryDate(dateCell, out var date)) { problems.Add(new ImportProblem(r, "The date is missing or could not be read.")); continue; }
-            var label = $"{date:d MMM yyyy}";
+            // A row with no date at all is an expected transaction, with no date yet.
+            var undated = dateCell is null || dateCell.IsEmpty();
+            DateOnly date = TransactionEntity.UndatedPlace;
+            if (!undated && !BalanceImport.TryDate(dateCell!, out date)) { problems.Add(new ImportProblem(r, "The date could not be read.")); continue; }
+            var label = undated ? "No date" : $"{date:d MMM yyyy}";
             if (payee == "") { problems.Add(new ImportProblem(r, $"{label}: there is no counterparty.")); continue; }
 
             long outflow = 0, inflow = 0;
@@ -112,7 +115,7 @@ public static class TransactionImport
             var memo = Text(row, "memo");
             var item = Text(row, "item");
             var cleared = Text(row, "cleared").ToLowerInvariant() is "yes" or "y" or "true" or "1" or "x" or "cleared";
-            rows.Add(new TransactionImportRow(r, date, payee, memo == "" ? null : memo, item == "" ? null : item, withAccount ? account : null, inflow - outflow, cleared));
+            rows.Add(new TransactionImportRow(r, date, payee, memo == "" ? null : memo, item == "" ? null : item, withAccount ? account : null, inflow - outflow, cleared, null, undated));
         }
         return new TransactionImportFile(rows, problems);
     }
@@ -167,7 +170,7 @@ public sealed partial class BudgetStore
             // Orders go up in twos, which leaves room for a month line between two transactions.
             if (!nextOrder.TryGetValue(row.Date, out var order)) order = await NextDayOrderAsync(row.Date, ct);
             nextOrder[row.Date] = order + 2;
-            toAdd.Add((new TransactionEntity { AccountId = account.Id, Date = row.Date, DayOrder = order, Payee = row.Payee, Memo = row.Memo, Amount = row.Amount, IsCleared = row.Cleared }, itemId));
+            toAdd.Add((new TransactionEntity { AccountId = account.Id, Date = row.Date, DayOrder = order, Payee = row.Payee, Memo = row.Memo, Amount = row.Amount, IsCleared = row.Cleared, IsUndated = row.Undated }, itemId));
             payees.Add(row.Payee);
         }
         if (missingItems.Count > 0) notes.Add($"Budget items not found, so those transactions have no item: {string.Join(", ", missingItems)}.");
@@ -242,7 +245,7 @@ public sealed partial class BudgetStore
         {
             while (nextMarker < markers.Count && (markers[nextMarker].Date, markers[nextMarker].DayOrder).CompareTo((t.Date, t.DayOrder)) <= 0)
                 MonthRow(markers[nextMarker++].Label);
-            sheet.Cell(r, 1).Value = t.Date.ToDateTime(TimeOnly.MinValue);
+            if (!t.IsUndated) sheet.Cell(r, 1).Value = t.Date.ToDateTime(TimeOnly.MinValue);   // an expected transaction with no date has an empty Date
             if (t.BankDate is { } bank) sheet.Cell(r, 2).Value = bank.ToDateTime(TimeOnly.MinValue);
             sheet.Cell(r, 3).Value = t.TransferPairId is null ? t.Payee : $"Transfer: {t.Payee}";
             sheet.Cell(r, 4).Value = t.Memo ?? "";

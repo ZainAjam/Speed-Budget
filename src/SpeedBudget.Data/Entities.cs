@@ -172,6 +172,21 @@ public class TransactionEntity : SyncEntity
     /// <summary>Checked against a bank balance during a reconcile. Reconciled transactions are locked until unreconciled.</summary>
     public bool IsReconciled { get; set; }
     public Guid? TransferPairId { get; set; }
+
+    /// <summary>
+    /// Recorded with no transaction date and no bank date: it is expected, but nobody knows when. Its Date is only a place to sort it (the very
+    /// end of the table); it is shown without a date. Giving it a date, or a bank date, makes it an ordinary transaction.
+    /// </summary>
+    public bool IsUndated { get; set; }
+
+    /// <summary>The date an undated transaction is sorted under: after everything else.</summary>
+    public static readonly DateOnly UndatedPlace = new(9999, 1, 1);
+
+    /// <summary>
+    /// Not happened yet: dated in the future (scheduled), or without any date. Expected transactions are shown greyed out and in italics, and
+    /// they change no balance and no budget figure until their date arrives (or they are given one).
+    /// </summary>
+    public bool IsExpected(DateOnly today) => IsUndated || Date > today;
 }
 
 public class SplitLineEntity : SyncEntity

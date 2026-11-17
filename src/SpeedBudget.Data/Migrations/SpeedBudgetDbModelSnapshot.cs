@@ -507,6 +507,9 @@ namespace SpeedBudget.Data.Migrations
                     b.Property<bool>("IsReconciled")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsUndated")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Memo")
                         .HasColumnType("TEXT");
 

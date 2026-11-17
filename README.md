@@ -37,7 +37,7 @@ they happen, and see at a glance what is left on every budget item. Everything s
 - **Move and cover money.** Allocate what is available to an item, move what is left from one item to another, or cover an
   overspent item from items that have money left.
 - **Hold income for next month,** so you budget with money you already have.
-- **Expected transactions.** Note down what you expect but has not happened yet, without changing any balance.
+- **Expected transactions.** Record what you expect but has not happened yet (a future date, or no date at all) straight in the table, greyed out, without changing any balance.
 - **Filter like in Excel,** see everything in **All Bank Accounts**, and press any Received or Spent figure on the Budget
   screen to see the transactions behind it.
 - **Undo and redo** (`Ctrl+Z`, `Ctrl+Y`) on any screen.
@@ -117,10 +117,11 @@ the table.
 
 ![The month line panel](docs/images/month-line.png)
 
-**Expected transactions.** The bar along the bottom of every account opens a list of what you expect but has not happened
-yet. Nothing in it changes a balance or the budget. When one happens, move it into the table and give it a date.
+**Expected transactions.** A transaction with a date in the future is *scheduled*, and one recorded with no date and no bank date is
+*expected*: both are shown greyed out and in italics, and neither changes a balance or the budget. A scheduled one becomes an
+ordinary transaction when its date arrives; an expected one with no date becomes ordinary when you give it a date (or a bank date).
+Clear a date with the small x in the date box while editing a row.
 
-![The Expected transactions panel](docs/images/expected.png)
 
 **Tracking accounts.** Accounts such as a retirement fund can be tracked without affecting the budget. They are labelled
 *Tracking account* and have no budget item column.

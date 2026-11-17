@@ -99,15 +99,20 @@ public static class LocalDatabase
 /// <summary>Reads and writes budget data, hiding sync bookkeeping from the rest of the app.</summary>
 public sealed partial class BudgetStore(SpeedBudgetDb db)
 {
+    /// <summary>Today, as the store sees it: what has happened by now and what is still expected. Tests set it.</summary>
+    public Func<DateOnly> Today { get; set; } = () => DateOnly.FromDateTime(DateTime.Today);
+
     /// <summary>Loads everything the budget engine needs.</summary>
-    public async Task<BudgetSnapshot> LoadSnapshotAsync(CancellationToken ct = default)
+    public async Task<BudgetSnapshot> LoadSnapshotAsync(CancellationToken ct = default, DateOnly? today = null)
     {
         var accounts = await db.Accounts.AsNoTracking().ToListAsync(ct);
         var items = await db.Items.AsNoTracking().ToListAsync(ct);
         var markers = await db.Markers.AsNoTracking().ToListAsync(ct);
         var allocations = await db.Allocations.AsNoTracking().ToListAsync(ct);
         var holds = await db.Holds.AsNoTracking().ToListAsync(ct);
-        var transactions = await db.Transactions.AsNoTracking().ToListAsync(ct);
+        // Expected transactions (scheduled for a future date, or with no date) have not happened: they change no budget figure.
+        var asOf = today ?? Today();
+        var transactions = await db.Transactions.AsNoTracking().Where(t => !t.IsUndated && t.Date <= asOf).ToListAsync(ct);
         var splitsByTransaction = (await db.SplitLines.AsNoTracking().ToListAsync(ct))
             .ToLookup(s => s.TransactionId);
 
@@ -360,7 +365,7 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
         BalanceTracker.Calculate((await GetBalanceEntriesAsync(accountId, ct)).Select(e => new BalanceInput(e.Id, e.Date, e.Balance, e.Withdrawal, e.Comment)));
 
     /// <summary>The cleared and uncleared balances of one account, or of every account when none is given.</summary>
-    public async Task<Reconciliation> GetBalancesAsync(Guid? accountId = null, CancellationToken ct = default)
+    public async Task<Reconciliation> GetBalancesAsync(Guid? accountId = null, CancellationToken ct = default, DateOnly? today = null)
     {
         // An account kept by its balances is worth the latest balance typed in (or its opening balance, before any).
         if (accountId is { } tracked && await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == tracked && a.TrackBalances, ct) is { } kept)
@@ -371,7 +376,9 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
         }
 
         var accounts = db.Accounts.AsNoTracking().AsQueryable();
-        var transactions = db.Transactions.AsNoTracking().AsQueryable();
+        // Expected transactions (dated in the future, or with no date) have not happened, so they are not part of any balance.
+        var asOf = today ?? Today();
+        var transactions = db.Transactions.AsNoTracking().Where(t => !t.IsUndated && t.Date <= asOf);
         if (accountId is { } id)
         {
             accounts = accounts.Where(a => a.Id == id);
@@ -389,7 +396,8 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
     public async Task<(Reconciliation Result, bool Reconciled)> ReconcileAsync(Guid accountId, long bankBalance, CancellationToken ct = default)
     {
         var account = await db.Accounts.SingleAsync(a => a.Id == accountId, ct);
-        var transactions = await db.Transactions.Where(t => t.AccountId == accountId).ToListAsync(ct);
+        var asOf = Today();
+        var transactions = await db.Transactions.Where(t => t.AccountId == accountId && !t.IsUndated && t.Date <= asOf).ToListAsync(ct);
         var result = Reconciliation.Calculate(account.OpeningBalance,
             transactions.Select(t => new ReconcileLine(t.Amount, t.IsCleared)), bankBalance);
         if (!result.IsReconciled) return (result, false);
@@ -594,6 +602,44 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
         }
         finally { db.Undo.Recording = recording; }
         return added;
+    }
+
+    private const string ExpectedMovedKey = "expectedMoved";
+
+    /// <summary>
+    /// The Expected transactions list is gone: expected transactions now live in the transactions table (a future date makes one scheduled,
+    /// no date at all makes it expected). Done once, this turns every item of the old list into such a transaction: one with a date becomes a
+    /// transaction on that date (a repeating one, on its next date), one without a date becomes an undated transaction. Housekeeping, so it
+    /// cannot be undone. Returns how many were moved.
+    /// </summary>
+    public async Task<int> MoveExpectedIntoTransactionsAsync(CancellationToken ct = default)
+    {
+        if (await GetSettingAsync(ExpectedMovedKey, ct) == "1") return 0;
+        var old = await db.Expected.ToListAsync(ct);
+        var moved = 0;
+        var recording = db.Undo.Recording;
+        db.Undo.Recording = false;
+        try
+        {
+            foreach (var e in old)
+            {
+                if (!await db.Accounts.AnyAsync(a => a.Id == e.AccountId, ct)) continue;
+                var undated = e.Kind == ExpectedKind.Someday || e.ExpectedDate is null;
+                var date = undated ? TransactionEntity.UndatedPlace : e.ExpectedDate!.Value;
+                var transaction = new TransactionEntity
+                {
+                    AccountId = e.AccountId, Date = date, IsUndated = undated, Payee = e.Payee, Memo = e.Memo, Amount = e.Amount,
+                    DayOrder = await NextDayOrderAsync(date, ct),
+                };
+                await AddTransactionAsync(transaction, [new SplitLineEntity { BudgetItemId = e.BudgetItemId, Amount = e.Amount }], ct);
+                db.Expected.Remove(e);
+                moved++;
+            }
+            await db.SaveChangesAsync(ct);
+            await SetSettingAsync(ExpectedMovedKey, "1", ct);
+        }
+        finally { db.Undo.Recording = recording; }
+        return moved;
     }
 
     public async Task<TransactionEntity> RecordExpectedAsync(ExpectedTransactionEntity expected, DateOnly date, int? dayOrder = null, CancellationToken ct = default)
@@ -1359,6 +1405,7 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
             if (source.AccountId == partner.AccountId) throw new ArgumentException("Choose two different accounts.");
 
             partner.Date = source.Date;
+            partner.IsUndated = source.IsUndated;
             partner.DayOrder = source.DayOrder;
             partner.Memo = source.Memo;
             partner.Amount = -source.Amount;
