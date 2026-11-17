@@ -211,6 +211,25 @@ public sealed partial class BalancesViewModel : ObservableObject
 
     /// <summary>Which table shows: the daily lines, or the summary by month.</summary>
     [ObservableProperty] public partial bool ShowMonths { get; set; }
+
+    private static int s_sortIndex;   // newest first, unless the user chooses otherwise (remembered while the app is open)
+
+    /// <summary>0 = newest first, 1 = oldest first.</summary>
+    [ObservableProperty] public partial int SortIndex { get; set; } = s_sortIndex;
+    partial void OnSortIndexChanged(int value)
+    {
+        s_sortIndex = value;
+        if (AccountId != Guid.Empty) _ = ResortAsync();
+    }
+
+    /// <summary>Raised once the lines are in their new order, so the page can show the end of the table that is now the latest.</summary>
+    public event Action? SortReloaded;
+
+    private async Task ResortAsync()
+    {
+        try { await LoadAsync(AccountId); }
+        finally { SortReloaded?.Invoke(); }
+    }
     public bool ShowDaily => !ShowMonths;
     public bool ShowDailyEmpty => ShowDaily && Lines.Count == 0;
     partial void OnShowMonthsChanged(bool value) { OnPropertyChanged(nameof(ShowDaily)); OnPropertyChanged(nameof(ShowDailyEmpty)); }
@@ -259,7 +278,9 @@ public sealed partial class BalancesViewModel : ObservableObject
             var report = await _store.GetBalanceReportAsync(accountId);
 
             // Newest first, so the latest balance is at the top beside the boxes for the next one.
-            ApplyLines(report.Rows.Select(r => new BalanceLine(r)).Reverse().ToList());
+            var lines = report.Rows.Select(r => new BalanceLine(r)).ToList();
+            if (SortIndex == 0) lines.Reverse();   // newest first: the latest balance is at the top, beside Add Entry
+            ApplyLines(lines);
             Months.Clear();
             foreach (var month in report.Months.Reverse()) Months.Add(new BalanceMonthLine(month));
 
@@ -295,7 +316,7 @@ public sealed partial class BalancesViewModel : ObservableObject
     private DateOnly? _latestDate;
 
     /// <summary>
-    /// Add Entry: puts a new line at the top of the list with its cells already open as boxes, dated the day after the latest balance (or today).
+    /// Add Entry: puts a new line at the latest end of the list with its cells already open as boxes, dated the day after the latest balance (or today).
     /// It is only saved when its tick (or Enter) is pressed. Pressing Add Entry again goes back to the line already open.
     /// </summary>
     public BalanceLine? BeginAdd()
@@ -313,7 +334,7 @@ public sealed partial class BalancesViewModel : ObservableObject
         };
         _editing = line;
         Message = "";
-        Lines.Insert(0, line);
+        if (SortIndex == 0) Lines.Insert(0, line); else Lines.Add(line);   // the latest line: at the top when newest is first, at the bottom when oldest is first
         return line;
     }
 

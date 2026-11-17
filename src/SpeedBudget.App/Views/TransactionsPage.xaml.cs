@@ -520,7 +520,11 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 menu.Items.Add(edit);
 
                 var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "\uE8C8" } };
-                duplicate.Click += async (_, _) => await ViewModel.BeginDuplicateAsync(row);
+                duplicate.Click += async (_, _) =>
+                {
+                    await ViewModel.BeginDuplicateAsync(row);
+                    if (ViewModel.Rows.OfType<TransactionRow>().FirstOrDefault(r => r.IsNew) is { } copy) await ShowNewRowAsync(copy, copy.IsTransfer);
+                };
                 menu.Items.Add(duplicate);
             }
 
@@ -838,9 +842,30 @@ public sealed partial class TransactionsPage : Page, IReloadable
     private async void NewRow(bool transfer)
     {
         if (ViewModel.BeginNew(transfer) is not { } row) return;
-        EntryList.ScrollIntoView(row);
-        await Task.Delay(120);   // the row's boxes exist once the list has laid it out
-        if (EntryList.ContainerFromItem(row) is DependencyObject container && FindFirst<PayeePicker>(container) is { } picker && !transfer) picker.FocusPicker();
+        await ShowNewRowAsync(row, transfer);
+    }
+
+    /// <summary>
+    /// Brings a row that has just been opened for typing into view and puts the cursor in its first box (the counterparty, or the other
+    /// account of a transfer). A row far down a long list is not laid out at once, so it goes again until the row is really there.
+    /// </summary>
+    private async Task ShowNewRowAsync(TransactionRow row, bool transfer)
+    {
+        try
+        {
+            for (var pass = 0; pass < 8; pass++)
+            {
+                EntryList.ScrollIntoView(row);
+                await Task.Delay(pass == 0 ? 120 : 50);   // the row's boxes exist once the list has laid it out
+                if (EntryList.ContainerFromItem(row) is DependencyObject container)
+                {
+                    if (transfer) { if (FindFirst<ComboBox>(container) is { } other) other.Focus(FocusState.Programmatic); }
+                    else if (FindFirst<PayeePicker>(container) is { } picker) picker.FocusPicker();
+                    return;
+                }
+            }
+        }
+        catch (Exception ex) { Diagnostics.Note($"could not show the new row: {ex.Message}"); }
     }
 
     private static T? FindFirst<T>(DependencyObject parent) where T : DependencyObject

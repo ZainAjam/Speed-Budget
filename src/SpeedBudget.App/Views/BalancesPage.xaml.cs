@@ -20,6 +20,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         InitializeComponent();
         // A press outside the table lets go of the highlighted line, as on the transactions tables (handled presses count too).
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
+        ViewModel.SortReloaded += () => DispatcherQueue.TryEnqueue(Sorted);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -45,6 +46,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         }
         catch (Exception ex) { Diagnostics.Note($"balances page could not load: {ex.Message}"); }   // switching accounts quickly may leave this page behind
         UpdateTableFit();
+        if (ViewModel.SortIndex == 1) Sorted();   // oldest first: the latest lines are at the bottom
     }
 
     /// <summary>When the window is too narrow for the table at full size, the table is made smaller to fit instead of being cut off.</summary>
@@ -97,8 +99,50 @@ public sealed partial class BalancesPage : Page, IReloadable
         DispatcherQueue.TryEnqueue(() => Buttons_SizeChanged(this, null!));
     }
 
-    /// <summary>Add Entry: a new line opens at the top of the list, ready to be filled in.</summary>
-    private void AddEntry_Click(object sender, RoutedEventArgs e) => ViewModel.BeginAdd();
+    /// <summary>Add Entry: a new line opens at the latest end of the list and is brought into view, ready to be filled in.</summary>
+    private async void AddEntry_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.BeginAdd() is not { } line) return;
+        try
+        {
+            for (var pass = 0; pass < 8; pass++)
+            {
+                LinesList.ScrollIntoView(line);
+                await Task.Delay(pass == 0 ? 100 : 50);
+                if (LinesList.ContainerFromItem(line) is DependencyObject container)
+                {
+                    if (FindFirst<NumberBox>(container) is { } box) box.Focus(FocusState.Programmatic);
+                    return;
+                }
+            }
+        }
+        catch (Exception ex) { Diagnostics.Note($"could not show the new line: {ex.Message}"); }
+    }
+
+    private static T? FindFirst<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T found) return found;
+            if (FindFirst<T>(child) is { } nested) return nested;
+        }
+        return null;
+    }
+
+    /// <summary>After the order is changed, the end of the table that is now the latest (the top, or the bottom) is shown.</summary>
+    private async void Sorted()
+    {
+        try
+        {
+            for (var pass = 0; pass < 8 && ViewModel.Lines.Count > 0; pass++)
+            {
+                LinesList.ScrollIntoView(ViewModel.SortIndex == 0 ? ViewModel.Lines[0] : ViewModel.Lines[^1]);
+                await Task.Delay(40);
+            }
+        }
+        catch (Exception ex) { Diagnostics.Note($"could not show the end of the table: {ex.Message}"); }
+    }
 
     /// <summary>The balance box of a line that has just been added takes the cursor, so the amount can be typed straight away.</summary>
     private void BalanceBox_Loaded(object sender, RoutedEventArgs e)

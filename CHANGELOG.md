@@ -4,6 +4,11 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.29
+
+- **A new line is brought into view and ready to type in.** Adding a transaction, a transfer, a duplicate or a balance entry now scrolls the table to the new line (even in a long list) and puts the cursor in its first box: the counterparty, the other account of a transfer, or the balance.
+- **An account kept by its balances can be sorted.** A **Show newest first / Show oldest first** box sits above its table, as on the transactions tables. A new entry goes where the latest lines are: at the top when newest is first, at the bottom when oldest is first.
+
 ## 0.9.28
 
 - **The title, totals and buttons of a balance account shrink in place as the window narrows.** Instead of dropping under the title, the account name and the totals at the top (Original balance, Balance now and the gains, withdrawals and net figures) now get smaller together, and so do the buttons below them (Add Entry, Daily balances, By month and the ⋯ menu), as the table does.
