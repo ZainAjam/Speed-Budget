@@ -6,7 +6,7 @@ into the release.
 
 ## 0.9.31
 
-- **A tidier budget item drop-down.** "(no item)" is gone from the list. It now reads: Split between several items, a divider line, your three most used items (with a star), a divider line, and then every budget item under a small title for its group. Typing in the search box lists just the matches, still under their groups. Enter on an empty search no longer picks anything.
+- **A tidier budget item drop-down.** "(no item)" is gone from the list. It now reads: Split between several items, then a **Most used budget items** heading with your three most used items (each with a star), and then every budget item under a heading for its group. The headings are bold and in the app's accent colour. Typing in the search box lists just the matches, still under their groups. Enter on an empty search no longer picks anything.
 
 - **The app now fits its window by itself, down to half of a small screen.** Instead of running off the side, each screen gives up what it can do without as the window narrows, and only then scales down:
   - **Transaction tables:** the columns narrow first; then the Bank date column goes, the Memo becomes a small icon (hover for the text, click to read or change it in a small box), the Account column goes, and Cleared shrinks to a tick. Nothing needs scrolling sideways.

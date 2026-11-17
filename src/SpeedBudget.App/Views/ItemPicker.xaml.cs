@@ -132,11 +132,10 @@ public sealed partial class ItemPicker : UserControl
     private bool Exists(string typed) =>
         (ItemsSource ?? Enumerable.Empty<ItemOption>()).Any(o => o.Id is not null && string.Equals(o.ShortName, typed, StringComparison.OrdinalIgnoreCase));
 
-    private static PickerRow Divider() => new() { IsDivider = true };
 
     /// <summary>
-    /// Lists the choices: the "Add" row first when the typed text isn't already an item, then "Split", a divider, the three most used items,
-    /// a divider, and then every item under a small title for its group. While typing, only the matches are listed, under their groups.
+    /// Lists the choices: the "Add" row first when the typed text isn't already an item, then "Split", the three most used items under a heading,
+    /// and then every item under a heading for its group. While typing, only the matches are listed, under their groups.
     /// </summary>
     private void Refresh()
     {
@@ -154,11 +153,10 @@ public sealed partial class ItemPicker : UserControl
             var top = matches.Where(o => o.IsFrequent).OrderByDescending(o => o.UseCount).Take(3).ToList();
             if (top.Count > 0)
             {
-                if (rows.Count > 0) rows.Add(Divider());
+                rows.Add(new PickerRow { GroupTitle = "Most used budget items" });
                 rows.AddRange(top.Select(o => new PickerRow { Option = o, ShowStar = true }));
             }
         }
-        if (rows.Count > 0 && matches.Count > 0) rows.Add(Divider());
 
         string? group = null;
         foreach (var option in matches)

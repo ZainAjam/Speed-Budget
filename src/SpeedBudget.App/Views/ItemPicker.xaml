@@ -49,10 +49,8 @@
                                             </Button>
                                         </Grid>
                                         <!-- A group's small title -->
-                                        <TextBlock Text="{x:Bind GroupTitle}" Visibility="{x:Bind IsHeader}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
-                                                   Margin="0,12,0,2" FontWeight="SemiBold" />
-                                        <!-- A divider line -->
-                                        <Rectangle Visibility="{x:Bind IsDivider}" Height="1" Margin="0,6" Fill="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
+                                        <TextBlock Text="{x:Bind GroupTitle}" Visibility="{x:Bind IsHeader}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                   Margin="0,12,0,2" FontWeight="Bold" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
