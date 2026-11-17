@@ -27,7 +27,10 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <FontIcon Glyph="&#xE735;" FontSize="12" Foreground="#E9B72C" VerticalAlignment="Center" Visibility="{x:Bind FrequentShown}" ToolTipService.ToolTip="One of your most used items" />
+                                            <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
                                         <TextBlock Grid.Column="1" Text="{x:Bind BalanceText}" Foreground="{x:Bind BalanceBrush}"
                                                    Style="{StaticResource BodyStrongTextBlockStyle}" HorizontalTextAlignment="Right" VerticalAlignment="Center" />
                                         <Button Grid.Column="2" Click="Edit_Click" Visibility="{x:Bind CanEdit}" Padding="6" Background="Transparent" BorderThickness="0"

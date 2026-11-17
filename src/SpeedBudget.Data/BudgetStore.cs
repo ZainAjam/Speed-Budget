@@ -473,6 +473,17 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>How many transactions of budget accounts use each budget item (a split counts once for each item it uses).</summary>
+    public async Task<Dictionary<Guid, int>> GetItemUsageAsync(CancellationToken ct = default)
+    {
+        var rows = await (from l in db.SplitLines.AsNoTracking()
+                          join t in db.Transactions.AsNoTracking() on l.TransactionId equals t.Id
+                          join a in db.Accounts.AsNoTracking() on t.AccountId equals a.Id
+                          where a.IsOnBudget && l.BudgetItemId != null
+                          select new { l.BudgetItemId, l.TransactionId }).Distinct().ToListAsync(ct);
+        return rows.GroupBy(r => r.BudgetItemId!.Value).ToDictionary(g => g.Key, g => g.Count());
+    }
+
     /// <summary>How many transactions use each payee, keyed by the lower-case name.</summary>
     public async Task<Dictionary<string, int>> GetPayeeUsageAsync(CancellationToken ct = default)
     {

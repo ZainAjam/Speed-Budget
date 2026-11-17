@@ -34,6 +34,11 @@ public sealed class ItemOption(Guid? id, string name, ItemKind? kind, Guid? grou
     public bool PencilShown { get; set; }
     public bool CanEdit => PencilShown;
 
+    /// <summary>True for the few items used most, which the drop-down lists first.</summary>
+    public bool IsFrequent { get; set; }
+    public int UseCount { get; set; }
+    public Microsoft.UI.Xaml.Visibility FrequentShown => IsFrequent ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
     public long? Balance { get; set; }
     public string BalanceText => Balance is { } b ? Format.Money(b) : "";
     public Microsoft.UI.Xaml.Media.Brush BalanceBrush => Balance is { } b ? Format.Signed(b) : Format.Theme("TextFillColorPrimaryBrush");
@@ -821,6 +826,15 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var remaining = months[^1].Items.ToDictionary(i => i.ItemId, i => i.Remaining);
         foreach (var option in ItemOptions)
             option.Balance = option.Id is { } id && remaining.TryGetValue(id, out var left) ? left : null;
+
+        // The three items used most are listed first in the drop-down.
+        var usage = await _store.GetItemUsageAsync();
+        var top = usage.Where(u => u.Value > 0).OrderByDescending(u => u.Value).Take(3).Select(u => u.Key).ToHashSet();
+        foreach (var option in ItemOptions)
+        {
+            option.UseCount = option.Id is { } used ? usage.GetValueOrDefault(used) : 0;
+            option.IsFrequent = option.Id is { } topId && top.Contains(topId);
+        }
     }
 
     /// <summary>Rebuilds the list. The caller must hold the gate.</summary>

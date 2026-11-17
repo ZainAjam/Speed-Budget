@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.30
+
+- **The three most used budget items are at the top of the budget item drop-down.** In the transaction tables, the items you use most (counted over the transactions of your budget accounts) are listed first, marked with a small star, and the rest stay in their groups below them. The list updates as you add transactions.
+
 ## 0.9.29
 
 - **Opening balances count as income of the first month.** The opening balance of each budget account (not tracking accounts) is now part of "Income this month" for the first month of the budget, so it shows in "Available to budget" and carries on into the months after, ready to be given to budget items. Change an account's opening balance and the first month follows.

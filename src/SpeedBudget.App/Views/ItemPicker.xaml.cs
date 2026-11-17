@@ -125,7 +125,9 @@ public sealed partial class ItemPicker : UserControl
     {
         var all = ItemsSource?.ToList() ?? new List<ItemOption>();
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return all.Where(o => words.All(w => o.Name.Contains(w, StringComparison.OrdinalIgnoreCase))).ToList();
+        // The few items used most come first (most used first); the rest stay in their groups.
+        return all.Where(o => words.All(w => o.Name.Contains(w, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(o => o.IsFrequent).ThenByDescending(o => o.IsFrequent ? o.UseCount : 0).ToList();
     }
 
     private bool Exists(string typed) =>
@@ -163,7 +165,7 @@ public sealed partial class ItemPicker : UserControl
 
         if (AllowCreate && typed != "" && ctrl && exact is null) Create(typed);
         else if (exact is not null) Choose(exact);
-        else if (typed == "" && matches.Count > 0) Choose(matches[0]);
+        else if (typed == "" && matches.Count > 0) Choose(matches.FirstOrDefault(o => o.Id is null) ?? matches[0]);   // as before: Enter on an empty search picks the first row of the plain list, "no item"
         else if (firstReal is not null) Choose(firstReal);
         else if (AllowCreate && typed != "") Create(typed);
         else return;
