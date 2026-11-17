@@ -63,12 +63,10 @@ public sealed partial class BalancesPage : Page, IReloadable
     {
         TitleText.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         TotalsPanel.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-        var stacked = TitleText.DesiredSize.Width + HeaderGrid.ColumnSpacing + TotalsPanel.DesiredSize.Width > e.NewSize.Width;
-        var row = stacked ? 1 : 0;
-        if (Grid.GetRow(TotalsScroll) == row) return;
-        Grid.SetRow(TotalsScroll, row);
-        Grid.SetColumn(TotalsScroll, stacked ? 0 : 1);
-        Grid.SetColumnSpan(TotalsScroll, stacked ? 2 : 1);
+        // The heading is as wide as the room, or as it needs if that is more; the Viewbox then shrinks it to fit.
+        var natural = Math.Ceiling(TitleText.DesiredSize.Width + HeaderGrid.ColumnSpacing + TotalsPanel.DesiredSize.Width);
+        var width = Math.Max(natural, HeaderHost.ActualWidth);
+        if (width > 0 && !double.IsNaN(width) && !(Math.Abs(HeaderGrid.Width - width) < 0.5)) HeaderGrid.Width = width;
     }
 
     public Task ReloadAsync() => ViewModel.AccountId == Guid.Empty ? Task.CompletedTask : ViewModel.LoadAsync(ViewModel.AccountId);

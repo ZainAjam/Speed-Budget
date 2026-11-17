@@ -31,21 +31,17 @@
         </Grid.RowDefinitions>
 
         <!-- The account, and its totals since the first balance -->
-        <Grid x:Name="HeaderGrid" ColumnSpacing="32" RowSpacing="10" SizeChanged="Header_SizeChanged">
+        <!-- When the window is narrower than the title and totals need, they are made smaller together, in place (the box is as wide as the room, or as the heading needs if that is more) -->
+        <Grid x:Name="HeaderHost" SizeChanged="Header_SizeChanged">
+        <Viewbox x:Name="HeaderBox" Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left" VerticalAlignment="Top">
+        <Grid x:Name="HeaderGrid" ColumnSpacing="32">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="0" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <TextBlock x:Name="TitleText" Text="{x:Bind ViewModel.Title, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
-                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-            <!-- The totals sit at the top right; when there is not room for them beside the title they drop under it, and scroll sideways if still too wide -->
-            <ScrollViewer x:Name="TotalsScroll" Grid.Column="1" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled"
-                          VerticalAlignment="Bottom" HorizontalAlignment="Right">
-            <StackPanel x:Name="TotalsPanel" Orientation="Horizontal" Spacing="24" VerticalAlignment="Bottom">
+            <TextBlock x:Name="TitleText" SizeChanged="Header_SizeChanged" Text="{x:Bind ViewModel.Title, Mode=OneWay}" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Bottom"
+                       TextWrapping="NoWrap" />
+            <StackPanel x:Name="TotalsPanel" Grid.Column="1" SizeChanged="Header_SizeChanged" Orientation="Horizontal" Spacing="24" VerticalAlignment="Bottom">
                 <StackPanel ToolTipService.ToolTip="The balance on the very first line: what the fund was worth when you started">
                     <TextBlock Text="Original balance" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Text="{x:Bind ViewModel.OriginalText, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
@@ -68,7 +64,8 @@
                     <TextBlock Text="{x:Bind ViewModel.ChangeText, Mode=OneWay}" Foreground="{x:Bind ViewModel.ChangeBrush, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" />
                 </StackPanel>
             </StackPanel>
-            </ScrollViewer>
+        </Grid>
+        </Viewbox>
         </Grid>
 
         <!-- Add Entry on the left; which table to look at, and the Excel import, on the right -->

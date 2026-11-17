@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.28
+
+- **The title and totals of a balance account shrink in place as the window narrows.** Instead of dropping under the title, the account name and the totals at the top (Original balance, Balance now and the gains, withdrawals and net figures) now get smaller together, as the table below does.
+
 ## 0.9.27
 
 - **A balance account's screen no longer empties when the window is made narrow.** The title used to be squeezed until it wrapped one letter per line and pushed the whole page out of view. Now the totals drop under the title when there is no room beside it (and scroll sideways if still too wide), and the table is made smaller to fit instead of being cut off.
