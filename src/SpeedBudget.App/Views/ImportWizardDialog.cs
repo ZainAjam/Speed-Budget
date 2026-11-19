@@ -714,7 +714,7 @@ public sealed class ImportWizardDialog : ContentDialog
         var add = ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim(), Memo = string.IsNullOrWhiteSpace(r.Memo) ? null : r.Memo.Trim() }).ToList();
         var result = await _vm.ApplyBankMatchesAsync(account, clear, add, CurrentFormat(), _rememberBox.IsChecked == true);
         if (result is not null && BankBalance.Closing(_parse.Lines) is { } closing)
-            Outcome = new BalanceCheck(closing.Date, closing.Balance, await _vm.ClearedBalanceAsOfAsync(account, closing.Date), await _vm.ClearedBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)));
+            Outcome = new BalanceCheck(closing.Date, closing.Balance, await _vm.ClearedBalanceAsOfAsync(account, closing.Date), await _vm.ClearedBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)), account, _parse.Lines);
         return result is not null;
     }
 }

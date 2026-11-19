@@ -164,4 +164,61 @@ public sealed class BankImportTests : IDisposable
         var t3 = BankFile.ReadTable(none);
         Assert.Null(BankBalance.Closing(BankFile.Parse(t3, BankFile.Detect(t3)!).Lines));
     }
+
+    private async Task<Guid> AccountWithAsync(long opening, params (int Day, long Amount, bool Cleared)[] transactions)
+    {
+        var account = new AccountEntity { Name = "Cheque", IsOnBudget = false, OpeningBalance = opening };
+        _db.Accounts.Add(account);
+        await _db.SaveChangesAsync();
+        foreach (var (day, amount, cleared) in transactions)
+            await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new DateOnly(2026, 11, day), Amount = amount, Payee = $"T{day}", IsCleared = cleared }, new[] { new SplitLineEntity { Amount = amount } });
+        return account.Id;
+    }
+
+    private static BankLine Line(int n, int day, long amount, long balance) => new(n, new DateOnly(2026, 11, day), "x", null, amount, balance);
+
+    [Fact]
+    public async Task A_file_that_agrees_reconciles()
+    {
+        var id = await AccountWithAsync(100000, (3, -1000, true), (4, -2000, true));
+        var diagnosis = await _store.DiagnoseBalanceAsync(id, [Line(1, 3, -1000, 99000), Line(2, 4, -2000, 97000)]);
+        Assert.True(diagnosis!.Reconciles);
+        Assert.Empty(diagnosis.Items);
+    }
+
+    [Fact]
+    public async Task A_different_opening_balance_shows_as_a_gap_before_the_first_line()
+    {
+        var id = await AccountWithAsync(150000, (3, -1000, true));
+        var diagnosis = await _store.DiagnoseBalanceAsync(id, [Line(1, 3, -1000, 99000)]);
+        Assert.Equal(50000, diagnosis!.Gap);
+        var item = Assert.Single(diagnosis.Items);
+        Assert.Equal(DiagnosisKind.OpeningGap, item.Kind);
+        Assert.Equal(50000, item.Amount);
+    }
+
+    [Fact]
+    public async Task Finds_a_cleared_transaction_the_file_does_not_have_and_a_line_the_account_does_not_have()
+    {
+        var id = await AccountWithAsync(100000, (3, -1000, true), (4, -700, true));          // 4th is not in the file
+        var diagnosis = await _store.DiagnoseBalanceAsync(id, [Line(1, 3, -1000, 99000), Line(2, 5, -300, 98700)]);   // the 5th is not in the account
+        Assert.Contains(diagnosis!.Items, i => i.Kind == DiagnosisKind.ClearedNotInFile && i.Transaction!.Amount == -700);
+        Assert.Contains(diagnosis.Items, i => i.Kind == DiagnosisKind.InFileNotInApp && i.Line!.Amount == -300);
+        Assert.Equal(diagnosis.Gap, diagnosis.Items.Sum(i => i.Amount));
+    }
+
+    [Fact]
+    public async Task The_fixes_change_the_account()
+    {
+        var id = await AccountWithAsync(100000, (4, -700, true));
+        var tx = await _db.Transactions.AsNoTracking().SingleAsync();
+        Assert.True(await _store.SetBankDateAsync(tx.Id, new DateOnly(2026, 11, 6)));
+        Assert.Equal(new DateOnly(2026, 11, 6), (await _db.Transactions.AsNoTracking().SingleAsync()).BankDate);
+        Assert.True(await _store.SetClearedAsync(tx.Id, false));
+        Assert.False((await _db.Transactions.AsNoTracking().SingleAsync()).IsCleared);
+        await _store.SetOpeningBalanceAsync(id, 5);
+        Assert.Equal(5, await _store.GetOpeningBalanceAsync(id));
+        Assert.True(await _store.DeleteTransactionAsync(tx.Id));
+        Assert.Empty(await _db.Transactions.AsNoTracking().ToListAsync());
+    }
 }

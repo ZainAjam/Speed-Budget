@@ -1490,6 +1490,26 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     public Task<bool> GetBankSkipSetupAsync(Guid accountId) => _store.GetBankSkipSetupAsync(accountId);
 
+    // ---- Finding why an import does not reconcile ----
+
+    public Task<BalanceDiagnosis?> DiagnoseBalanceAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.DiagnoseBalanceAsync(accountId, lines);
+
+    public Task<long> GetOpeningBalanceAsync(Guid accountId) => _store.GetOpeningBalanceAsync(accountId);
+
+    /// <summary>Makes one change to fix a difference, then reloads the table and the balances.</summary>
+    public async Task FixAsync(Func<BudgetStore, Task> change)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await change(_store);
+            _hints = await _store.GetPayeeHintsAsync();
+            _rebuildAll = true;
+            await LoadRowsAsync(null);
+        }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>The cleared balance of an account as at a date (the figure the account screen shows, for that day).</summary>
     public async Task<long> ClearedBalanceAsOfAsync(Guid accountId, DateOnly date) => (await _store.GetBalancesAsync(accountId, default, date)).ClearedBalance;
 

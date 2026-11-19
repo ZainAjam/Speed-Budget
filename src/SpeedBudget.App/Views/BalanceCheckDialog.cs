@@ -10,7 +10,7 @@ using Windows.UI;
 namespace SpeedBudget.App.Views;
 
 /// <summary>The result of comparing the balance a bank file ends on with the account's cleared balance in the app, as at the file's last date.</summary>
-public sealed record BalanceCheck(DateOnly Date, long FileBalance, long AppBalance, long CurrentBalance)
+public sealed record BalanceCheck(DateOnly Date, long FileBalance, long AppBalance, long CurrentBalance, Guid AccountId, IReadOnlyList<SpeedBudget.Data.BankLine> Lines)
 {
     public bool Matches => FileBalance == AppBalance;
 }
@@ -27,7 +27,8 @@ public sealed class BalanceCheckDialog : ContentDialog
     public BalanceCheckDialog(BalanceCheck check)
     {
         CloseButtonText = "OK";
-        DefaultButton = ContentDialogButton.Close;
+        if (!check.Matches) { PrimaryButtonText = "Find the difference"; DefaultButton = ContentDialogButton.Primary; }
+
         Resources["ContentDialogMinWidth"] = 480.0;
 
         // The pictures are drawn on a 150 square; shown at half that size.

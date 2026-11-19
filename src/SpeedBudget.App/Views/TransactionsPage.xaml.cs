@@ -692,7 +692,21 @@ public sealed partial class TransactionsPage : Page, IReloadable
             if (ViewModel.ImportAccounts().Count == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import into", "There is no account kept by transactions to import into."); return; }
             var wizard = new ImportWizardDialog(ViewModel, tables, Path.GetFileName(path)) { XamlRoot = XamlRoot };
             await wizard.ShowAsync();
-            if (wizard.Outcome is { } check) await new BalanceCheckDialog(check) { XamlRoot = XamlRoot }.ShowAsync();   // the file's balance against the account's
+            if (wizard.Outcome is { } check)
+            {
+                // The file's balance against the account's. When they differ, the user can go on to find out why and fix it.
+                var shown = await new BalanceCheckDialog(check) { XamlRoot = XamlRoot }.ShowAsync();
+                if (shown == ContentDialogResult.Primary)
+                {
+                    var fix = new BalanceFixDialog(ViewModel, check) { XamlRoot = XamlRoot };
+                    await fix.ShowAsync();
+                    if (fix.Resolved)   // it reconciles now
+                    {
+                        var today = await ViewModel.ClearedBalanceAsOfAsync(check.AccountId, DateOnly.FromDateTime(DateTime.Today));
+                        await new BalanceCheckDialog(check with { AppBalance = check.FileBalance, CurrentBalance = today }) { XamlRoot = XamlRoot }.ShowAsync();
+                    }
+                }
+            }
         }
         catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The file could not be imported", ex.Message); }
     }
