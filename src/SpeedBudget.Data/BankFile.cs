@@ -357,27 +357,43 @@ public sealed partial class BudgetStore
     public async Task<bool[]> FindExistingAsync(Guid accountId, IReadOnlyList<BankLine> lines, CancellationToken ct = default) =>
         (await MatchBankLinesAsync(accountId, lines, 3, ct)).Select(m => m.Existing is not null).ToArray();
 
+    /// <summary>Applies a reconciliation with the table's values kept (see the other overload).</summary>
+    public Task<(int Cleared, int Added)> ApplyBankMatchesAsync(Guid accountId, IEnumerable<BankMatch> clear, IEnumerable<BankLine> add, CancellationToken ct = default) =>
+        ApplyBankMatchesAsync(accountId, clear.Select(m => new BankClear(m)), add, ct);
+
     /// <summary>
-    /// Applies a reconciliation in one save (so Ctrl+Z takes it all back): the matched transactions become cleared, with the bank's date, and the
-    /// lines the account did not have are added as new, cleared transactions. Returns how many were cleared and how many added.
+    /// Applies a reconciliation in one save (so Ctrl+Z takes it all back): the matched transactions become cleared, with the bank's date, taking
+    /// from the file whichever of date, counterparty, memo and amount were chosen, and the lines the account did not have are added as new,
+    /// cleared transactions. Returns how many were cleared and how many added.
     /// </summary>
-    public async Task<(int Cleared, int Added)> ApplyBankMatchesAsync(Guid accountId, IEnumerable<BankMatch> clear, IEnumerable<BankLine> add, CancellationToken ct = default)
+    public async Task<(int Cleared, int Added)> ApplyBankMatchesAsync(Guid accountId, IEnumerable<BankClear> clear, IEnumerable<BankLine> add, CancellationToken ct = default)
     {
-        var clearing = clear.Where(m => m.Existing is not null).ToList();
-        var ids = clearing.Select(m => m.Existing!.Id).ToList();
+        var clearing = clear.Where(c => c.Match.Existing is not null).ToList();
+        var ids = clearing.Select(c => c.Match.Existing!.Id).ToList();
         var entities = await db.Transactions.Where(t => ids.Contains(t.Id)).ToDictionaryAsync(t => t.Id, ct);
+        var lines = await db.SplitLines.Where(l => ids.Contains(l.TransactionId)).ToListAsync(ct);
         var cleared = 0;
-        foreach (var match in clearing)
+        var chosenPayees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var choice in clearing)
         {
-            if (!entities.TryGetValue(match.Existing!.Id, out var t) || t.IsReconciled) continue;
+            var line = choice.Match.Line;
+            if (!entities.TryGetValue(choice.Match.Existing!.Id, out var t) || t.IsReconciled) continue;
             var changed = false;
-            if (t.IsUndated) { t.IsUndated = false; t.Date = match.Line.Date; changed = true; }   // the bank says when it happened
-            if (t.BankDate is null) { t.BankDate = match.Line.Date; changed = true; }
+            var transfer = t.TransferPairId is not null;   // the two sides of a transfer are kept in step: leave their date, name and amount alone
+            if (!transfer && (t.IsUndated || choice.FileDate) && (t.IsUndated || t.Date != line.Date)) { t.IsUndated = false; t.Date = line.Date; changed = true; }   // the bank says when it happened
+            if (!transfer && choice.FilePayee && t.Payee != line.Description) { t.Payee = line.Description; chosenPayees.Add(line.Description); changed = true; }
+            if (choice.FileMemo && t.Memo != line.Memo) { t.Memo = line.Memo; changed = true; }
+            if (!transfer && choice.FileAmount && t.Amount != line.Amount)
+            {
+                var own = lines.Where(l => l.TransactionId == t.Id).ToList();
+                if (own.Count <= 1) { t.Amount = line.Amount; foreach (var l in own) l.Amount = line.Amount; changed = true; }   // a split keeps its own lines
+            }
+            if (t.BankDate is null || (choice.FileDate && t.BankDate != line.Date)) { t.BankDate = line.Date; changed = true; }   // the bank date is the bank's own
             if (!t.IsCleared) { t.IsCleared = true; changed = true; }
             if (changed) cleared++;
         }
 
-        var payees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var payees = new HashSet<string>(chosenPayees, StringComparer.OrdinalIgnoreCase);
         var nextOrder = new Dictionary<DateOnly, int>();
         var added = 0;
         foreach (var line in add)
@@ -403,3 +419,6 @@ public sealed partial class BudgetStore
 
     public Task SetBankSkipSetupAsync(Guid accountId, bool skip, CancellationToken ct = default) => SetSettingAsync($"bankskip:{accountId}", skip ? "1" : null, ct);
 }
+
+/// <summary>A matched transaction to clear, and which of its values to take from the file instead of keeping the table's.</summary>
+public sealed record BankClear(BankMatch Match, bool FileDate = false, bool FilePayee = false, bool FileMemo = false, bool FileAmount = false);

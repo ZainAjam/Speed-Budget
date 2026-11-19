@@ -1495,7 +1495,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public Task<IReadOnlyList<BankMatch>> MatchBankLinesAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.MatchBankLinesAsync(accountId, lines);
 
     /// <summary>Clears the matched transactions and adds the lines that were not in the table, in one save, and remembers the file layout for the account.</summary>
-    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankMatch> clear, IReadOnlyList<BankLine> add, BankFormat format, bool skipSetup)
+    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankClear> clear, IReadOnlyList<BankLine> add, BankFormat format, bool skipSetup)
     {
         await _gate.WaitAsync();
         try

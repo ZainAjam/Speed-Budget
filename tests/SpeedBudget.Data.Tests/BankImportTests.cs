@@ -125,4 +125,24 @@ public sealed class BankImportTests : IDisposable
         // Run again: everything is now in the table and cleared.
         Assert.All(await _store.MatchBankLinesAsync(account.Id, [L(1, 4, -12550), L(2, 5, -999)]), m => Assert.NotNull(m.Existing));
     }
+
+    [Fact]
+    public async Task Applying_takes_the_chosen_values_from_the_file()
+    {
+        var account = new AccountEntity { Name = "Cheque", IsOnBudget = false };
+        _db.Accounts.Add(account);
+        await _db.SaveChangesAsync();
+        await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new DateOnly(2026, 11, 17), Amount = -200000, Payee = "Checkers", Memo = "GROCERIES" }, new[] { new SplitLineEntity { Amount = -200000 } });
+
+        var line = new BankLine(1, new DateOnly(2026, 11, 18), "CHECKERS SANDTON", "bank memo", -200000);
+        var match = (await _store.MatchBankLinesAsync(account.Id, [line]))[0];
+
+        await _store.ApplyBankMatchesAsync(account.Id, [new BankClear(match, FileDate: true, FilePayee: true)], []);
+        var t = await _db.Transactions.AsNoTracking().SingleAsync(x => x.AccountId == account.Id);
+        Assert.Equal(new DateOnly(2026, 11, 18), t.Date);
+        Assert.Equal(new DateOnly(2026, 11, 18), t.BankDate);
+        Assert.Equal("CHECKERS SANDTON", t.Payee);
+        Assert.Equal("GROCERIES", t.Memo);   // the table's memo was kept
+        Assert.True(t.IsCleared);
+    }
 }
