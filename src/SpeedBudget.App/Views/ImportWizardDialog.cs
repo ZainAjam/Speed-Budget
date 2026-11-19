@@ -668,6 +668,8 @@ public sealed class ImportWizardDialog : ContentDialog
     }
 
     private IEnumerable<ReconcileRow> ToClear => _rows.Where(r => r.CanConfirm && r.Matched && r.Apply);
+    /// <summary>Matched transactions that are already cleared: nothing to change, but they agree with the file, so they become reconciled.</summary>
+    private IEnumerable<ReconcileRow> ToReconcileOnly => _rows.Where(r => r.AlreadyCleared && r.HasMatch && r.Matched && r.Existing is { IsReconciled: false });
     private IEnumerable<ReconcileRow> ToAdd => _rows.Where(r => Offered(r) && r.Import);
 
     /// <summary>Says how many lines matched transactions that are already cleared, as these are not listed.</summary>
@@ -691,7 +693,9 @@ public sealed class ImportWizardDialog : ContentDialog
         _newHelp.Text = offered == 0 ? "Every line of the file is already in the table." : "These lines of the file are not in the table. Tick the ones to add as new, cleared transactions, and choose the counterparty and edit the memo if you like."
             + (_vm.AccountIsOnBudget(AccountId) ? " They have no budget item yet: give them one in the table." : "");
         _reconcileSummary.Text = $"{clear} transaction{(clear == 1 ? "" : "s")} will be cleared and {add} new transaction{(add == 1 ? "" : "s")} added. Nothing changes until you press Apply.";
-        IsPrimaryButtonEnabled = clear + add > 0 || BankBalance.Closing(_parse.Lines) is not null;   // with balances in the file, Apply still checks the account against them
+        var agree = ToReconcileOnly.Count();
+        if (agree > 0) _reconcileSummary.Text += $" {agree} already-cleared transaction{(agree == 1 ? "" : "s")} agree{(agree == 1 ? "s" : "")} with the file and will be marked reconciled.";
+        IsPrimaryButtonEnabled = clear + add > 0 || agree > 0 || BankBalance.Closing(_parse.Lines) is not null;   // with balances in the file, Apply still checks the account against them
     }
 
     /// <summary>The Select all and Deselect all buttons of a tab.</summary>
@@ -710,7 +714,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private async Task<bool> ApplyAsync()
     {
         if (AccountId is not { } account) return false;
-        var clear = ToClear.Select(r => new BankClear(r.Match, r.UseFileDate, r.UseFilePayee, r.UseFileMemo, r.UseFileAmount)).ToList();
+        var clear = ToClear.Select(r => new BankClear(r.Match, r.UseFileDate, r.UseFilePayee, r.UseFileMemo, r.UseFileAmount)).Concat(ToReconcileOnly.Select(r => new BankClear(r.Match))).ToList();
         var add = ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim(), Memo = string.IsNullOrWhiteSpace(r.Memo) ? null : r.Memo.Trim() }).ToList();
         var result = await _vm.ApplyBankMatchesAsync(account, clear, add, CurrentFormat(), _rememberBox.IsChecked == true);
         if (result is not null && BankBalance.Closing(_parse.Lines) is { } closing)

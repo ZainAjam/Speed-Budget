@@ -357,6 +357,10 @@ public sealed partial class TransactionRow(TransactionEntity entity, ItemOption 
     public string MemoTip => string.IsNullOrWhiteSpace(Memo) ? "Add a memo" : Memo;
     public double MemoIconOpacity => string.IsNullOrWhiteSpace(Memo) ? 0.35 : 1;
 
+    /// <summary>Agreed with the bank's file: it shows a green R instead of the cleared tick.</summary>
+    public bool IsReconciled => Entity.IsReconciled;
+    public bool NotReconciled => !Entity.IsReconciled;
+
     public bool IsCleared
     {
         get => Entity.IsCleared;

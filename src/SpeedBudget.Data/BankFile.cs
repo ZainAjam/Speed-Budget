@@ -380,6 +380,7 @@ public sealed partial class BudgetStore
             var line = choice.Match.Line;
             if (!entities.TryGetValue(choice.Match.Existing!.Id, out var t) || t.IsReconciled) continue;
             var changed = false;
+            var wasCleared = t.IsCleared && !t.IsUndated;
             var transfer = t.TransferPairId is not null;   // the two sides of a transfer are kept in step: leave their date, name and amount alone
             if (!transfer && (t.IsUndated || choice.FileDate) && (t.IsUndated || t.Date != line.Date)) { t.IsUndated = false; t.Date = line.Date; changed = true; }   // the bank says when it happened
             if (!transfer && choice.FilePayee && t.Payee != line.Description) { t.Payee = line.Description; chosenPayees.Add(line.Description); changed = true; }
@@ -391,7 +392,8 @@ public sealed partial class BudgetStore
             }
             if (t.BankDate is null || (choice.FileDate && t.BankDate != line.Date)) { t.BankDate = line.Date; changed = true; }   // the bank date is the bank's own
             if (!t.IsCleared) { t.IsCleared = true; changed = true; }
-            if (changed) cleared++;
+            t.IsReconciled = true;   // the account and the bank's file agree on this one
+            if (changed && !wasCleared) cleared++;   // one already cleared that is only being marked reconciled is not counted
         }
 
         var payees = new HashSet<string>(chosenPayees, StringComparer.OrdinalIgnoreCase);

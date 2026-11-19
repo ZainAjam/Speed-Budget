@@ -134,8 +134,15 @@
                     </Grid>
                 </Border>
                 <Border Grid.Column="8" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.CellLine, Mode=OneWay}" Padding="0,2">
-                    <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" MinWidth="0" HorizontalAlignment="Center" VerticalAlignment="Center"
-                              AutomationProperties.Name="Cleared" />
+                    <Grid>
+                        <CheckBox IsChecked="{x:Bind IsCleared, Mode=TwoWay}" MinWidth="0" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{x:Bind NotReconciled, Mode=OneWay}"
+                                  AutomationProperties.Name="Cleared" />
+                        <!-- Agreed with the bank's file (reconciled): cleared, and no longer a tick that can be changed -->
+                        <Border Visibility="{x:Bind IsReconciled, Mode=OneWay}" Width="22" Height="22" CornerRadius="11" Background="#2EA043" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                ToolTipService.ToolTip="Reconciled: this transaction agrees with the bank's file" AutomationProperties.Name="Reconciled">
+                            <TextBlock Text="R" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
                 </Border>
                 <!-- A pencil (yellow) turns edit mode on; while editing it is a tick (green) that saves the row. The bin is always there. -->
                 <Border Grid.Column="9" Style="{StaticResource CellBorder}" BorderThickness="{x:Bind Layout.ActionLine, Mode=OneWay}" Padding="0,2">
