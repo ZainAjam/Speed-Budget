@@ -4,6 +4,11 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.32
+
+- **Import and Export replace "Import from Excel" and "Export to Excel".** Export still saves an Excel workbook. **Import** now reads Excel workbooks, CSV and text files, and zip files that hold them (a zip with several files lets you choose which one).
+- **An import wizard maps the file to the table, then reconciles it.** The wizard guesses which column is the date, the counterparty and the money (one amount column, or separate money out and money in columns), the date layout, and the heading rows to skip; correct anything it got wrong, and it remembers the layout for the account next time. The second step lists every line of the file: lines already in the table are shown as **to be cleared** (they get the bank's date), lines not in the table are shown as **to be added** as new cleared transactions, and lines already cleared are greyed out. Untick any line you want left alone, then press Apply; nothing changes before that, and Ctrl+Z takes the whole import back. An expected transaction with no date is matched too, and takes the bank's date. A workbook exported from Speed Budget is still imported as it is.
+
 ## 0.9.31
 
 - **Add Entry is now a + button** on the screen of an account kept by its balances.

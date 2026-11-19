@@ -513,6 +513,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
 
     private List<AccountEntity> _accounts = new();
+    /// <summary>The next load builds every row afresh: the entities were changed in place (a bank import), so a row cannot tell by its figures that it is out of date.</summary>
+    private bool _rebuildAll;
     private IReadOnlyList<PayeeHint> _hints = Array.Empty<PayeeHint>();
     private bool _loaded;
     private string _lastMonthLabel = "";
@@ -1000,7 +1002,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var current = new Dictionary<string, object>();
         foreach (var row in Rows)
             if (row is not TransactionRow { IsNew: true } && KeyOf(row) is { } key) current.TryAdd(key, row);
-        var final = ordered.Select(row => KeyOf(row) is { } key && current.TryGetValue(key, out var old) && (old is TransactionRow { IsEditing: true } || SignatureOf(old) == SignatureOf(row)) ? old : row).ToList();   // a row being edited stays as it is, with what was typed in it
+        var final = ordered.Select(row => !_rebuildAll && KeyOf(row) is { } key && current.TryGetValue(key, out var old) && (old is TransactionRow { IsEditing: true } || SignatureOf(old) == SignatureOf(row)) ? old : row).ToList();   // a row being edited stays as it is, with what was typed in it
+        _rebuildAll = false;
 
         var draft = _draft;
         _rebuilding = true;   // changing the list must not save or drop a new row that is being filled in
@@ -1475,6 +1478,35 @@ public sealed partial class TransactionsViewModel : ObservableObject
     }
 
     public Task ExportAsync(string path) => _store.ExportTransactionsAsync(path, AccountId);
+
+    // ---- Importing a bank file: the wizard's reconciliation ----
+
+    /// <summary>The accounts a file of transactions can go into: open accounts kept by transactions.</summary>
+    public List<AccountOption> ImportAccounts() => _accounts.Where(a => !a.IsClosed && !a.TrackBalances).Select(a => new AccountOption(a.Id, a.Name, a.IsOnBudget)).ToList();
+
+    public bool AccountIsOnBudget(Guid? id) => _accounts.FirstOrDefault(a => a.Id == id)?.IsOnBudget == true;
+
+    public Task<BankFormat?> GetBankFormatAsync(Guid accountId) => _store.GetBankFormatAsync(accountId);
+
+    public Task<IReadOnlyList<BankMatch>> MatchBankLinesAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.MatchBankLinesAsync(accountId, lines);
+
+    /// <summary>Clears the matched transactions and adds the lines that were not in the table, in one save, and remembers the file layout for the account.</summary>
+    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankMatch> clear, IReadOnlyList<BankLine> add, BankFormat format)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var result = await _store.ApplyBankMatchesAsync(accountId, clear, add);
+            await _store.SaveBankFormatAsync(accountId, format);
+            _hints = await _store.GetPayeeHintsAsync();
+            _rebuildAll = true;
+            await LoadRowsAsync(null);
+            Message = $"Import: {result.Cleared} cleared, {result.Added} added.";
+            return result;
+        }
+        catch (Exception ex) { Message = $"The import failed: {ex.Message}"; return null; }
+        finally { _gate.Release(); }
+    }
 
     public async Task DeleteAsync(TransactionRow row)
     {

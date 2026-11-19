@@ -93,16 +93,16 @@
                 <ToggleButton x:Name="MonthButton" Click="Month_Click" AutomationProperties.Name="Report" ToolTipService.ToolTip="Report: the gains, withdrawals and money left for each month">
                     <FontIcon Glyph="&#xE9D2;" FontSize="16" />
                 </ToggleButton>
-                <!-- The overflow menu: import from and export to Excel -->
+                <!-- The overflow menu: import and export -->
                 <Button Margin="12,0,0,0" AutomationProperties.Name="More" ToolTipService.ToolTip="More">
                     <FontIcon Glyph="&#xE712;" FontSize="14" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
-                            <MenuFlyoutItem Text="Import from Excel…" Click="Import_Click">
+                            <MenuFlyoutItem Text="Import…" Click="Import_Click">
                                 <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE896;" /></MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                             <MenuFlyoutSeparator />
-                            <MenuFlyoutItem Text="Export to Excel…" Click="Export_Click">
+                            <MenuFlyoutItem Text="Export…" Click="Export_Click">
                                 <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE898;" /></MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                         </MenuFlyout>

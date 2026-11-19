@@ -664,40 +664,54 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (await dialog.ShowAsync() == ContentDialogResult.Primary) await ViewModel.DeleteManyAsync(rows);
     }
 
-    // ---- Excel: importing a file, and exporting the table ----
+    // ---- Importing a file, and exporting the table to Excel ----
 
     private bool ImportWithAccount => ViewModel.AccountId is null;
 
-    private async void ImportExcel_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Import: Excel, CSV or text, or a zip of those. A workbook exported from Speed Budget (it has its own headings, budget items and
+    /// month lines) is added as it is; any other file goes through the wizard, which asks how the columns map and then reconciles the
+    /// lines with the table: lines already there are cleared, lines not there are added.
+    /// </summary>
+    private async void Import_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var path = await ExcelFiles.PickOpenAsync();
+            var path = await ExcelFiles.PickImportAsync();
             if (path is null) return;
 
-            var read = await Task.Run(() => TransactionImport.Read(path, ImportWithAccount));
-            if (read.Rows.Count == 0)
+            if (Path.GetExtension(path).ToLowerInvariant() is ".xlsx" or ".xlsm")
             {
-                await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", read.Problems.Count == 0 ? "There are no lines with a date, a counterparty and an amount in the file. The first row needs the headings Date, Counterparty, Memo, Budget item, Outflow, Inflow and Cleared (and Account, for all accounts); an export from Speed Budget has them." : ExcelFiles.ProblemText(read.Problems));
-                return;
+                TransactionImportFile? own = null;
+                try { own = await Task.Run(() => TransactionImport.Read(path, ImportWithAccount)); } catch (Exception) { /* not a workbook we can read this way: the wizard tries it */ }
+                if (own is { Rows.Count: > 0 }) { await ImportOwnFileAsync(own); return; }
             }
 
-            var preview = await ViewModel.PreviewImportAsync(read.Rows);
-            var problems = read.Problems.Concat(preview.Skipped).ToList();
-            var text = $"{preview.Added} transaction{(preview.Added == 1 ? "" : "s")} will be added";
-            text += preview.MonthLines > 0 ? $", with {preview.MonthLines} new month line{(preview.MonthLines == 1 ? "" : "s")}." : ".";
-            foreach (var note in preview.Notes) text += $"\n\n{note}";
-            if (problems.Count > 0) text += $"\n\n{problems.Count} line{(problems.Count == 1 ? "" : "s")} will be skipped:\n{ExcelFiles.ProblemText(problems)}";
-            if (preview.Added == 0 && preview.MonthLines == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", text); return; }
-            if (!await ExcelFiles.ConfirmAsync(XamlRoot, "Import these transactions?", text)) return;
-
-            var result = await ViewModel.ImportAsync(read.Rows);
-            if (result is not null) ViewModel.Message = "";
+            var tables = await Task.Run(() => BankFile.ReadTables(path));
+            if (tables.Count == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", "No table of transactions was found in the file. Pick an Excel workbook, a CSV or text file, or a zip that holds them."); return; }
+            if (ViewModel.ImportAccounts().Count == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import into", "There is no account kept by transactions to import into."); return; }
+            var wizard = new ImportWizardDialog(ViewModel, tables, Path.GetFileName(path)) { XamlRoot = XamlRoot };
+            await wizard.ShowAsync();
         }
         catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The file could not be imported", ex.Message); }
     }
 
-    private async void ExportExcel_Click(object sender, RoutedEventArgs e)
+    private async Task ImportOwnFileAsync(TransactionImportFile read)
+    {
+        var preview = await ViewModel.PreviewImportAsync(read.Rows);
+        var problems = read.Problems.Concat(preview.Skipped).ToList();
+        var text = $"{preview.Added} transaction{(preview.Added == 1 ? "" : "s")} will be added";
+        text += preview.MonthLines > 0 ? $", with {preview.MonthLines} new month line{(preview.MonthLines == 1 ? "" : "s")}." : ".";
+        foreach (var note in preview.Notes) text += $"\n\n{note}";
+        if (problems.Count > 0) text += $"\n\n{problems.Count} line{(problems.Count == 1 ? "" : "s")} will be skipped:\n{ExcelFiles.ProblemText(problems)}";
+        if (preview.Added == 0 && preview.MonthLines == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import", text); return; }
+        if (!await ExcelFiles.ConfirmAsync(XamlRoot, "Import these transactions?", text)) return;
+
+        var result = await ViewModel.ImportAsync(read.Rows);
+        if (result is not null) ViewModel.Message = "";
+    }
+
+    private async void Export_Click(object sender, RoutedEventArgs e)
     {
         try
         {

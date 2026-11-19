@@ -29,6 +29,15 @@ public static class ExcelFiles
         return (await picker.PickSingleFileAsync())?.Path;
     }
 
+    /// <summary>Asks which file to import: Excel, CSV or text, or a zip of those. Null when the user backs out.</summary>
+    public static async Task<string?> PickImportAsync()
+    {
+        var picker = new FileOpenPicker();
+        foreach (var ext in BankFile.Extensions) picker.FileTypeFilter.Add(ext);
+        StartWithWindow(picker);
+        return (await picker.PickSingleFileAsync())?.Path;
+    }
+
     public static string ProblemText(IReadOnlyList<ImportProblem> problems)
     {
         var lines = problems.Take(8).Select(p => $"Row {p.Line}: {p.Message}").ToList();
