@@ -395,3 +395,11 @@ public sealed partial class BudgetStore
         return (cleared, added);
     }
 }
+
+public sealed partial class BudgetStore
+{
+    /// <summary>Whether the user asked to skip the import setup step for this account and go straight to the reconciliation.</summary>
+    public async Task<bool> GetBankSkipSetupAsync(Guid accountId, CancellationToken ct = default) => await GetSettingAsync($"bankskip:{accountId}", ct) == "1";
+
+    public Task SetBankSkipSetupAsync(Guid accountId, bool skip, CancellationToken ct = default) => SetSettingAsync($"bankskip:{accountId}", skip ? "1" : null, ct);
+}

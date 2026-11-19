@@ -14,7 +14,8 @@ public sealed class PayeeListRow(string name, string text, bool isCreate)
     public bool IsCreate { get; } = isCreate;
 
     /// <summary>Only a real counterparty has a pencil.</summary>
-    public bool CanEdit => !IsCreate;
+    public bool EditEnabled { get; init; } = true;
+    public bool CanEdit => !IsCreate && EditEnabled;
 }
 
 /// <summary>
@@ -47,6 +48,9 @@ public sealed partial class PayeePicker : UserControl
 
     /// <summary>Raised with a counterparty's name when its bin is pressed, so the owner can delete it (after asking).</summary>
     public event EventHandler<string>? DeleteRequested;
+
+    /// <summary>Whether the list offers a pencil and a bin on each counterparty. Off where the owner has nothing to edit or delete with.</summary>
+    public bool AllowEdit { get; set; } = true;
 
     /// <summary>The icon of each counterparty that has one, by name. Shown in front of the names in the list.</summary>
     public IReadOnlyDictionary<string, string>? Icons
@@ -125,7 +129,7 @@ public sealed partial class PayeePicker : UserControl
     private void Refresh()
     {
         var typed = SearchBox.Text.Trim();
-        var rows = Matches(typed).Select(n => new PayeeListRow(n, WithIcon(n), isCreate: false)).ToList();
+        var rows = Matches(typed).Select(n => new PayeeListRow(n, WithIcon(n), isCreate: false) { EditEnabled = AllowEdit }).ToList();
         var exists = (ItemsSource ?? Enumerable.Empty<string>()).Any(n => string.Equals(n, typed, StringComparison.OrdinalIgnoreCase));
         if (typed != "" && !exists) rows.Insert(0, new PayeeListRow(typed, $"{CreatePrefix}{typed}”", isCreate: true));
         ResultList.ItemsSource = rows;

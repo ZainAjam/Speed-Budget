@@ -36,6 +36,7 @@ public sealed class ReconcileRow : INotifyPropertyChanged
     /// <summary>The counterparty the new transaction gets: the file's description to begin with, or blank, and the user can pick or type another.</summary>
     public string Payee { get; set; } = "";
     public IReadOnlyList<string> Suggestions { get; init; } = [];
+    public IReadOnlyDictionary<string, string> Icons { get; init; } = new Dictionary<string, string>();
 
     public bool CanConfirm => HasMatch && !AlreadyCleared;
     public double MatchOpacity => AlreadyCleared ? 0.55 : 1;
@@ -81,6 +82,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private readonly RadioButtons _moneyMode = new() { Items = { "One amount column", "Separate money out and money in columns" }, SelectedIndex = 0, MaxColumns = 2 };
     private readonly ComboBox _amountBox = Choice(), _debitBox = Choice(), _creditBox = Choice();
     private readonly CheckBox _negativeOut = new() { Content = "A negative amount is money out", IsChecked = true };
+    private readonly CheckBox _rememberBox = new() { Content = "Remember this setup and skip this step next time (you can still change it from the reconciliation)", IsChecked = false };
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _rawPreview = new() { FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"), FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.NoWrap };
     private readonly StackPanel _mapStep = new() { Spacing = 10 };
@@ -140,7 +142,7 @@ public sealed class ImportWizardDialog : ContentDialog
             box.SelectionChanged += (_, _) => { if (!_loading) Reparse(); };
         _moneyMode.SelectionChanged += (_, _) => { if (!_loading) { ShowMoneyMode(); Reparse(); } };
         _negativeOut.Click += (_, _) => Reparse();
-        Opened += async (_, _) => await SetUpAsync();
+        Opened += async (_, _) => await SetUpAsync(auto: true);
     }
 
     // ---- Step 1: the file and its columns ----
@@ -178,6 +180,7 @@ public sealed class ImportWizardDialog : ContentDialog
 
         _mapStep.Children.Add(new TextBlock { Text = $"{fileName}: say which column holds what. The columns are guessed from the file; correct any that are wrong.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
         _mapStep.Children.Add(grid);
+        _mapStep.Children.Add(_rememberBox);
         _mapStep.Children.Add(_summary);
         _mapStep.Children.Add(new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = _rawPreview });
     }
@@ -243,14 +246,22 @@ public sealed class ImportWizardDialog : ContentDialog
     private Guid? AccountId => _vm.AccountId ?? (_accountBox.SelectedItem as AccountOption)?.Id;
 
     /// <summary>Takes the layout the account used before, or else a guess from the file, and shows it.</summary>
-    private async Task SetUpAsync()
+    private bool _usedSaved;
+
+    private async Task SetUpAsync(bool auto = false)
     {
         _loading = true;
         try
         {
             BankFormat? format = null;
-            if (AccountId is { } id) format = await _vm.GetBankFormatAsync(id);
-            if (format is null || format.HeaderRows >= _table.Rows.Count || BankFile.Parse(_table, format).Lines.Count == 0) format = BankFile.Detect(_table);
+            _usedSaved = false;
+            if (AccountId is { } id)
+            {
+                format = await _vm.GetBankFormatAsync(id);
+                _rememberBox.IsChecked = await _vm.GetBankSkipSetupAsync(id);
+            }
+            if (format is not null && format.HeaderRows < _table.Rows.Count && BankFile.Parse(_table, format).Lines.Count > 0) _usedSaved = true;
+            else format = BankFile.Detect(_table);
             _format = format;
             _headerRows.Value = format?.HeaderRows ?? 0;
             FillColumnChoices();
@@ -260,6 +271,10 @@ public sealed class ImportWizardDialog : ContentDialog
         }
         finally { _loading = false; }
         Reparse();
+
+        // The setup was remembered for this account and still reads this file: go straight to the reconciliation.
+        if (auto && _rememberBox.IsChecked == true && _usedSaved && _tables.Count == 1 && _vm.AccountId is not null && _parse.Lines.Count > 0)
+            await GoToReconcileAsync();
     }
 
     /// <summary>The layout as it is set in the boxes now.</summary>
@@ -294,6 +309,7 @@ public sealed class ImportWizardDialog : ContentDialog
     // ---- Step 2: the reconciliation ----
 
     private readonly TextBlock _matchHead = new() { Text = "Already in the table", FontSize = 15 }, _newHead = new() { Text = "Not in the table", FontSize = 15 };
+    private readonly Pivot _pivot = new();
     private readonly PivotItem _matchTab = new();
     private readonly PivotItem _newTab = new();
     private readonly ListView _matchList = new() { SelectionMode = ListViewSelectionMode.None, MinHeight = 260, MaxHeight = 330 };
@@ -303,7 +319,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private readonly TextBlock _newHelp = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.8 };
 
     private static string Template(string columns, string cells, string check) => $$"""
-        <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+        <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:local="using:SpeedBudget.App.Views">
           <Grid ColumnSpacing="10" Opacity="{Binding MatchOpacity}">
             <Grid.ColumnDefinitions>{{columns}}</Grid.ColumnDefinitions>
             {{check}}
@@ -360,7 +376,7 @@ public sealed class ImportWizardDialog : ContentDialog
         const string newColumns = """<ColumnDefinition Width="32"/><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/>""";
         _newList.ItemTemplate = (DataTemplate)XamlReader.Load(Template(newColumns, """
             <TextBlock Grid.Column="1" Text="{Binding DateText}" VerticalAlignment="Center"/>
-            <ComboBox Grid.Column="2" IsEditable="True" Text="{Binding Payee, Mode=TwoWay}" ItemsSource="{Binding Suggestions}" HorizontalAlignment="Stretch" MinWidth="0" PlaceholderText="Counterparty" VerticalAlignment="Center" ToolTipService.ToolTip="Who the transaction is with. Pick a counterparty from the list, type a new one, or leave it blank"/>
+            <local:PayeePicker Grid.Column="2" ItemsSource="{Binding Suggestions}" Icons="{Binding Icons}" SelectedPayee="{Binding Payee, Mode=TwoWay}" AllowEdit="False" HorizontalAlignment="Stretch" VerticalAlignment="Center" />
             <TextBlock Grid.Column="3" Text="{Binding MemoText}" TextTrimming="CharacterEllipsis" Opacity="0.7" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="4" Text="{Binding AmountText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
             """, """<CheckBox IsChecked="{Binding Import, Mode=TwoWay}" MinWidth="0" Padding="0" VerticalAlignment="Center" ToolTipService.ToolTip="Tick to add this as a new transaction"/>"""));
@@ -384,7 +400,8 @@ public sealed class ImportWizardDialog : ContentDialog
         _newTab.Content = newPanel;
 
         _matchTab.Header = _matchHead; _newTab.Header = _newHead;
-        var pivot = new Pivot { Items = { _matchTab, _newTab } };
+        var pivot = _pivot;
+        pivot.Items.Add(_matchTab); pivot.Items.Add(_newTab);
         Grid.SetRow(pivot, 1);
         _reconcileStep.Children.Add(pivot);
     }
@@ -396,7 +413,7 @@ public sealed class ImportWizardDialog : ContentDialog
         _reconcileStep.Visibility = reconcile ? Visibility.Visible : Visibility.Collapsed;
         Title = reconcile ? "Import transactions: reconcile" : "Import transactions";
         PrimaryButtonText = reconcile ? "Apply" : "Next";
-        SecondaryButtonText = reconcile ? "Back" : "";
+        SecondaryButtonText = reconcile ? "Edit import settings" : "";
         if (reconcile) UpdateSummary(); else Reparse();
     }
 
@@ -405,7 +422,7 @@ public sealed class ImportWizardDialog : ContentDialog
         if (AccountId is not { } account) return;
         var matches = await _vm.MatchBankLinesAsync(account, _parse.Lines);
         var payees = _vm.Payees.ToList();
-        _rows = matches.Select(m => new ReconcileRow { Match = m, Payee = m.Line.Description, Suggestions = payees }).ToList();
+        _rows = matches.Select(m => new ReconcileRow { Match = m, Payee = m.Line.Description, Suggestions = payees, Icons = _vm.PayeeIconsForImport }).ToList();
         foreach (var row in _rows)
         {
             row.Matched = row.CanConfirm;   // a match is proposed; the user confirms or rejects it
@@ -414,6 +431,7 @@ public sealed class ImportWizardDialog : ContentDialog
         }
         FillLists();
         ShowStep(reconcile: true);
+        _pivot.SelectedIndex = _rows.Any(r => r.HasMatch) ? 0 : 1;   // nothing to check against the table: open on the lines to import
     }
 
     private bool _filling;
@@ -494,7 +512,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private async Task<bool> ApplyAsync()
     {
         if (AccountId is not { } account) return false;
-        var result = await _vm.ApplyBankMatchesAsync(account, ToClear.Select(r => r.Match).ToList(), ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim() }).ToList(), CurrentFormat());
+        var result = await _vm.ApplyBankMatchesAsync(account, ToClear.Select(r => r.Match).ToList(), ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim() }).ToList(), CurrentFormat(), _rememberBox.IsChecked == true);
         return result is not null;
     }
 }

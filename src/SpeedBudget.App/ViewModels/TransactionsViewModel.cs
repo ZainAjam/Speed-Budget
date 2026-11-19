@@ -1488,16 +1488,21 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     public Task<BankFormat?> GetBankFormatAsync(Guid accountId) => _store.GetBankFormatAsync(accountId);
 
+    public Task<bool> GetBankSkipSetupAsync(Guid accountId) => _store.GetBankSkipSetupAsync(accountId);
+
+    public IReadOnlyDictionary<string, string> PayeeIconsForImport => PayeeIcons;
+
     public Task<IReadOnlyList<BankMatch>> MatchBankLinesAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.MatchBankLinesAsync(accountId, lines);
 
     /// <summary>Clears the matched transactions and adds the lines that were not in the table, in one save, and remembers the file layout for the account.</summary>
-    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankMatch> clear, IReadOnlyList<BankLine> add, BankFormat format)
+    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankMatch> clear, IReadOnlyList<BankLine> add, BankFormat format, bool skipSetup)
     {
         await _gate.WaitAsync();
         try
         {
             var result = await _store.ApplyBankMatchesAsync(accountId, clear, add);
             await _store.SaveBankFormatAsync(accountId, format);
+            await _store.SetBankSkipSetupAsync(accountId, skipSetup);
             _hints = await _store.GetPayeeHintsAsync();
             _rebuildAll = true;
             await LoadRowsAsync(null);
