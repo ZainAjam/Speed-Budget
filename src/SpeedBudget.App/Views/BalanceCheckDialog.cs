@@ -10,7 +10,7 @@ using Windows.UI;
 namespace SpeedBudget.App.Views;
 
 /// <summary>The result of comparing the balance a bank file ends on with the account's cleared balance in the app, as at the file's last date.</summary>
-public sealed record BalanceCheck(DateOnly Date, long FileBalance, long AppBalance)
+public sealed record BalanceCheck(DateOnly Date, long FileBalance, long AppBalance, long CurrentBalance)
 {
     public bool Matches => FileBalance == AppBalance;
 }
@@ -41,13 +41,17 @@ public sealed class BalanceCheckDialog : ContentDialog
         {
             TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 420, Opacity = 0.85,
             Text = check.Matches
-                ? $"The bank's balance in the file ({Format.Money(check.FileBalance)} on {check.Date:d MMM yyyy}) is the same as the account's cleared balance in Speed Budget."
-                : $"The file says the balance was {Format.Money(check.FileBalance)} on {check.Date:d MMM yyyy}, but the account's cleared balance in Speed Budget is {Format.Money(check.AppBalance)}: "
+                ? $"The bank's balance in the file ({Format.Money(check.FileBalance)} on {check.Date:d MMM yyyy}) is the same as the account's cleared balance in Speed Budget on that date." + TodayNote(check)
+                : $"The file says the balance was {Format.Money(check.FileBalance)} on {check.Date:d MMM yyyy}, but the account's cleared balance in Speed Budget on that date is {Format.Money(check.AppBalance)}: "
                   + $"{Format.Money(Math.Abs(check.FileBalance - check.AppBalance))} {(check.AppBalance > check.FileBalance ? "too much" : "too little")}. "
-                  + "A transaction may be missing, entered wrongly, or not cleared yet.",
+                  + "A transaction may be missing, entered wrongly, or not cleared yet." + TodayNote(check),
         };
         Content = new StackPanel { Spacing = 18, Padding = new Thickness(0, 12, 0, 4), HorizontalAlignment = HorizontalAlignment.Center, Children = { picture, title, detail } };
     }
+
+    /// <summary>The account screen shows today's cleared balance, which also counts cleared transactions dated after the file's last line: say so when the two differ.</summary>
+    private static string TodayNote(BalanceCheck check) => check.CurrentBalance == check.AppBalance ? "" :
+        $"\n\nThe cleared balance at the top of the account screen ({Format.Money(check.CurrentBalance)}) is today's, so it also counts cleared transactions dated after {check.Date:d MMM yyyy}.";
 
     // ---- The green tick: the disc pops in, then the tick draws itself ----
 
