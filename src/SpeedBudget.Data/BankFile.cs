@@ -8,14 +8,14 @@ using SpeedBudget.Core;
 namespace SpeedBudget.Data;
 
 /// <summary>One line of a bank file. Amount is signed in cents: money in is positive, money out is negative.</summary>
-public sealed record BankLine(int Line, DateOnly Date, string Description, string? Memo, long Amount);
+public sealed record BankLine(int Line, DateOnly Date, string Description, string? Memo, long Amount, long? Balance = null);
 
 /// <summary>
 /// Where the lines of a bank file are: how many heading rows come first, and which column holds what (-1 = none). Money is either
 /// one Amount column or separate Debit and Credit columns. <paramref name="NegativeIsOut"/> says whether a negative amount is money out
 /// (most banks) or money in.
 /// </summary>
-public sealed record BankFormat(int HeaderRows, int DateColumn, string DateFormat, int DescriptionColumn, int AmountColumn, int DebitColumn, int CreditColumn, bool NegativeIsOut, int MemoColumn = -1);
+public sealed record BankFormat(int HeaderRows, int DateColumn, string DateFormat, int DescriptionColumn, int AmountColumn, int DebitColumn, int CreditColumn, bool NegativeIsOut, int MemoColumn = -1, int BalanceColumn = -1);
 
 /// <summary>A file's table of cells, as text. The file name is kept for zip files that hold more than one.</summary>
 public sealed record BankTable(string Name, IReadOnlyList<string[]> Rows)
@@ -264,7 +264,7 @@ public static class BankFile
         var description = texts[0];
         var memo = texts.Skip(1).FirstOrDefault(-1);
 
-        return new BankFormat(firstData, dateColumn, dateFormat, description, amount, debit, credit, true, memo);
+        return new BankFormat(firstData, dateColumn, dateFormat, description, amount, debit, credit, true, memo, balance.FirstOrDefault(-1));
     }
 
     // ---- Reading the lines ----
@@ -299,7 +299,8 @@ public static class BankFile
             }
             if (amount == 0) { problems.Add(new ImportProblem(number, $"{date:d MMM yyyy}: there is no amount.")); continue; }
             var memo = format.MemoColumn >= 0 ? table.Cell(r, format.MemoColumn) : "";
-            lines.Add(new BankLine(number, date, description, memo == "" ? null : memo, amount));
+            var running = format.BalanceColumn >= 0 ? TryMoney(table.Cell(r, format.BalanceColumn)) : null;
+            lines.Add(new BankLine(number, date, description, memo == "" ? null : memo, amount, running));
         }
         return new BankParse(lines, problems);
     }
@@ -422,3 +423,21 @@ public sealed partial class BudgetStore
 
 /// <summary>A matched transaction to clear, and which of its values to take from the file instead of keeping the table's.</summary>
 public sealed record BankClear(BankMatch Match, bool FileDate = false, bool FilePayee = false, bool FileMemo = false, bool FileAmount = false);
+
+public static class BankBalance
+{
+    /// <summary>
+    /// The balance the file ends on: the running balance of its latest line (when several lines share the latest date, the one that comes last in
+    /// the file if the file runs oldest first, or the one that comes first if it runs newest first). Null when the file has no balances.
+    /// </summary>
+    public static (DateOnly Date, long Balance)? Closing(IReadOnlyList<BankLine> lines)
+    {
+        var withBalance = lines.Where(l => l.Balance is not null).ToList();
+        if (withBalance.Count == 0) return null;
+        var oldestFirst = lines[0].Date <= lines[^1].Date;
+        var latest = withBalance.Max(l => l.Date);
+        var onLatest = withBalance.Where(l => l.Date == latest).ToList();
+        var pick = oldestFirst ? onLatest[^1] : onLatest[0];
+        return (pick.Date, pick.Balance!.Value);
+    }
+}

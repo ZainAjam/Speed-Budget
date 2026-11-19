@@ -176,7 +176,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private readonly ComboBox _accountBox = new() { HorizontalAlignment = HorizontalAlignment.Stretch, DisplayMemberPath = nameof(AccountOption.Name) };
     private readonly NumberBox _headerRows = new() { Minimum = 0, Maximum = 50, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline, Width = 180, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly ComboBox _dateBox = Choice(), _formatBox = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
-    private readonly ComboBox _descriptionBox = Choice(), _memoBox = Choice();
+    private readonly ComboBox _descriptionBox = Choice(), _memoBox = Choice(), _balanceBox = Choice();
     private readonly RadioButtons _moneyMode = new() { Items = { "One amount column", "Separate money out and money in columns" }, SelectedIndex = 0, MaxColumns = 2 };
     private readonly ComboBox _amountBox = Choice(), _debitBox = Choice(), _creditBox = Choice();
     private readonly CheckBox _negativeOut = new() { Content = "A negative amount is money out", IsChecked = true };
@@ -237,7 +237,7 @@ public sealed class ImportWizardDialog : ContentDialog
         _tableBox.SelectionChanged += async (_, _) => { if (_tableBox.SelectedIndex >= 0 && !_loading) { _table = _tables[_tableBox.SelectedIndex]; await SetUpAsync(); } };
         _accountBox.SelectionChanged += async (_, _) => { if (!_loading) await SetUpAsync(); };
         _headerRows.ValueChanged += (_, _) => { if (!_loading) { FillColumnChoices(); Reparse(); } };
-        foreach (var box in new[] { _dateBox, _formatBox, _descriptionBox, _memoBox, _amountBox, _debitBox, _creditBox })
+        foreach (var box in new[] { _dateBox, _formatBox, _descriptionBox, _memoBox, _balanceBox, _amountBox, _debitBox, _creditBox })
             box.SelectionChanged += (_, _) => { if (!_loading) Reparse(); };
         _moneyMode.SelectionChanged += (_, _) => { if (!_loading) { ShowMoneyMode(); Reparse(); } };
         _negativeOut.Click += (_, _) => Reparse();
@@ -269,6 +269,7 @@ public sealed class ImportWizardDialog : ContentDialog
         Add("Date layout", _formatBox, "How the dates are written in the file. dd is the day, MM the month, yyyy the year");
         Add("Counterparty", _descriptionBox, "The column with the description or the name of who was paid. Choose (none) to import with a blank counterparty and pick one on the next step");
         Add("Memo", _memoBox);
+        Add("Balance", _balanceBox, "The column with the running balance after each line, if the file has one. It is used at the end to check that the account agrees with the bank");
         Add("Money", _moneyMode);
         Add("Amount", _amountBox);
         Add("Money out", _debitBox);
@@ -317,6 +318,7 @@ public sealed class ImportWizardDialog : ContentDialog
         Fill(_dateBox, false, f?.DateColumn ?? 0);
         Fill(_descriptionBox, true, f?.DescriptionColumn ?? 1);
         Fill(_memoBox, true, f?.MemoColumn ?? -1);
+        Fill(_balanceBox, true, f?.BalanceColumn ?? -1);
         Fill(_amountBox, false, f is { AmountColumn: >= 0 } ? f.AmountColumn : Math.Min(2, columns - 1));
         Fill(_debitBox, false, f is { DebitColumn: >= 0 } ? f.DebitColumn : Math.Min(2, columns - 1));
         Fill(_creditBox, false, f is { CreditColumn: >= 0 } ? f.CreditColumn : Math.Min(3, columns - 1));
@@ -359,7 +361,11 @@ public sealed class ImportWizardDialog : ContentDialog
                 format = await _vm.GetBankFormatAsync(id);
                 _rememberBox.IsChecked = await _vm.GetBankSkipSetupAsync(id);
             }
-            if (format is not null && format.HeaderRows < _table.Rows.Count && BankFile.Parse(_table, format).Lines.Count > 0) _usedSaved = true;
+            if (format is not null && format.HeaderRows < _table.Rows.Count && BankFile.Parse(_table, format).Lines.Count > 0)
+            {
+                _usedSaved = true;
+                if (format.BalanceColumn < 0 && BankFile.Detect(_table) is { BalanceColumn: >= 0 } guess) format = format with { BalanceColumn = guess.BalanceColumn };
+            }
             else format = BankFile.Detect(_table);
             _format = format;
             _headerRows.Value = format?.HeaderRows ?? 0;
@@ -382,7 +388,7 @@ public sealed class ImportWizardDialog : ContentDialog
         int Index(ComboBox box) => (box.SelectedItem as ColumnChoice)?.Index ?? -1;
         var split = _moneyMode.SelectedIndex == 1;
         return new BankFormat((int)(double.IsNaN(_headerRows.Value) ? 0 : _headerRows.Value), Index(_dateBox), _formatBox.SelectedItem as string ?? BankFile.DateFormats[0], Index(_descriptionBox),
-            split ? -1 : Index(_amountBox), split ? Index(_debitBox) : -1, split ? Index(_creditBox) : -1, _negativeOut.IsChecked == true, Index(_memoBox));
+            split ? -1 : Index(_amountBox), split ? Index(_debitBox) : -1, split ? Index(_creditBox) : -1, _negativeOut.IsChecked == true, Index(_memoBox), Index(_balanceBox));
     }
 
     private void Reparse()
@@ -685,7 +691,7 @@ public sealed class ImportWizardDialog : ContentDialog
         _newHelp.Text = offered == 0 ? "Every line of the file is already in the table." : "These lines of the file are not in the table. Tick the ones to add as new, cleared transactions, and choose the counterparty and edit the memo if you like."
             + (_vm.AccountIsOnBudget(AccountId) ? " They have no budget item yet: give them one in the table." : "");
         _reconcileSummary.Text = $"{clear} transaction{(clear == 1 ? "" : "s")} will be cleared and {add} new transaction{(add == 1 ? "" : "s")} added. Nothing changes until you press Apply.";
-        IsPrimaryButtonEnabled = clear + add > 0;
+        IsPrimaryButtonEnabled = clear + add > 0 || BankBalance.Closing(_parse.Lines) is not null;   // with balances in the file, Apply still checks the account against them
     }
 
     /// <summary>The Select all and Deselect all buttons of a tab.</summary>
@@ -698,12 +704,17 @@ public sealed class ImportWizardDialog : ContentDialog
         return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(4, 0, 0, 0), Children = { all, none } };
     }
 
+    /// <summary>After Apply, when the file had balances: its closing balance against the account's cleared balance in the app. Null when there was nothing to compare.</summary>
+    public BalanceCheck? Outcome { get; private set; }
+
     private async Task<bool> ApplyAsync()
     {
         if (AccountId is not { } account) return false;
         var clear = ToClear.Select(r => new BankClear(r.Match, r.UseFileDate, r.UseFilePayee, r.UseFileMemo, r.UseFileAmount)).ToList();
         var add = ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim(), Memo = string.IsNullOrWhiteSpace(r.Memo) ? null : r.Memo.Trim() }).ToList();
         var result = await _vm.ApplyBankMatchesAsync(account, clear, add, CurrentFormat(), _rememberBox.IsChecked == true);
+        if (result is not null && BankBalance.Closing(_parse.Lines) is { } closing)
+            Outcome = new BalanceCheck(closing.Date, closing.Balance, await _vm.ClearedBalanceAsOfAsync(account, closing.Date));
         return result is not null;
     }
 }

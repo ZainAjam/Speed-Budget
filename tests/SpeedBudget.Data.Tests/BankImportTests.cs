@@ -145,4 +145,23 @@ public sealed class BankImportTests : IDisposable
         Assert.Equal("GROCERIES", t.Memo);   // the table's memo was kept
         Assert.True(t.IsCleared);
     }
+
+    [Fact]
+    public void The_closing_balance_is_the_balance_of_the_latest_line_whichever_way_the_file_runs()
+    {
+        var oldestFirst = Csv("Date,Description,Amount,Balance\n2026-11-03,A,-10.00,90.00\n2026-11-04,B,-5.00,85.00\n2026-11-04,C,-5.00,80.00\n");
+        var table = BankFile.ReadTable(oldestFirst);
+        var format = BankFile.Detect(table)!;
+        Assert.Equal(3, format.BalanceColumn);
+        var closing = BankBalance.Closing(BankFile.Parse(table, format).Lines)!.Value;
+        Assert.Equal((new DateOnly(2026, 11, 4), 8000L), closing);
+
+        var newestFirst = Csv("Date,Description,Amount,Balance\n2026-11-04,C,-5.00,80.00\n2026-11-04,B,-5.00,85.00\n2026-11-03,A,-10.00,90.00\n");
+        var t2 = BankFile.ReadTable(newestFirst);
+        Assert.Equal(8000L, BankBalance.Closing(BankFile.Parse(t2, BankFile.Detect(t2)!).Lines)!.Value.Balance);
+
+        var none = Csv("Date,Description,Amount\n2026-11-03,A,-10.00\n");
+        var t3 = BankFile.ReadTable(none);
+        Assert.Null(BankBalance.Closing(BankFile.Parse(t3, BankFile.Detect(t3)!).Lines));
+    }
 }

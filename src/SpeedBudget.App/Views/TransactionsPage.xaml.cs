@@ -692,6 +692,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
             if (ViewModel.ImportAccounts().Count == 0) { await ExcelFiles.ShowAsync(XamlRoot, "Nothing to import into", "There is no account kept by transactions to import into."); return; }
             var wizard = new ImportWizardDialog(ViewModel, tables, Path.GetFileName(path)) { XamlRoot = XamlRoot };
             await wizard.ShowAsync();
+            if (wizard.Outcome is { } check) await new BalanceCheckDialog(check) { XamlRoot = XamlRoot }.ShowAsync();   // the file's balance against the account's
         }
         catch (Exception ex) { await ExcelFiles.ShowAsync(XamlRoot, "The file could not be imported", ex.Message); }
     }
