@@ -33,6 +33,10 @@ public sealed class ReconcileRow : INotifyPropertyChanged
     /// <summary>To be added as a new transaction (only for a line that has no confirmed match).</summary>
     public bool Import { get => _import; set => Set(ref _import, value); }
 
+    /// <summary>The counterparty the new transaction gets: the file's description to begin with, or blank, and the user can pick or type another.</summary>
+    public string Payee { get; set; } = "";
+    public IReadOnlyList<string> Suggestions { get; init; } = [];
+
     public bool CanConfirm => HasMatch && !AlreadyCleared;
     public double MatchOpacity => AlreadyCleared ? 0.55 : 1;
 
@@ -162,7 +166,7 @@ public sealed class ImportWizardDialog : ContentDialog
         Add("Heading rows to skip", _headerRows, "The rows at the top that are headings, not transactions");
         Add("Date", _dateBox);
         Add("Date layout", _formatBox, "How the dates are written in the file. dd is the day, MM the month, yyyy the year");
-        Add("Counterparty", _descriptionBox, "The column with the description or the name of who was paid");
+        Add("Counterparty", _descriptionBox, "The column with the description or the name of who was paid. Choose (none) to import with a blank counterparty and pick one on the next step");
         Add("Memo", _memoBox);
         Add("Money", _moneyMode);
         Add("Amount", _amountBox);
@@ -209,7 +213,7 @@ public sealed class ImportWizardDialog : ContentDialog
         }
         var f = _format;
         Fill(_dateBox, false, f?.DateColumn ?? 0);
-        Fill(_descriptionBox, false, f?.DescriptionColumn ?? 1);
+        Fill(_descriptionBox, true, f?.DescriptionColumn ?? 1);
         Fill(_memoBox, true, f?.MemoColumn ?? -1);
         Fill(_amountBox, false, f is { AmountColumn: >= 0 } ? f.AmountColumn : Math.Min(2, columns - 1));
         Fill(_debitBox, false, f is { DebitColumn: >= 0 } ? f.DebitColumn : Math.Min(2, columns - 1));
@@ -345,18 +349,18 @@ public sealed class ImportWizardDialog : ContentDialog
             </Grid>
             """);
         var matchPanel = new Grid { RowSpacing = 6 };
-        matchPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        matchPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (var i = 0; i < 3; i++) matchPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         matchPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Grid.SetRow(matchHeading, 1); Grid.SetRow(_matchList, 2);
-        matchPanel.Children.Add(_matchHelp); matchPanel.Children.Add(matchHeading); matchPanel.Children.Add(_matchList);
+        var matchBar = SelectBar(on => Bulk(() => { foreach (var r in _rows.Where(r => r.CanConfirm)) { r.Matched = on; if (!on) r.Import = true; } }));
+        Grid.SetRow(matchBar, 1); Grid.SetRow(matchHeading, 2); Grid.SetRow(_matchList, 3);
+        matchPanel.Children.Add(_matchHelp); matchPanel.Children.Add(matchBar); matchPanel.Children.Add(matchHeading); matchPanel.Children.Add(_matchList);
         _matchTab.Content = matchPanel;
 
         // Tab 2: lines of the file that the table does not have, to pick which ones to import.
         const string newColumns = """<ColumnDefinition Width="32"/><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/>""";
         _newList.ItemTemplate = (DataTemplate)XamlReader.Load(Template(newColumns, """
             <TextBlock Grid.Column="1" Text="{Binding DateText}" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Text="{Binding Description}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="2" IsEditable="True" Text="{Binding Payee, Mode=TwoWay}" ItemsSource="{Binding Suggestions}" HorizontalAlignment="Stretch" MinWidth="0" PlaceholderText="Counterparty" VerticalAlignment="Center" ToolTipService.ToolTip="Who the transaction is with. Pick a counterparty from the list, type a new one, or leave it blank"/>
             <TextBlock Grid.Column="3" Text="{Binding MemoText}" TextTrimming="CharacterEllipsis" Opacity="0.7" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="4" Text="{Binding AmountText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
             """, """<CheckBox IsChecked="{Binding Import, Mode=TwoWay}" MinWidth="0" Padding="0" VerticalAlignment="Center" ToolTipService.ToolTip="Tick to add this as a new transaction"/>"""));
@@ -372,11 +376,11 @@ public sealed class ImportWizardDialog : ContentDialog
             </Grid>
             """);
         var newPanel = new Grid { RowSpacing = 6 };
-        newPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        newPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        for (var i = 0; i < 3; i++) newPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         newPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        Grid.SetRow(newHeading, 1); Grid.SetRow(_newList, 2);
-        newPanel.Children.Add(_newHelp); newPanel.Children.Add(newHeading); newPanel.Children.Add(_newList);
+        var newBar = SelectBar(on => Bulk(() => { foreach (var r in _newRows) r.Import = on; }));
+        Grid.SetRow(newBar, 1); Grid.SetRow(newHeading, 2); Grid.SetRow(_newList, 3);
+        newPanel.Children.Add(_newHelp); newPanel.Children.Add(newBar); newPanel.Children.Add(newHeading); newPanel.Children.Add(_newList);
         _newTab.Content = newPanel;
 
         _matchTab.Header = _matchHead; _newTab.Header = _newHead;
@@ -400,7 +404,8 @@ public sealed class ImportWizardDialog : ContentDialog
     {
         if (AccountId is not { } account) return;
         var matches = await _vm.MatchBankLinesAsync(account, _parse.Lines);
-        _rows = matches.Select(m => new ReconcileRow { Match = m }).ToList();
+        var payees = _vm.Payees.ToList();
+        _rows = matches.Select(m => new ReconcileRow { Match = m, Payee = m.Line.Description, Suggestions = payees }).ToList();
         foreach (var row in _rows)
         {
             row.Matched = row.CanConfirm;   // a match is proposed; the user confirms or rejects it
@@ -431,13 +436,39 @@ public sealed class ImportWizardDialog : ContentDialog
         if (e.PropertyName == nameof(ReconcileRow.Matched) && sender is ReconcileRow row)
         {
             if (!row.Matched && row.HasMatch) row.Import = true;   // not the same transaction after all: offer it as a new one
-            _filling = true;
-            var wanted = _rows.Where(Offered).ToList();
-            for (var i = _newRows.Count - 1; i >= 0; i--) if (!wanted.Contains(_newRows[i])) _newRows.RemoveAt(i);
-            foreach (var r in wanted.Where(r => !_newRows.Contains(r))) _newRows.Insert(Math.Min(wanted.IndexOf(r), _newRows.Count), r);
-            _filling = false;
+            SyncNewRows();
         }
         UpdateSummary();
+    }
+
+    /// <summary>Makes the second tab list the lines that are offered for import, in the order of the file.</summary>
+    private void SyncNewRows()
+    {
+        _filling = true;
+        var wanted = _rows.Where(Offered).ToList();
+        for (var i = _newRows.Count - 1; i >= 0; i--) if (!wanted.Contains(_newRows[i])) _newRows.RemoveAt(i);
+        foreach (var r in wanted.Where(r => !_newRows.Contains(r))) _newRows.Insert(Math.Min(wanted.IndexOf(r), _newRows.Count), r);
+        _filling = false;
+    }
+
+    /// <summary>Changes many lines at once (select all, deselect all), then updates the lists and the totals once.</summary>
+    private void Bulk(Action change)
+    {
+        _filling = true;
+        change();
+        _filling = false;
+        SyncNewRows();
+        UpdateSummary();
+    }
+
+    /// <summary>The Select all and Deselect all buttons of a tab.</summary>
+    private static StackPanel SelectBar(Action<bool> set)
+    {
+        var all = new HyperlinkButton { Content = "Select all", Padding = new Thickness(8, 2, 8, 2) };
+        var none = new HyperlinkButton { Content = "Deselect all", Padding = new Thickness(8, 2, 8, 2) };
+        all.Click += (_, _) => set(true);
+        none.Click += (_, _) => set(false);
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Padding = new Thickness(4, 0, 0, 0), Children = { all, none } };
     }
 
     private IEnumerable<ReconcileRow> ToClear => _rows.Where(r => r.CanConfirm && r.Matched);
@@ -463,7 +494,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private async Task<bool> ApplyAsync()
     {
         if (AccountId is not { } account) return false;
-        var result = await _vm.ApplyBankMatchesAsync(account, ToClear.Select(r => r.Match).ToList(), ToAdd.Select(r => r.Match.Line).ToList(), CurrentFormat());
+        var result = await _vm.ApplyBankMatchesAsync(account, ToClear.Select(r => r.Match).ToList(), ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim() }).ToList(), CurrentFormat());
         return result is not null;
     }
 }

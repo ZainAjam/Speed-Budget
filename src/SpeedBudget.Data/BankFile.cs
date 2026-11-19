@@ -299,7 +299,7 @@ public static class BankFile
             }
             if (amount == 0) { problems.Add(new ImportProblem(number, $"{date:d MMM yyyy}: there is no amount.")); continue; }
             var memo = format.MemoColumn >= 0 ? table.Cell(r, format.MemoColumn) : "";
-            lines.Add(new BankLine(number, date, description == "" ? "(no description)" : description, memo == "" ? null : memo, amount));
+            lines.Add(new BankLine(number, date, description, memo == "" ? null : memo, amount));
         }
         return new BankParse(lines, problems);
     }
