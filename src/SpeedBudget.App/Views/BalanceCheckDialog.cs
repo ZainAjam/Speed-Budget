@@ -30,7 +30,8 @@ public sealed class BalanceCheckDialog : ContentDialog
         DefaultButton = ContentDialogButton.Close;
         Resources["ContentDialogMinWidth"] = 480.0;
 
-        var picture = check.Matches ? TickPicture() : WarningPicture();
+        // The pictures are drawn on a 150 square; shown at half that size.
+        var picture = new Viewbox { Width = 75, Height = 75, HorizontalAlignment = HorizontalAlignment.Center, Child = check.Matches ? TickPicture() : WarningPicture() };
         var title = new TextBlock
         {
             Text = check.Matches ? "Everything reconciles" : "Not everything reconciles",
