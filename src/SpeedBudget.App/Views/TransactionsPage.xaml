@@ -140,7 +140,7 @@
                         <!-- Agreed with the bank's file (reconciled): cleared, and no longer a tick that can be changed -->
                         <Border Visibility="{x:Bind IsReconciled, Mode=OneWay}" Width="22" Height="22" CornerRadius="11" Background="#2EA043" Margin="0,0,7,0" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 ToolTipService.ToolTip="Reconciled: this transaction agrees with the bank's file" AutomationProperties.Name="Reconciled">
-                            <TextBlock Text="R" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                     </Grid>
                 </Border>
