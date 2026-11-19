@@ -504,6 +504,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
 {
     // The filters stay as the user left them when moving between accounts.
     private static bool s_hideCleared;
+    private static bool s_hideReconciled;
     private static int s_sortIndex = 1;   // oldest first, unless the user chooses otherwise
 
     private readonly BudgetStore _store = AppServices.Store;
@@ -669,6 +670,34 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     [ObservableProperty] public partial bool HideCleared { get; set; } = s_hideCleared;
 
+    /// <summary>Hide the transactions that agree with the bank's file (they are cleared too, so this matters when cleared ones are shown).</summary>
+    [ObservableProperty] public partial bool HideReconciled { get; set; } = s_hideReconciled;
+
+    private bool Hidden(TransactionEntity t) => (HideCleared && t.IsCleared) || (HideReconciled && t.IsReconciled);
+
+    /// <summary>The eye's tip: what is hidden now.</summary>
+    public string HideTip => (HideCleared, HideReconciled) switch
+    {
+        (true, true) => "Hiding cleared and reconciled transactions",
+        (true, false) => "Hiding cleared transactions",
+        (false, true) => "Hiding reconciled transactions",
+        _ => "Showing every transaction. Click to choose what to hide",
+    };
+
+    /// <summary>The eye is coloured while anything is hidden.</summary>
+    public Microsoft.UI.Xaml.Media.Brush HideBrush => Format.Theme(HideCleared || HideReconciled ? "AccentTextFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
+
+    partial void OnHideReconciledChanged(bool value)
+    {
+        s_hideReconciled = value;
+        OnPropertyChanged(nameof(HideTip));
+        OnPropertyChanged(nameof(HideBrush));
+        if (_loaded) _ = ReloadAsync();
+    }
+
+    /// <summary>The sort button's tip: which way the table runs now, and what pressing it does.</summary>
+    public string SortTip => SortIndex == 0 ? "Showing newest first. Click to show oldest first" : "Showing oldest first. Click to show newest first";
+
     /// <summary>The filters on the table's columns. They last until the page is left.</summary>
     public ColumnFilters Filters { get; } = new();
 
@@ -743,6 +772,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     partial void OnSortIndexChanged(int value)
     {
         s_sortIndex = value;
+        OnPropertyChanged(nameof(SortTip));
         if (_loaded) _ = SortChangedAsync();
     }
 
@@ -758,6 +788,8 @@ public sealed partial class TransactionsViewModel : ObservableObject
     partial void OnHideClearedChanged(bool value)
     {
         s_hideCleared = value;
+        OnPropertyChanged(nameof(HideTip));
+        OnPropertyChanged(nameof(HideBrush));
         if (_loaded) _ = ReloadAsync();
     }
 
@@ -958,7 +990,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         var filterSeen = Enum.GetValues<FilterColumn>().ToDictionary(c => c, _ => new Dictionary<string, IComparable>());
         foreach (var d in details)
         {
-            if (HideCleared && d.Transaction.IsCleared) continue;
+            if (Hidden(d.Transaction)) continue;
             if (behind is not null && !behind.Contains(d.Transaction.Id)) continue;
             var itemId = d.Lines.Count == 1 ? d.Lines[0].BudgetItemId : null;
             var option = itemId is { } id && itemsById.TryGetValue(id, out var found) ? found : NoItem;
@@ -979,7 +1011,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
         }
         // With cleared transactions hidden, a month whose transactions are all cleared has nothing left under its line, so the line goes too.
         // (A month with no transactions at all keeps its line: nothing was hidden from it.)
-        if (HideCleared && showLines)
+        if ((HideCleared || HideReconciled) && showLines)
         {
             var lines = entries.Where(e => e.Row is MarkerRow).OrderBy(e => e.Key).ToList();
             var total = new int[lines.Count];
@@ -991,7 +1023,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
                 for (var i = 0; i < lines.Count && lines[i].Key.CompareTo(key) <= 0; i++) at = i;   // the last line at or before it: the month it is in
                 if (at < 0) continue;
                 total[at]++;
-                if (!d.Transaction.IsCleared) uncleared[at]++;
+                if (!Hidden(d.Transaction)) uncleared[at]++;
             }
             var gone = lines.Where((_, i) => total[i] > 0 && uncleared[i] == 0).Select(l => l.Row).ToHashSet();
             entries.RemoveAll(e => gone.Contains(e.Row));
@@ -1088,7 +1120,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             Message = note ?? "";
 
             // Clearing a row can make it drop out of a filtered list. A transfer's names and item depend on its accounts and amount.
-            var disappears = HideCleared && row.IsCleared;
+            var disappears = Hidden(row.Entity);
             if (dateChanged || structural || disappears || (row.IsTransfer && splitChanged))
             {
                 // Keep whichever row is selected now: the edited one, or the one the user moved on to.

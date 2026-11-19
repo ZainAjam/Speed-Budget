@@ -83,10 +83,9 @@
                 </Button>
             </StackPanel>
             <StackPanel x:Name="RightButtons" Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <ComboBox Width="170" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}" AutomationProperties.Name="Sort order">
-                    <ComboBoxItem Content="Show newest first" />
-                    <ComboBoxItem Content="Show oldest first" />
-                </ComboBox>
+                <Button Click="Sort_Click" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}" AutomationProperties.Name="Sort order" ToolTipService.ToolTip="{x:Bind ViewModel.SortTip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE8CB;" FontSize="16" />
+                </Button>
                 <ToggleButton x:Name="DailyButton" IsChecked="True" Click="Daily_Click" AutomationProperties.Name="Transactions" ToolTipService.ToolTip="Transactions: the balance on each date">
                     <FontIcon Glyph="&#xE8FD;" FontSize="16" />
                 </ToggleButton>

@@ -271,14 +271,22 @@
                 </Border>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
-                <ComboBox Width="170" SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" AutomationProperties.Name="Sort order">
-                    <ComboBoxItem Content="Show newest first" />
-                    <ComboBoxItem Content="Show oldest first" />
-                </ComboBox>
+                <Button Click="Sort_Click" AutomationProperties.Name="Sort order" ToolTipService.ToolTip="{x:Bind ViewModel.SortTip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE8CB;" FontSize="16" />
+                </Button>
                 <TextBlock Text="{x:Bind ViewModel.DrillText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.8" MaxWidth="260" TextTrimming="CharacterEllipsis"
                            ToolTipService.ToolTip="The transactions behind the figure you pressed on the budget" />
                 <Button Content="Clear filters" Click="ClearFilters_Click" Visibility="{x:Bind ViewModel.HasFilters, Mode=OneWay}" />
-                <CheckBox Content="Hide cleared" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
+                <!-- The eye: what to hide. It is coloured while something is hidden. -->
+                <Button AutomationProperties.Name="What to show" ToolTipService.ToolTip="{x:Bind ViewModel.HideTip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE7B3;" FontSize="16" Foreground="{x:Bind ViewModel.HideBrush, Mode=OneWay}" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <ToggleMenuFlyoutItem Text="Hide cleared transactions" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
+                            <ToggleMenuFlyoutItem Text="Hide reconciled transactions" IsChecked="{x:Bind ViewModel.HideReconciled, Mode=TwoWay}" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
                 <!-- The overflow menu: import and export -->
                 <Button AutomationProperties.Name="More" ToolTipService.ToolTip="More">
                     <FontIcon Glyph="&#xE712;" FontSize="14" />

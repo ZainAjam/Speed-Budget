@@ -179,6 +179,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
         return false;
     }
 
+    /// <summary>The sort button: switches between newest first and oldest first.</summary>
+    private void Sort_Click(object sender, RoutedEventArgs e) => ViewModel.SortIndex = ViewModel.SortIndex == 0 ? 1 : 0;
+
     // ---- Resizing columns and the side panel ----
 
     /// <summary>The shared widths of the table's columns and the edit panel.</summary>

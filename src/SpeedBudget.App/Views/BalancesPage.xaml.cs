@@ -183,6 +183,9 @@ public sealed partial class BalancesPage : Page, IReloadable
             box.DispatcherQueue.TryEnqueue(() => box.Focus(FocusState.Programmatic));
     }
 
+    /// <summary>The sort button: switches between newest first and oldest first.</summary>
+    private void Sort_Click(object sender, RoutedEventArgs e) => ViewModel.SortIndex = ViewModel.SortIndex == 0 ? 1 : 0;
+
     // ---- Dragging the edge of a column heading to change the column's width ----
 
     public BalanceColumns Columns => BalanceColumns.Shared;

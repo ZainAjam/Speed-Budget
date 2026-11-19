@@ -225,8 +225,8 @@ each item its share; the shares must add up to the transaction's amount. A split
 pressing that shows its lines. You can also split while adding a new transaction. To turn a split back into an ordinary
 transaction, open its drop-down and choose a single item.
 
-**Bank date.** The table shows each transaction's date and, beside it, the date it showed on your bank statement. Entering a
-bank date on a transaction also marks it as cleared. Use **Hide cleared** and the **Oldest first / Newest first** box above
+bank date on a transaction also marks it as cleared. Use the eye (to hide cleared or reconciled transactions) and the sort button
+(newest first or oldest first) above the table to focus on what is still open.
 the table to focus on what is still open.
 
 **Filter and see what makes up a figure.** Every column heading has a funnel for filtering, like in Excel (a filtered column's

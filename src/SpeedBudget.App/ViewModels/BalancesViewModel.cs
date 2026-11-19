@@ -280,9 +280,13 @@ public sealed partial class BalancesViewModel : ObservableObject
 
     /// <summary>0 = newest first, 1 = oldest first.</summary>
     [ObservableProperty] public partial int SortIndex { get; set; } = s_sortIndex;
+    /// <summary>The sort button's tip: which way the table runs now, and what pressing it does.</summary>
+    public string SortTip => SortIndex == 0 ? "Showing newest first. Click to show oldest first" : "Showing oldest first. Click to show newest first";
+
     partial void OnSortIndexChanged(int value)
     {
         s_sortIndex = value;
+        OnPropertyChanged(nameof(SortTip));
         if (AccountId != Guid.Empty) _ = ResortAsync();
     }
 
