@@ -614,7 +614,7 @@ public sealed class ImportWizardDialog : ContentDialog
         SyncLists();
         _filling = false;
         ShowStep(reconcile: true);
-        _pivot.SelectedIndex = _rows.Any(r => r.HasMatch) ? 0 : 1;   // nothing to check against the table: open on the lines to import
+        _pivot.SelectedIndex = _rows.Any(r => r.CanConfirm) ? 0 : 1;   // nothing to check against the table: open on the lines to import
     }
 
     private bool _filling;
@@ -624,7 +624,7 @@ public sealed class ImportWizardDialog : ContentDialog
     /// <summary>The first tab holds the pairs the user has not rejected; the second the lines with no match and the rejected pairs, in the order of the file.</summary>
     private void SyncLists()
     {
-        Sync(_matchRows, _rows.Where(r => r.HasMatch && r.Matched).ToList());
+        Sync(_matchRows, _rows.Where(r => r.CanConfirm && r.Matched).ToList());   // a transaction that is already cleared needs nothing, so it is not shown
         Sync(_newRows, _rows.Where(Offered).ToList());
     }
 
@@ -664,6 +664,13 @@ public sealed class ImportWizardDialog : ContentDialog
     private IEnumerable<ReconcileRow> ToClear => _rows.Where(r => r.CanConfirm && r.Matched && r.Apply);
     private IEnumerable<ReconcileRow> ToAdd => _rows.Where(r => Offered(r) && r.Import);
 
+    /// <summary>Says how many lines matched transactions that are already cleared, as these are not listed.</summary>
+    private string ClearedNote()
+    {
+        var done = _rows.Count(r => r.AlreadyCleared);
+        return done == 0 ? "" : $" {done} line{(done == 1 ? "" : "s")} matched transactions that are already cleared, so {(done == 1 ? "it is" : "they are")} not shown.";
+    }
+
     private void UpdateSummary()
     {
         var withMatch = _matchRows.Count;
@@ -673,7 +680,7 @@ public sealed class ImportWizardDialog : ContentDialog
         _matchHead.Text = $"Already in the table ({withMatch})";
         _newHead.Text = $"Not in the table ({offered})";
         _matchHelp.Text = withMatch == 0
-            ? "None of the lines in the file looks like a transaction that is already in the table."
+            ? "No line of the file matches a transaction in the table that is not yet cleared." + ClearedNote()
             : "Each line of the file that looks like a transaction already in the table is shown as a card, with the table's version on the left and the file's on the right. Where a value differs, press the version you want to keep (it is outlined and ticked). Tick Clear to clear the transaction with those choices, or press Not the same transaction if it is a different one.";
         _newHelp.Text = offered == 0 ? "Every line of the file is already in the table." : "These lines of the file are not in the table. Tick the ones to add as new, cleared transactions, and choose the counterparty and edit the memo if you like."
             + (_vm.AccountIsOnBudget(AccountId) ? " They have no budget item yet: give them one in the table." : "");
