@@ -94,7 +94,7 @@ public static class TransactionImport
             DateOnly date = TransactionEntity.UndatedPlace;
             if (!undated && !BalanceImport.TryDate(dateCell!, out date)) { problems.Add(new ImportProblem(r, "The date could not be read.")); continue; }
             var label = undated ? "No date" : $"{date:d MMM yyyy}";
-            if (payee == "") { problems.Add(new ImportProblem(r, $"{label}: there is no counterparty.")); continue; }
+            // (a blank counterparty is allowed: the bank file import can leave it blank too)
 
             long outflow = 0, inflow = 0;
             if (outCell is not null && !outCell.IsEmpty())
@@ -141,6 +141,17 @@ public sealed partial class BudgetStore
         var nextOrder = new Dictionary<DateOnly, int>();
         var payees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var toAdd = new List<(TransactionEntity Entity, Guid? ItemId)>();
+        // Transactions already in the table are not added again (so importing a file that was exported from the table changes nothing). A line is
+        // taken to be one that is there when the account, date, counterparty, memo and amount are all the same; each existing transaction is used up once.
+        static string Same(Guid account, DateOnly date, long amount, string payee, string? memo) =>
+            $"{account}|{date:yyyy-MM-dd}|{amount}|{payee.Trim().ToLowerInvariant()}|{(memo ?? "").Trim().ToLowerInvariant()}";
+        var present = new Dictionary<string, int>();
+        foreach (var t in await db.Transactions.AsNoTracking().Select(t => new { t.AccountId, t.Date, t.Amount, t.Payee, t.Memo, t.TransferPairId }).ToListAsync(ct))
+        {
+            var key = Same(t.AccountId, t.Date, t.Amount, t.TransferPairId is null ? t.Payee : $"Transfer: {t.Payee}", t.Memo);   // a transfer is exported as "Transfer: other account"
+            present[key] = present.GetValueOrDefault(key) + 1;
+        }
+        var duplicates = 0;
         var months = new List<(string Label, DateOnly Month, int Before)>();   // Before: how many transactions come ahead of the line in the file
 
         foreach (var row in rows)
@@ -160,6 +171,9 @@ public sealed partial class BudgetStore
             if (account is null) { skipped.Add(new ImportProblem(row.Line, $"{row.Date:d MMM yyyy}: the account {(accountId is null ? $"\"{row.AccountName}\" " : "")}was not found.")); continue; }
             if (account.TrackBalances) { skipped.Add(new ImportProblem(row.Line, $"{row.Date:d MMM yyyy}: {account.Name} is kept by its balances, not by transactions.")); continue; }
 
+            var seen = Same(account.Id, row.Date, row.Amount, row.Payee, row.Memo);
+            if (present.TryGetValue(seen, out var left) && left > 0) { present[seen] = left - 1; duplicates++; continue; }
+
             Guid? itemId = null;
             if (row.ItemName is { } itemName && account.IsOnBudget)
             {
@@ -171,8 +185,9 @@ public sealed partial class BudgetStore
             if (!nextOrder.TryGetValue(row.Date, out var order)) order = await NextDayOrderAsync(row.Date, ct);
             nextOrder[row.Date] = order + 2;
             toAdd.Add((new TransactionEntity { AccountId = account.Id, Date = row.Date, DayOrder = order, Payee = row.Payee, Memo = row.Memo, Amount = row.Amount, IsCleared = row.Cleared, IsUndated = row.Undated }, itemId));
-            payees.Add(row.Payee);
+            if (row.Payee != "") payees.Add(row.Payee);
         }
+        if (duplicates > 0) notes.Add(duplicates == 1 ? "1 transaction was already in the table, so it was not added again." : $"{duplicates} transactions were already in the table, so they were not added again.");
         if (missingItems.Count > 0) notes.Add($"Budget items not found, so those transactions have no item: {string.Join(", ", missingItems)}.");
 
         var result = new TransactionImportResult(toAdd.Count, skipped, notes, months.Count);

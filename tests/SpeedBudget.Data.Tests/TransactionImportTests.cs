@@ -143,6 +143,32 @@ public class TransactionImportTests : IDisposable
         Assert.Empty(await _store.GetTransactionsAsync());   // the transfer's other side went too
     }
 
+
+    [Fact]
+    public async Task Importing_an_export_of_the_table_again_adds_nothing()
+    {
+        var account = await _store.AddAccountAsync("Cheque", AccountType.Cheque, true);
+        var other = await _store.AddAccountAsync("Savings", AccountType.Savings, true);
+        await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new(2024, 3, 5), Payee = "Shop", Memo = "milk", Amount = -5_000 }, [new SplitLineEntity { Amount = -5_000 }]);
+        await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new(2024, 3, 5), Payee = "Shop", Memo = "milk", Amount = -5_000 }, [new SplitLineEntity { Amount = -5_000 }]);   // two the same: both are there
+        await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new(2024, 3, 6), Payee = "Employer", Amount = 20_000, IsCleared = true }, [new SplitLineEntity { Amount = 20_000 }]);
+        await _store.AddTransferAsync(account.Id, other.Id, new(2024, 3, 7), 1_000, null, null);
+        var before = (await _store.GetTransactionsAsync()).Count;
+
+        var path = Path.Combine(_dir, "again.xlsx");
+        await _store.ExportTransactionsAsync(path, null);
+        var read = TransactionImport.Read(path, withAccount: true);
+        var preview = await _store.ImportTransactionsAsync(null, read.Rows, apply: false);
+        Assert.Equal(0, preview.Added);
+        Assert.Contains(preview.Notes, n => n.Contains("already in the table"));
+        await _store.ImportTransactionsAsync(null, read.Rows);
+        Assert.Equal(before, (await _store.GetTransactionsAsync()).Count);
+
+        // A line that is not in the table is still added.
+        var more = new List<TransactionImportRow>(read.Rows) { new(99, new(2024, 3, 8), "New shop", null, null, "Cheque", -100, false) };
+        Assert.Equal(1, (await _store.ImportTransactionsAsync(null, more)).Added);
+        Assert.Equal(before + 1, (await _store.GetTransactionsAsync()).Count);
+    }
     [Fact]
     public async Task A_balance_account_exports_its_lines_with_the_figures_worked_out_and_can_be_imported_again()
     {
