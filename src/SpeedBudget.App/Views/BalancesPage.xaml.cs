@@ -171,9 +171,18 @@ public sealed partial class BalancesPage : Page, IReloadable
     {
         try
         {
-            for (var pass = 0; pass < 8 && ViewModel.Lines.Count > 0; pass++)
+            for (var pass = 0; pass < 8; pass++)
             {
-                LinesList.ScrollIntoView(ViewModel.SortIndex == 0 ? ViewModel.Lines[0] : ViewModel.Lines[^1]);
+                if (ViewModel.ShowMonths)
+                {
+                    if (ViewModel.Months.Count == 0) break;
+                    MonthsList.ScrollIntoView(ViewModel.SortIndex == 0 ? ViewModel.Months[0] : ViewModel.Months[^1]);   // the report, too: the latest month in view
+                }
+                else
+                {
+                    if (ViewModel.Lines.Count == 0) break;
+                    LinesList.ScrollIntoView(ViewModel.SortIndex == 0 ? ViewModel.Lines[0] : ViewModel.Lines[^1]);
+                }
                 await Task.Delay(40);
             }
         }

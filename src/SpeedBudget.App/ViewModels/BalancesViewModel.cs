@@ -396,7 +396,9 @@ public sealed partial class BalancesViewModel : ObservableObject
             if (SortIndex == 0) lines.Reverse();   // newest first: the latest balance is at the top, beside Add Entry
             ApplyLines(lines);
             Months.Clear();
-            foreach (var month in report.Months.Reverse().Where(m => start is null || shownMonths.Contains(m.Month))) Months.Add(new BalanceMonthLine(month));
+            // The months follow the sort order too: the latest first, or the latest last.
+            var monthOrder = SortIndex == 0 ? report.Months.Reverse() : report.Months;
+            foreach (var month in monthOrder.Where(m => start is null || shownMonths.Contains(m.Month))) Months.Add(new BalanceMonthLine(month));
         }
         catch (Exception ex) { Warn($"Could not load the balances: {ex.Message}"); }
         finally { _gate.Release(); }
