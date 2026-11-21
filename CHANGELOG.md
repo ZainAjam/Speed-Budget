@@ -10,6 +10,8 @@ into the release.
 
 - **Multi-select puts the other buttons away.** While a table is in multi-select mode, the sort, eye and overflow buttons are hidden, and the edit, delete and close buttons sit at the right edge of the table. They come back when you close multi-select.
 
+- **Closing multi-select is instant.** Pressing X now puts the multi-select button straight back, without the buttons folding into it.
+
 ## 0.9.34
 
 - **The side panel is now a separate piece drawn over the page.** Choosing an account or page in the panel no longer makes it close and open again: it stays open until the pointer leaves it. The page behind keeps drawing while the panel opens and closes, so nothing waits on the panel or jumps.

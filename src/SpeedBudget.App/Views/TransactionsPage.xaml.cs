@@ -688,6 +688,22 @@ public sealed partial class TransactionsPage : Page, IReloadable
         _selectShown = selecting;
         // While selecting, the sort, eye and more buttons are put away, so that the edit, delete and close buttons end at the table's right edge.
         SortButton.Visibility = EyeButton.Visibility = MoreButton.Visibility = selecting ? Visibility.Collapsed : Visibility.Visible;
+        if (!selecting)
+        {
+            // Closing is instant: the three buttons are put away and the multi-select button is back as it was, with no folding.
+            _selectStory?.Stop();
+            EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = false;
+            SelectHost.Width = 48;
+            EditSlide.X = 112;
+            DeleteSlide.X = 56;
+            EditManyButton.Opacity = DeleteManyButton.Opacity = 0;
+            SelectIcon.Opacity = 1;
+            CloseIcon.Opacity = 0;
+            CloseSpin.Angle = -90;
+            ToolTipService.SetToolTip(SelectToggleButton, "Multi-select: tick several transactions to edit or delete them together");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SelectToggleButton, "Multi-select");
+            return;
+        }
 
         _selectStory?.Stop();
         var story = _selectStory = new Storyboard();
