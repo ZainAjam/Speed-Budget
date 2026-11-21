@@ -123,7 +123,7 @@ public sealed partial class MainWindow : Window
             if (AppServices.PanelMode == "hover" && !_ownClose && PointerOverPanel(wide: true))
             {
                 args.Cancel = true;
-                DispatcherQueue.TryEnqueue(() => { if (!Nav.IsPaneOpen && PointerOverPanel(true)) Nav.IsPaneOpen = true; });   // it is still open: its state must say so
+                try { Nav.IsPaneOpen = true; } catch { }   // it stays open: its state must say so too, at once, so it never starts to close
                 return;
             }
             // The strip is already as wide as it will be when shut, so there is no wide, empty panel left to shrink while it closes.
