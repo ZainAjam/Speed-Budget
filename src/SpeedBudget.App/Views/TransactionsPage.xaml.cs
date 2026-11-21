@@ -656,7 +656,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     // ---- The multi-select button of the toolbar ----
 
     private bool _selectShown;
-    private Storyboard? _selectStory;
+    private Storyboard? _selectStory;   // (no longer used: opening and closing multi-select have no animation)
 
     /// <summary>The button above the table: it turns multi-select on, and when on it is the cross that turns it off.</summary>
     private void SelectToggle_Click(object sender, RoutedEventArgs e) => ViewModel.IsSelecting = !ViewModel.IsSelecting;
@@ -679,8 +679,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
     }
 
     /// <summary>
-    /// Opens the multi-select button leftwards into the pencil, the bin and the cross (the multi-select icon turns into the cross), or folds
-    /// the three back into the one button.
+    /// Turns the multi-select button into the pencil, the bin and the cross (the multi-select icon becomes the cross), or back into the one button.
+    /// There is no animation: the change is at once.
     /// </summary>
     private void ShowSelectButtons(bool selecting)
     {
@@ -688,78 +688,19 @@ public sealed partial class TransactionsPage : Page, IReloadable
         _selectShown = selecting;
         // While selecting, the sort, eye and more buttons are put away, so that the edit, delete and close buttons end at the table's right edge.
         SortButton.Visibility = EyeButton.Visibility = MoreButton.Visibility = selecting ? Visibility.Collapsed : Visibility.Visible;
-        if (!selecting)
-        {
-            // Closing is instant: the three buttons are put away and the multi-select button is back as it was, with no folding.
-            _selectStory?.Stop();
-            EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = false;
-            SelectHost.Width = 48;
-            EditSlide.X = 112;
-            DeleteSlide.X = 56;
-            EditManyButton.Opacity = DeleteManyButton.Opacity = 0;
-            SelectIcon.Opacity = 1;
-            CloseIcon.Opacity = 0;
-            CloseSpin.Angle = -90;
-            ToolTipService.SetToolTip(SelectToggleButton, "Multi-select: tick several transactions to edit or delete them together");
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SelectToggleButton, "Multi-select");
-            return;
-        }
 
+        // Opening and closing are instant: the multi-select button is either the one button, or the pencil, the bin and the cross, with no sliding.
         _selectStory?.Stop();
-        var story = _selectStory = new Storyboard();
-        void Move(DependencyObject target, string property, double to, int beginMs, int durationMs, bool layout = false)
-        {
-            var animation = new DoubleAnimation
-            {
-                To = to, BeginTime = TimeSpan.FromMilliseconds(beginMs), Duration = TimeSpan.FromMilliseconds(durationMs),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, EnableDependentAnimation = layout,   // the width is a layout property
-            };
-            Storyboard.SetTarget(animation, target);
-            Storyboard.SetTargetProperty(animation, property);
-            story.Children.Add(animation);
-        }
-
-        const double open = 160, shut = 48;
-        if (selecting)
-        {
-            EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = true;
-            Move(SelectHost, "Width", open, 0, 300, layout: true);
-            Move(DeleteSlide, "X", 0, 30, 270);
-            Move(EditSlide, "X", 0, 0, 300);
-            Move(DeleteManyButton, "Opacity", 1, 30, 200);
-            Move(EditManyButton, "Opacity", 1, 0, 200);
-            Move(SelectIcon, "Opacity", 0, 0, 120);
-            Move(CloseIcon, "Opacity", 1, 60, 160);
-            Move(CloseSpin, "Angle", 0, 0, 280);
-        }
-        else
-        {
-            EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = false;
-            Move(EditSlide, "X", 112, 0, 260);
-            Move(DeleteSlide, "X", 56, 0, 260);
-            Move(EditManyButton, "Opacity", 0, 0, 160);
-            Move(DeleteManyButton, "Opacity", 0, 0, 160);
-            Move(SelectHost, "Width", shut, 60, 260, layout: true);
-            Move(CloseIcon, "Opacity", 0, 0, 120);
-            Move(SelectIcon, "Opacity", 1, 120, 160);
-            Move(CloseSpin, "Angle", -90, 0, 260);
-        }
+        EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = selecting;
+        SelectHost.Width = selecting ? 160 : 48;
+        EditSlide.X = selecting ? 0 : 112;
+        DeleteSlide.X = selecting ? 0 : 56;
+        EditManyButton.Opacity = DeleteManyButton.Opacity = selecting ? 1 : 0;
+        SelectIcon.Opacity = selecting ? 0 : 1;
+        CloseIcon.Opacity = selecting ? 1 : 0;
+        CloseSpin.Angle = selecting ? 0 : -90;
         ToolTipService.SetToolTip(SelectToggleButton, selecting ? "Close multi-select" : "Multi-select: tick several transactions to edit or delete them together");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SelectToggleButton, selecting ? "Close multi-select" : "Multi-select");
-
-        story.Completed += (_, _) =>
-        {
-            // Keep where it ended up as the real values, then let the animation go.
-            SelectHost.Width = selecting ? open : shut;
-            EditSlide.X = selecting ? 0 : 112;
-            DeleteSlide.X = selecting ? 0 : 56;
-            EditManyButton.Opacity = DeleteManyButton.Opacity = selecting ? 1 : 0;
-            SelectIcon.Opacity = selecting ? 0 : 1;
-            CloseIcon.Opacity = selecting ? 1 : 0;
-            CloseSpin.Angle = selecting ? 0 : -90;
-            story.Stop();
-        };
-        story.Begin();
     }
 
     // ---- Ticked transactions ----

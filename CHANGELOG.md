@@ -10,7 +10,7 @@ into the release.
 
 - **Multi-select puts the other buttons away.** While a table is in multi-select mode, the sort, eye and overflow buttons are hidden, and the edit, delete and close buttons sit at the right edge of the table. They come back when you close multi-select.
 
-- **Closing multi-select is instant.** Pressing X now puts the multi-select button straight back, without the buttons folding into it.
+- **Multi-select opens and closes instantly.** Pressing the multi-select button shows the edit, delete and close buttons straight away, and pressing X puts the multi-select button straight back, with no sliding or folding.
 
 ## 0.9.34
 
