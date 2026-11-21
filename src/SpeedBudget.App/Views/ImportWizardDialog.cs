@@ -194,7 +194,8 @@ public sealed class ImportWizardDialog : ContentDialog
     private readonly CheckBox _rememberBox = new() { Content = "Remember this setup and skip this step next time (you can still change it from the reconciliation)", IsChecked = false };
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _rawPreview = new() { FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"), FontSize = 12, Opacity = 0.8, TextWrapping = TextWrapping.NoWrap };
-    private readonly StackPanel _mapStep = new() { Spacing = 10 };
+    private readonly StackPanel _mapStep = new() { Spacing = 10, Padding = new Thickness(0, 0, 14, 0) };
+    private readonly ScrollViewer _mapScroll = new() { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
     private readonly Grid _reconcileStep = new() { Visibility = Visibility.Collapsed, RowSpacing = 8 };
     private readonly TextBlock _reconcileSummary = new() { TextWrapping = TextWrapping.Wrap };
 
@@ -230,7 +231,9 @@ public sealed class ImportWizardDialog : ContentDialog
 
         BuildMapStep(fileName);
         BuildReconcileStep();
-        Content = new Grid { Children = { _mapStep, _reconcileStep } };
+        _mapScroll.Content = _mapStep;
+        Opened += (_, _) => { if (XamlRoot is { } r) _mapScroll.MaxHeight = Math.Max(300, r.Size.Height - 250); };
+        Content = new Grid { Children = { _mapScroll, _reconcileStep } };
 
         PrimaryButtonClick += async (_, e) =>
         {
@@ -298,6 +301,10 @@ public sealed class ImportWizardDialog : ContentDialog
         _mapStep.Children.Add(new TextBlock { Text = $"{fileName}: say which column holds what. The columns are guessed from the file; correct any that are wrong.", TextWrapping = TextWrapping.Wrap, Opacity = 0.8 });
         _mapStep.Children.Add(grid);
         _mapStep.Children.Add(_rememberBox);
+        // The preview: what will be read from the file with these settings, set apart from the settings above it.
+        _mapStep.Children.Add(new Border { Height = 1, Margin = new Thickness(0, 8, 0, 4), Background = Format.Theme("DividerStrokeColorDefaultBrush") });
+        _mapStep.Children.Add(new TextBlock { Text = "Preview", FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+        _mapStep.Children.Add(new TextBlock { Text = "What will be read from the file with the settings above. Nothing is imported yet.", Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
         _mapStep.Children.Add(_summary);
         _mapStep.Children.Add(new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Content = _rawPreview });
     }
@@ -445,7 +452,11 @@ public sealed class ImportWizardDialog : ContentDialog
         if (_parse.Problems.Count > 0) text += $"\n{_parse.Problems.Count} line{(_parse.Problems.Count == 1 ? "" : "s")} cannot be read and will be left out:\n{ExcelFiles.ProblemText(_parse.Problems.Take(3).ToList())}";
         _summary.Text = text;
 
-        var preview = _table.Rows.Skip(Math.Max(0, _format.HeaderRows - 1)).Take(5).Select(r => string.Join("  |  ", r.Select(c => c.Length > 22 ? c[..21] + "…" : c)));
+        // The first lines as they will be read (date, counterparty, amount); when none can be read, the first rows of the file, to see what is wrong.
+        static string Cut(string s, int n) => s.Length <= n ? s.PadRight(n) : s[..(n - 1)] + "…";
+        var preview = _parse.Lines.Count > 0
+            ? _parse.Lines.Take(6).Select(l => $"{l.Date:d MMM yyyy}  |  {Cut(l.Description == "" ? "(no counterparty)" : l.Description, 32)}  |  {Format.Money(l.Amount),12}")
+            : _table.Rows.Skip(Math.Max(0, _format.HeaderRows - 1)).Take(5).Select(r => string.Join("  |  ", r.Select(c => c.Length > 22 ? c[..21] + "…" : c)));
         _rawPreview.Text = string.Join("\n", preview);
         ShowStatementPreview();
         IsPrimaryButtonEnabled = !_onReconcile && _parse.Lines.Count > 0 && AccountId is not null;
@@ -624,7 +635,7 @@ public sealed class ImportWizardDialog : ContentDialog
     private void ShowStep(bool reconcile)
     {
         _onReconcile = reconcile;
-        _mapStep.Visibility = reconcile ? Visibility.Collapsed : Visibility.Visible;
+        _mapScroll.Visibility = reconcile ? Visibility.Collapsed : Visibility.Visible;
         _reconcileStep.Visibility = reconcile ? Visibility.Visible : Visibility.Collapsed;
         Title = reconcile ? "Import transactions: reconcile" : "Import transactions";
         PrimaryButtonText = reconcile ? "Apply" : "Next";
