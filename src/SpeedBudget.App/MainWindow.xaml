@@ -10,10 +10,8 @@
     <!-- The menu is built in code, because the transaction pages under Activity follow the list of accounts. -->
     <!-- Zoom only affects the budget and transaction tables (see ZoomBox); nothing else is scaled. -->
     <Grid x:Name="ZoomOuter">
-    <Grid x:Name="ZoomHost">
-    <NavigationView x:Name="Nav" SizeChanged="Nav_SizeChanged" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
-                    IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged">
-        <Grid>
+    <Grid x:Name="ZoomHost" SizeChanged="Nav_SizeChanged">
+        <Grid x:Name="PageRoot" Margin="48,0,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -86,7 +84,9 @@
                 <TextBlock x:Name="UndoToastText" />
             </Border>
         </Grid>
-    </NavigationView>
+    <!-- The panel lies beside the page (not around it) and is drawn over it while it is open: see "The left panel as its own piece" in MainWindow.xaml.cs. -->
+    <NavigationView x:Name="Nav" HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="48" KeyboardAcceleratorPlacementMode="Hidden" IsBackButtonVisible="Collapsed" PaneDisplayMode="Left" IsPaneToggleButtonVisible="False"
+                    IsPaneOpen="True" IsSettingsVisible="False" SelectionChanged="Nav_SelectionChanged" />
     </Grid>
     </Grid>
 </Window>

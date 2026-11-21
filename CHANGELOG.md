@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.34
 
+- **The side panel is now a separate piece drawn over the page.** Choosing an account or page in the panel no longer makes it close and open again: it stays open until the pointer leaves it. The page behind keeps drawing while the panel opens and closes, so nothing waits on the panel or jumps.
+
 - **The side panel no longer shuts when you choose something in it.** With the panel set to open on hover, clicking an account or page now keeps the panel open; it closes only when the pointer leaves it. The page also opens straight away again, and the panel's section titles ("Budget", "Transactions") no longer stay behind, cut off, once the panel has collapsed.
 
 - **The side panel opens reliably when you hover over it.** Moving the pointer quickly in and out of the collapsed panel could leave it stuck part-way open, or not opening at all. The panel now takes its open and close requests one at a time, and puts itself right if it is ever left half-open.
