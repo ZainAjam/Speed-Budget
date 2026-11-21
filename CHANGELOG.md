@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.35
+
+- **Multi-select now tells you what it is.** While a table is in multi-select mode, a banner appears between the buttons saying so, that you can edit or delete several transactions at a time, and to press X to close multi-select mode.
+
 ## 0.9.34
 
 - **The side panel is now a separate piece drawn over the page.** Choosing an account or page in the panel no longer makes it close and open again: it stays open until the pointer leaves it. The page behind keeps drawing while the panel opens and closes, so nothing waits on the panel or jumps.

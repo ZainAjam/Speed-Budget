@@ -270,6 +270,16 @@
                     </StackPanel>
                 </Border>
             </StackPanel>
+            <!-- Shown while multi-select is on: says what the mode is, and how to leave it -->
+            <Border Grid.Column="1" Visibility="{x:Bind ViewModel.IsSelecting, Mode=OneWay}" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="14,6" CornerRadius="6"
+                    BorderThickness="1" Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    AutomationProperties.Name="Multi-select mode is on">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <FontIcon Glyph="&#xE762;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="Multi-select mode: edit or delete several transactions at a time. Press X to close multi-select mode."
+                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" MaxWidth="600" VerticalAlignment="Center" FontSize="12" />
+                </StackPanel>
+            </Border>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                 <TextBlock Text="{x:Bind ViewModel.DrillText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.8" MaxWidth="260" TextTrimming="CharacterEllipsis"
                            ToolTipService.ToolTip="The transactions behind the figure you pressed on the budget" />
