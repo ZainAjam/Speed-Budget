@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using SpeedBudget.App.ViewModels;
 using SpeedBudget.Core;
 using SpeedBudget.Data;
@@ -19,7 +20,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         InitializeComponent();
         ViewModel.TickedChanged += UpdateTicks;
-        ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(TransactionsViewModel.IsSelecting)) UpdateTicks(null, EventArgs.Empty); };
+        ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(TransactionsViewModel.IsSelecting)) { UpdateTicks(null, EventArgs.Empty); ShowSelectButtons(ViewModel.IsSelecting); } };
         // Oldest first opens at the bottom of the table; the rows stay out of sight until they are there, so no scrolling shows.
         if (ViewModel.SortIndex == 1) EntryList.Opacity = 0;
         // Handled presses count too: the boxes and buttons in the table handle theirs.
@@ -640,6 +641,97 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (row is not null) await DeleteRowAsync(row);
     }
 
+    // ---- The multi-select button of the toolbar ----
+
+    private bool _selectShown;
+    private Storyboard? _selectStory;
+
+    /// <summary>The button above the table: it turns multi-select on, and when on it is the cross that turns it off.</summary>
+    private void SelectToggle_Click(object sender, RoutedEventArgs e) => ViewModel.IsSelecting = !ViewModel.IsSelecting;
+
+    /// <summary>The pencil: opens the ticked transactions for editing together, as Edit in the right-click menu does.</summary>
+    private void EditMany_Click(object sender, RoutedEventArgs e)
+    {
+        var rows = ViewModel.TickedRows();
+        if (rows.Count == 0) { ViewModel.Message = "Tick the transactions you want to edit first."; return; }
+        ViewModel.IsSelecting = false;
+        ViewModel.BeginEditMany(rows);
+    }
+
+    /// <summary>The bin: deletes the ticked transactions, after asking.</summary>
+    private async void DeleteMany_Click(object sender, RoutedEventArgs e)
+    {
+        var rows = ViewModel.TickedRows();
+        if (rows.Count == 0) { ViewModel.Message = "Tick the transactions you want to delete first."; return; }
+        await DeleteManyAsync(rows);
+    }
+
+    /// <summary>
+    /// Opens the multi-select button leftwards into the pencil, the bin and the cross (the multi-select icon turns into the cross), or folds
+    /// the three back into the one button.
+    /// </summary>
+    private void ShowSelectButtons(bool selecting)
+    {
+        if (_selectShown == selecting) return;
+        _selectShown = selecting;
+
+        _selectStory?.Stop();
+        var story = _selectStory = new Storyboard();
+        void Move(DependencyObject target, string property, double to, int beginMs, int durationMs, bool layout = false)
+        {
+            var animation = new DoubleAnimation
+            {
+                To = to, BeginTime = TimeSpan.FromMilliseconds(beginMs), Duration = TimeSpan.FromMilliseconds(durationMs),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }, EnableDependentAnimation = layout,   // the width is a layout property
+            };
+            Storyboard.SetTarget(animation, target);
+            Storyboard.SetTargetProperty(animation, property);
+            story.Children.Add(animation);
+        }
+
+        const double open = 160, shut = 48;
+        if (selecting)
+        {
+            EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = true;
+            Move(SelectHost, "Width", open, 0, 300, layout: true);
+            Move(DeleteSlide, "X", 0, 30, 270);
+            Move(EditSlide, "X", 0, 0, 300);
+            Move(DeleteManyButton, "Opacity", 1, 30, 200);
+            Move(EditManyButton, "Opacity", 1, 0, 200);
+            Move(SelectIcon, "Opacity", 0, 0, 120);
+            Move(CloseIcon, "Opacity", 1, 60, 160);
+            Move(CloseSpin, "Angle", 0, 0, 280);
+        }
+        else
+        {
+            EditManyButton.IsHitTestVisible = DeleteManyButton.IsHitTestVisible = false;
+            Move(EditSlide, "X", 112, 0, 260);
+            Move(DeleteSlide, "X", 56, 0, 260);
+            Move(EditManyButton, "Opacity", 0, 0, 160);
+            Move(DeleteManyButton, "Opacity", 0, 0, 160);
+            Move(SelectHost, "Width", shut, 60, 260, layout: true);
+            Move(CloseIcon, "Opacity", 0, 0, 120);
+            Move(SelectIcon, "Opacity", 1, 120, 160);
+            Move(CloseSpin, "Angle", -90, 0, 260);
+        }
+        ToolTipService.SetToolTip(SelectToggleButton, selecting ? "Close multi-select" : "Multi-select: tick several transactions to edit or delete them together");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SelectToggleButton, selecting ? "Close multi-select" : "Multi-select");
+
+        story.Completed += (_, _) =>
+        {
+            // Keep where it ended up as the real values, then let the animation go.
+            SelectHost.Width = selecting ? open : shut;
+            EditSlide.X = selecting ? 0 : 112;
+            DeleteSlide.X = selecting ? 0 : 56;
+            EditManyButton.Opacity = DeleteManyButton.Opacity = selecting ? 1 : 0;
+            SelectIcon.Opacity = selecting ? 0 : 1;
+            CloseIcon.Opacity = selecting ? 1 : 0;
+            CloseSpin.Angle = selecting ? 0 : -90;
+            story.Stop();
+        };
+        story.Begin();
+    }
+
     // ---- Ticked transactions ----
 
     private void TickAll_Click(object sender, RoutedEventArgs e) => ViewModel.SetAllTicked(TickAllBox.IsChecked == true);
@@ -649,6 +741,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         var count = ViewModel.TickedRows().Count;
         TickAllBox.IsChecked = count > 0 && count == ViewModel.TransactionCount;
+        // The edit and delete buttons of the toolbar work on the ticked rows, so they wait until some are ticked.
+        EditManyButton.IsEnabled = DeleteManyButton.IsEnabled = count > 0;
+        EditIcon.Opacity = DeleteIcon.Opacity = count > 0 ? 1 : 0.4;
     }
 
 

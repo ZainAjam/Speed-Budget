@@ -276,6 +276,28 @@
                 <Button Content="Clear filters" Click="ClearFilters_Click" Visibility="{x:Bind ViewModel.HasFilters, Mode=OneWay}" />
                 <!-- The sort, eye and more buttons sit together, evenly spaced -->
                 <StackPanel Orientation="Horizontal" Spacing="8">
+                <!-- Multi-select: one button that opens leftwards into edit, delete and close, and folds back into itself when closed -->
+                <Grid x:Name="SelectHost" Width="48" Height="32" VerticalAlignment="Center" Background="Transparent">
+                    <Button x:Name="EditManyButton" Click="EditMany_Click" Width="48" Height="32" Padding="0" HorizontalAlignment="Right" Margin="0,0,112,0" Opacity="0" IsHitTestVisible="False"
+                            AutomationProperties.Name="Edit the ticked transactions" ToolTipService.ToolTip="Edit the ticked transactions">
+                        <Button.RenderTransform><TranslateTransform x:Name="EditSlide" X="112" /></Button.RenderTransform>
+                        <FontIcon x:Name="EditIcon" Glyph="&#xE70F;" FontSize="16" Foreground="#E9B72C" />
+                    </Button>
+                    <Button x:Name="DeleteManyButton" Click="DeleteMany_Click" Width="48" Height="32" Padding="0" HorizontalAlignment="Right" Margin="0,0,56,0" Opacity="0" IsHitTestVisible="False"
+                            AutomationProperties.Name="Delete the ticked transactions" ToolTipService.ToolTip="Delete the ticked transactions">
+                        <Button.RenderTransform><TranslateTransform x:Name="DeleteSlide" X="56" /></Button.RenderTransform>
+                        <FontIcon x:Name="DeleteIcon" Glyph="&#xE74D;" FontSize="16" Foreground="#E06C75" />
+                    </Button>
+                    <Button x:Name="SelectToggleButton" Click="SelectToggle_Click" Width="48" Height="32" Padding="0" HorizontalAlignment="Right"
+                            AutomationProperties.Name="Multi-select" ToolTipService.ToolTip="Multi-select: tick several transactions to edit or delete them together">
+                        <Grid>
+                            <FontIcon x:Name="SelectIcon" Glyph="&#xE762;" FontSize="16" />
+                            <FontIcon x:Name="CloseIcon" Glyph="&#xE711;" FontSize="16" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                                <FontIcon.RenderTransform><RotateTransform x:Name="CloseSpin" Angle="-90" /></FontIcon.RenderTransform>
+                            </FontIcon>
+                        </Grid>
+                    </Button>
+                </Grid>
                 <Button Click="Sort_Click" AutomationProperties.Name="Sort order" ToolTipService.ToolTip="{x:Bind ViewModel.SortTip, Mode=OneWay}">
                     <FontIcon Glyph="&#xE8CB;" FontSize="16" />
                 </Button>
