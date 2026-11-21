@@ -117,7 +117,7 @@ public static class BankFile
         var cell = new StringBuilder();
         var quoted = false;
         void EndCell() { cells.Add(cell.ToString().Trim()); cell.Clear(); }
-        void EndRow() { EndCell(); if (cells.Any(c => c != "")) rows.Add(cells.ToArray()); cells.Clear(); }
+        void EndRow() { EndCell(); rows.Add(cells.ToArray()); cells.Clear(); }   // blank lines are kept, so a row number is the number the line has in the file
 
         for (var i = 0; i < text.Length; i++)
         {
@@ -297,7 +297,7 @@ public static class BankFile
                 var credit = format.CreditColumn >= 0 ? TryMoney(table.Cell(r, format.CreditColumn)) : null;
                 amount = -Math.Abs(debit ?? 0) + Math.Abs(credit ?? 0);
             }
-            if (amount == 0) { problems.Add(new ImportProblem(number, $"{date:d MMM yyyy}: there is no amount.")); continue; }
+            if (amount == 0) continue;   // a line with no money in it (an interest rate note, say) is not a transaction
             var memo = format.MemoColumn >= 0 ? table.Cell(r, format.MemoColumn) : "";
             var running = format.BalanceColumn >= 0 ? TryMoney(table.Cell(r, format.BalanceColumn)) : null;
             lines.Add(new BankLine(number, date, description, memo == "" ? null : memo, amount, running));

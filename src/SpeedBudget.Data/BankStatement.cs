@@ -6,7 +6,7 @@ namespace SpeedBudget.Data;
 
 /// <summary>
 /// Where in a bank file to read one figure from. Kind 0: not in the file (for the file's date: the date of its latest line). Kind 1: the balance on the
-/// latest line of a column. Kind 2: one cell of the file (<see cref="Column"/> counted from 0, <see cref="Row"/> counted from 1 as in the sheet).
+/// latest line of a column. Kind 3: the last figure in a row (<see cref="Row"/> counted from 1; for a line such as "Balance, 2114.88, 2093.88"). Kind 2: one cell of the file (<see cref="Column"/> counted from 0, <see cref="Row"/> counted from 1 as in the sheet).
 /// </summary>
 public sealed record BalanceSource(int Kind = 0, int Column = -1, int Row = 0)
 {
@@ -40,9 +40,32 @@ public static class BankStatement
         if (cleared.Kind == 0 && FindLabelled(table, ["closing balance", "cleared balance", "ledger balance", "statement balance"], IsMoney) is { } c) cleared = new BalanceSource(2, c.Column, c.Row);
         var available = BalanceSource.None;
         if (FindLabelled(table, ["available balance", "available bal"], IsMoney) is { } a) available = new BalanceSource(2, a.Column, a.Row);
+        else if (FindBalanceRow(table, format.HeaderRows) is { } balanceRow) available = new BalanceSource(3, -1, balanceRow);
         var date = BalanceSource.None;
         if (FindLabelled(table, ["statement date", "closing date", "balance date", "as at", "as of"], IsDate) is { } d) date = new BalanceSource(2, d.Column, d.Row);
         return new StatementSettings(cleared, available, date);
+    }
+
+    /// <summary>The last figure in a row of the file (counted from 1), for a line that holds several, such as "Balance, 2114.88, 2093.88".</summary>
+    private static long? LastFigureIn(BankTable table, int row)
+    {
+        if (row < 1 || row > table.Rows.Count) return null;
+        var cells = table.Rows[row - 1];
+        for (var c = cells.Length - 1; c >= 0; c--)
+            if (cells[c] != "" && BankFile.TryMoney(cells[c]) is { } value) return value;
+        return null;
+    }
+
+    /// <summary>A line above the transactions labelled as a balance that holds two or more figures: the last of them is taken as the available balance.</summary>
+    private static int? FindBalanceRow(BankTable table, int beforeRow)
+    {
+        for (var r = 0; r < Math.Min(beforeRow, table.Rows.Count); r++)
+        {
+            var cells = table.Rows[r];
+            if (cells.Length < 3 || !cells[0].Contains("balance", StringComparison.OrdinalIgnoreCase)) continue;
+            if (cells.Skip(1).Count(c => c != "" && BankFile.TryMoney(c) is not null) >= 2) return r + 1;
+        }
+        return null;
     }
 
     private static bool IsMoney(string text) => BankFile.TryMoney(text) is not null;
@@ -96,6 +119,7 @@ public static class BankStatement
     private static long? ReadBalance(BankTable table, BankFormat format, BalanceSource source, IReadOnlyList<BankLine> lines)
     {
         if (source.Kind == 2) return CellAt(table, source) is { } text ? BankFile.TryMoney(text) : null;
+        if (source.Kind == 3) return LastFigureIn(table, source.Row);
         if (source.Kind != 1 || source.Column < 0) return null;
         var withColumn = source.Column == format.BalanceColumn ? lines : BankFile.Parse(table, format with { BalanceColumn = source.Column }).Lines;
         return BankBalance.Closing(withColumn)?.Balance;

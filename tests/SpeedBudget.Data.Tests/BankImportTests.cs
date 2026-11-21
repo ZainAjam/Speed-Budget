@@ -267,4 +267,28 @@ public sealed class BankImportTests : IDisposable
         Assert.Contains(diagnosis.Items, i => i.Kind == DiagnosisKind.InFileNotInApp && i.Line!.Amount == -300);
         Assert.Equal(diagnosis.Gap, diagnosis.Items.Sum(i => i.Amount));
     }
+
+    [Fact]
+    public void A_balance_line_with_two_figures_gives_the_available_balance_and_the_last_line_gives_the_cleared_one()
+    {
+        var path = Csv(
+            "ACCOUNT TRANSACTION HISTORY\n\nName:, Mogamat, Ajam\nAccount:, 63091225136, [Easy Account]\nBalance:, 2114.88, 2093.88\n\nDate, Amount, Balance, Description\n" +
+            "2026/11/18, -280.00, 2114.88, GROCERIES\n2026/11/18, -60.00, 2394.88, MOSLEM BURIAL SOCIET\n2026/11/17, -1279.70, 2454.88, WEST END RATES\n2026/11/11, 0.00, 6954.58, CR.INT.RATE   4,71000\n2026/11/11, -49.99, 6954.58, PICK & PAY BAYWEST\n");
+        var table = BankFile.ReadTable(path);
+        var format = BankFile.Detect(table)!;
+        Assert.Equal(7, format.HeaderRows);
+        Assert.Equal(2, format.BalanceColumn);
+
+        var settings = BankStatement.Detect(table, format);
+        Assert.Equal(new BalanceSource(1, 2), settings.Cleared);     // the balance on the latest line
+        Assert.Equal(new BalanceSource(3, -1, 5), settings.Available);   // the last figure in row 5
+
+        var parse = BankFile.Parse(table, format);
+        Assert.Equal(4, parse.Lines.Count);   // the interest line with no amount is left out
+        Assert.Empty(parse.Problems);
+        var info = BankStatement.Read(table, format, settings, parse.Lines)!;
+        Assert.Equal(new DateOnly(2026, 11, 18), info.Date);
+        Assert.Equal(211488, info.Cleared);     // the file runs newest first: of the two lines on the 18th, the first is the latest
+        Assert.Equal(209388, info.Available);
+    }
 }

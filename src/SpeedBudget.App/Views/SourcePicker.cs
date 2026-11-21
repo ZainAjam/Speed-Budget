@@ -29,7 +29,7 @@ public sealed class SourcePicker
     public SourcePicker(bool isDate)
     {
         _isDate = isDate;
-        Kind = new ComboBox { Width = 210, ItemsSource = isDate ? new[] { "Date of the last line", "A cell in the file" } : new[] { "Not in the file", "Last line of a column", "A cell in the file" }, SelectedIndex = 0 };
+        Kind = new ComboBox { Width = 210, ItemsSource = isDate ? new[] { "Date of the last line", "A cell in the file" } : new[] { "Not in the file", "Last line of a column", "A cell in the file", "The last figure in a row" }, SelectedIndex = 0 };
         Panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { Kind, _columnLabel, Column, _rowLabel, Row, Shown } };
         Kind.SelectionChanged += (_, _) => { ShowParts(); Raise(); };
         Column.SelectionChanged += (_, _) => Raise();
@@ -44,9 +44,9 @@ public sealed class SourcePicker
     private void ShowParts()
     {
         var kind = KindOf(Kind.SelectedIndex);
-        var showColumn = kind != 0;
+        var showColumn = kind is 1 or 2;
         _columnLabel.Visibility = Column.Visibility = showColumn ? Visibility.Visible : Visibility.Collapsed;
-        _rowLabel.Visibility = Row.Visibility = kind == 2 ? Visibility.Visible : Visibility.Collapsed;
+        _rowLabel.Visibility = Row.Visibility = kind is 2 or 3 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Offers the columns of the file to choose from.</summary>
@@ -66,12 +66,13 @@ public sealed class SourcePicker
         {
             var kind = KindOf(Kind.SelectedIndex);
             if (kind == 0) return BalanceSource.None;
-            return new BalanceSource(kind, (Column.SelectedItem as ColumnChoice)?.Index ?? -1, kind == 2 ? (int)(double.IsNaN(Row.Value) ? 1 : Row.Value) : 0);
+            var row = kind is 2 or 3 ? (int)(double.IsNaN(Row.Value) ? 1 : Row.Value) : 0;
+            return new BalanceSource(kind, kind is 1 or 2 ? (Column.SelectedItem as ColumnChoice)?.Index ?? -1 : -1, row);
         }
         set
         {
             _loading = true;
-            Kind.SelectedIndex = _isDate ? (value.Kind == 2 ? 1 : 0) : Math.Clamp(value.Kind, 0, 2);
+            Kind.SelectedIndex = _isDate ? (value.Kind == 2 ? 1 : 0) : Math.Clamp(value.Kind, 0, 3);
             if (value.Column >= 0 && Column.ItemsSource is IEnumerable<ColumnChoice> columns && columns.FirstOrDefault(c => c.Index == value.Column) is { } match) Column.SelectedItem = match;
             Row.Value = value.Row >= 1 ? value.Row : 1;
             ShowParts();
