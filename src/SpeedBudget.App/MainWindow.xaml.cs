@@ -39,13 +39,12 @@ public sealed partial class MainWindow : Window
         Nav.MenuItems.Add(budget);
         Nav.MenuItems.Add(_transactions);
         Nav.MenuItems.Add(_allAccountsItem);
-        Nav.MenuItems.Add(_addAccountItem);
+        _allAccountsItem.Content = AllAccountsRow();
         Nav.ItemInvoked += (sender, args) =>
         {
             var tag = args.InvokedItemContainer?.Tag as string;
-            if (tag is not ("zoom" or "add-account")) PaneItemChosen();
-            if (tag == "add-account") _ = AddAccountAsync();
-            else if (tag == "zoom" && !PanelOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
+            if (tag != "zoom") PaneItemChosen();
+            if (tag == "zoom" && !PanelOpen) ShowZoomFlyout();   // in the narrow strip the icon opens the controls
         };
 
         // Zoom: while the panel is open the buttons sit right in it; when it is narrow only the icon shows (and opens them in a small box).
@@ -545,13 +544,32 @@ public sealed partial class MainWindow : Window
         return new NavigationViewItem { Content = label, Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false, MinHeight = 32 };
     }
 
+    /// <summary>"All Bank Accounts", with a + at its right end that adds a bank account.</summary>
+    private Grid AllAccountsRow()
+    {
+        var row = new Grid { ColumnSpacing = 8 };
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(new TextBlock { Text = "All Bank Accounts", VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
+        var add = new Button
+        {
+            Content = new FontIcon { Glyph = "\uE710", FontSize = 14 }, Width = 32, Height = 32, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center,
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+        };
+        ToolTipService.SetToolTip(add, "Add a bank account");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(add, "Add a bank account");
+        Grid.SetColumn(add, 1);
+        // A press on the button must not reach the item underneath: that would open All Bank Accounts as well.
+        add.PointerPressed += (_, e) => e.Handled = true;
+        add.PointerReleased += (_, e) => e.Handled = true;
+        add.Click += (_, _) => _ = AddAccountAsync();
+        row.Children.Add(add);
+        return row;
+    }
+
     private readonly List<NavigationViewItem> _accountItems = [];
 
-    // The entry at the bottom of the Transactions list that adds a bank account, and the account to open once the list has been rebuilt.
-    private readonly NavigationViewItem _addAccountItem = new()
-    {
-        Content = "Add bank account", Tag = "add-account", SelectsOnInvoked = false, Icon = new SymbolIcon(Symbol.Add),
-    };
+    // The account to open once the list has been rebuilt (a new account is opened as soon as it is in the list).
     private Guid? _openAfterRebuild;
 
     /// <summary>The Add bank account entry: asks for the details of a new account, adds it and opens it.</summary>
@@ -880,8 +898,6 @@ public sealed partial class MainWindow : Window
             _accountItems.Add(item);
             Nav.MenuItems.Insert(at++, item);
         }
-        Nav.MenuItems.Remove(_addAccountItem);
-        Nav.MenuItems.Insert(Math.Min(at, Nav.MenuItems.Count), _addAccountItem);   // the add entry stays at the bottom of the list
 
         // A new account is opened as soon as it is in the list.
         if (_openAfterRebuild is { } opened && _accountItems.FirstOrDefault(i => (string?)i.Tag == $"tx:{opened}") is { } openedItem)

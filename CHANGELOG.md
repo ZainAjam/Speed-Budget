@@ -14,6 +14,8 @@ into the release.
 
 - **Tracking accounts have a radar icon, and the accounts are in two sections.** Under Transactions, the side panel now lists your accounts under "Budgeted accounts" and "Tracking accounts". Tracking accounts use a new radar icon in the same colour as the other icons.
 
+- **Adding a bank account is a + beside All Bank Accounts.** The "Add bank account" entry at the bottom of the side panel is gone; there is now a + at the right end of the All Bank Accounts row instead.
+
 ## 0.9.34
 
 - **The side panel is now a separate piece drawn over the page.** Choosing an account or page in the panel no longer makes it close and open again: it stays open until the pointer leaves it. The page behind keeps drawing while the panel opens and closes, so nothing waits on the panel or jumps.
