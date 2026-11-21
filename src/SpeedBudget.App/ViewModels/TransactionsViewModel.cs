@@ -548,6 +548,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>The label in the top right corner saying whether this account is in the budget or only tracked.</summary>
     [ObservableProperty] public partial bool ShowAccountBadge { get; set; }
     [ObservableProperty] public partial string AccountBadgeText { get; set; } = "";
+    [ObservableProperty] public partial Microsoft.UI.Xaml.Controls.IconElement? AccountBadgeIcon { get; set; }
     [ObservableProperty] public partial string AccountBadgeTip { get; set; } = "";
     [ObservableProperty] public partial Microsoft.UI.Xaml.Media.Brush? AccountBadgeBrush { get; set; }
     [ObservableProperty] public partial Microsoft.UI.Xaml.Media.Brush? AccountBadgeTextBrush { get; set; }
@@ -837,6 +838,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var viewed = _accounts.FirstOrDefault(a => a.Id == AccountId);
             ShowAccountBadge = viewed is not null;
             AccountBadgeText = viewed is { IsOnBudget: true } ? "Budget account" : "Tracking account";
+            AccountBadgeIcon = viewed is null ? null : viewed.IsOnBudget ? Glyphs.BudgetAccountIcon() : Glyphs.TrackingAccountIcon();
             AccountBadgeTip = viewed is { IsOnBudget: true }
                 ? "This account is part of your budget: its transactions count against your budget items."
                 : "This account is only tracked: it sits outside your budget, so its transactions don't affect it.";

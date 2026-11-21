@@ -12,9 +12,11 @@ into the release.
 
 - **Multi-select opens and closes instantly.** Pressing the multi-select button shows the edit, delete and close buttons straight away, and pressing X puts the multi-select button straight back, with no sliding or folding.
 
-- **Tracking accounts have a radar icon, and the accounts are in two sections.** Under Transactions, the side panel now lists your accounts under "Budgeted accounts" and "Tracking accounts". Tracking accounts use a new radar icon in the same colour as the other icons.
+- **Tracking accounts have a radar icon, and the accounts are in two sections.** Under Transactions, the side panel now lists your accounts under "Budget accounts" and "Tracking accounts". Tracking accounts use a new radar icon in the same colour as the other icons.
 
 - **Adding a bank account is a + beside All Bank Accounts.** The "Add bank account" entry at the bottom of the side panel is gone; there is now a + at the right end of the All Bank Accounts row instead.
+
+- **The account tag on a transaction page shows the account's icon.** The "Budget account" or "Tracking account" tag in the top right of a transaction page now carries the same icon the side panel uses for that kind of account.
 
 ## 0.9.34
 

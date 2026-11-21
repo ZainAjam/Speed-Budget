@@ -530,7 +530,7 @@ public sealed partial class MainWindow : Window
 
     private readonly List<NavigationViewItem> _sectionHeads = [];
 
-    /// <summary>A smaller title inside the Transactions section ("Budgeted accounts", "Tracking accounts"). Hidden, like the others, in the strip.</summary>
+    /// <summary>A smaller title inside the Transactions section ("Budget accounts", "Tracking accounts"). Hidden, like the others, in the strip.</summary>
     private NavigationViewItem SubHeading(string text)
     {
         var label = new TextBlock
@@ -773,7 +773,7 @@ public sealed partial class MainWindow : Window
 
         var item = new NavigationViewItem { Content = row, Tag = $"tx:{account.Id}",
             // A payment card for an account in the budget (money you spend from); a radar for one that is only being tracked.
-            Icon = account.IsOnBudget ? new FontIcon { Glyph = "" } : RadarIcon() };
+            Icon = account.IsOnBudget ? Glyphs.BudgetAccountIcon() : Glyphs.TrackingAccountIcon() };
 
         // Accounts can be dragged into any order. All Bank Accounts stays first and the add entry last, as only accounts take a drop.
         row.CanDrag = !account.IsClosed;
@@ -810,23 +810,6 @@ public sealed partial class MainWindow : Window
         return item;
     }
 
-    /// <summary>
-    /// A radar (two rings, a centre dot and a sweep line) for an account that is only being tracked. It is drawn as a shape, in the text colour,
-    /// so it is the same colour as the other icons in the panel.
-    /// </summary>
-    private static PathIcon RadarIcon()
-    {
-        // Drawn on a 24 by 24 grid. The rings run opposite ways round, so that the inside of each is left open; the sweep line is filled.
-        const string data =
-            "F1 M22,12 A10,10 0 1 1 2,12 A10,10 0 1 1 22,12 Z " +          // outer ring, clockwise
-            "M20.5,12 A8.5,8.5 0 1 0 3.5,12 A8.5,8.5 0 1 0 20.5,12 Z " +   // its inside, anticlockwise
-            "M17.5,12 A5.5,5.5 0 1 1 6.5,12 A5.5,5.5 0 1 1 17.5,12 Z " +   // inner ring, clockwise
-            "M16,12 A4,4 0 1 0 8,12 A4,4 0 1 0 16,12 Z " +                 // its inside, anticlockwise
-            "M13.5,12 A1.5,1.5 0 1 1 10.5,12 A1.5,1.5 0 1 1 13.5,12 Z " +  // the centre dot
-            "M11.3,12.7 L18.7,4.3 L19.7,5.3 L12.7,13.3 Z";                // the sweep line
-        return new PathIcon { Data = (Microsoft.UI.Xaml.Media.Geometry)Microsoft.UI.Xaml.Markup.XamlBindingHelper.ConvertValue(typeof(Microsoft.UI.Xaml.Media.Geometry), data) };
-    }
-
     private static void ShowBalance(TextBlock block, long balance)
     {
         block.Text = ViewModels.Format.Money(balance);
@@ -857,7 +840,7 @@ public sealed partial class MainWindow : Window
         {
             using var reader = LocalDatabase.OpenForReading();
             var readStore = new BudgetStore(reader);
-            // The accounts are shown in two sections, "Budgeted accounts" and then "Tracking accounts"; within each, open accounts come before
+            // The accounts are shown in two sections, "Budget accounts" and then "Tracking accounts"; within each, open accounts come before
             // closed ones, in the order the user has dragged them into.
             var all = await readStore.GetAccountsAsync();
             accounts = all.OrderByDescending(a => a.IsOnBudget).ThenBy(a => a.IsClosed).ThenBy(a => a.SortOrder).ThenBy(a => a.Name).ToList();
@@ -890,7 +873,7 @@ public sealed partial class MainWindow : Window
             if (lastBudgeted != account.IsOnBudget)
             {
                 lastBudgeted = account.IsOnBudget;
-                var head = SubHeading(account.IsOnBudget ? "Budgeted accounts" : "Tracking accounts");
+                var head = SubHeading(account.IsOnBudget ? "Budget accounts" : "Tracking accounts");
                 _sectionHeads.Add(head);
                 Nav.MenuItems.Insert(at++, head);
             }
