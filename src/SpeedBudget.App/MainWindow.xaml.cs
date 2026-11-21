@@ -304,33 +304,40 @@ public sealed partial class MainWindow : Window
     private bool _sliding;
     private long _slideStart;
     private double _slideFrom, _slideTo;
-    private Microsoft.UI.Xaml.Media.SolidColorBrush? _panelBacking;   // behind the open panel, so the page does not show through it
+    private Border? _panelEdge;   // a thin line down the panel's right side, so it can be seen where the panel ends and the page starts
 
     private bool PanelOpen => _hover ? _wantOpen : Nav.IsPaneOpen;
 
     private void WirePane()
     {
         _openWidth = Nav.OpenPaneLength;
-        if (Format.Theme("SolidBackgroundFillColorBaseBrush") is Microsoft.UI.Xaml.Media.SolidColorBrush baseBrush)
-            _panelBacking = new Microsoft.UI.Xaml.Media.SolidColorBrush(baseBrush.Color) { Opacity = 0 };
+        Nav.CompactPaneLength = PanelStripWidth;   // (the width of the icons' column in the navigation view: the icons sit whole inside the strip)
+        // The panel is frosted glass in a slightly different shade from the rest of the app (the same in the strip and when open).
+        try { Nav.Background = Format.Theme("AcrylicBackgroundFillColorDefaultBrush"); }
+        catch { Nav.Background = Format.Theme("LayerFillColorDefaultBrush"); }
+        _panelEdge = new Border
+        {
+            Width = 1, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Stretch, IsHitTestVisible = false,
+            Background = Format.Theme("CardStrokeColorDefaultBrush"),
+        };
+        ZoomHost.Children.Add(_panelEdge);
     }
 
-    /// <summary>Makes the navigation view this wide (the strip up to the full panel), and the backing behind it solid as it widens.</summary>
+    /// <summary>How wide the strip of icons is.</summary>
+    private const double PanelStripWidth = 56;
+
+    /// <summary>Makes the navigation view this wide (the strip up to the full panel).</summary>
     private void ShowPane(double width)
     {
         _shown = width;
         Nav.Width = width;
-        if (_panelBacking is null) return;
-        if (!_hover) { Nav.Background = null; return; }
-        _panelBacking.Opacity = Math.Clamp((width - Nav.CompactPaneLength) / Math.Max(1, _openWidth - Nav.CompactPaneLength) * 2, 0, 1);
-        Nav.Background = _panelBacking;
+        if (_panelEdge is not null) _panelEdge.Margin = new Thickness(width - 1, 0, 0, 0);
     }
 
     private void SlideTo(double width)
     {
         _slideFrom = _shown;
         _slideTo = width;
-        if (Format.Theme("SolidBackgroundFillColorBaseBrush") is Microsoft.UI.Xaml.Media.SolidColorBrush current && _panelBacking is not null) _panelBacking.Color = current.Color;   // follows the theme
         _slideStart = Environment.TickCount64;
         if (_sliding) return;
         _sliding = true;
