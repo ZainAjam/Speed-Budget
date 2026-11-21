@@ -1554,6 +1554,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>The cleared balance of an account as at a date (the figure the account screen shows, for that day).</summary>
     public async Task<long> ClearedBalanceAsOfAsync(Guid accountId, DateOnly date) => (await _store.GetBalancesAsync(accountId, default, date)).ClearedBalance;
 
+    /// <summary>The available balance (cleared and uncleared together) of an account as at a date.</summary>
+    public async Task<long> AvailableBalanceAsOfAsync(Guid accountId, DateOnly date) => (await _store.GetBalancesAsync(accountId, default, date)).BookBalance;
+
     public IReadOnlyDictionary<string, string> PayeeIconsForImport => PayeeIcons;
 
     public Task<IReadOnlyList<BankMatch>> MatchBankLinesAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.MatchBankLinesAsync(accountId, lines);

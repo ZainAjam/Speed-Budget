@@ -707,7 +707,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
                     {
                         var again = await ViewModel.CompareStatementAsync(check.AccountId, check.Info);
                         var today = await ViewModel.ClearedBalanceAsOfAsync(check.AccountId, DateOnly.FromDateTime(DateTime.Today));
-                        await new BalanceCheckDialog(check with { Comparisons = again, CurrentCleared = today }) { XamlRoot = XamlRoot }.ShowAsync();
+                        var todayAvailable = await ViewModel.AvailableBalanceAsOfAsync(check.AccountId, DateOnly.FromDateTime(DateTime.Today));
+                        await new BalanceCheckDialog(check with { Comparisons = again, CurrentCleared = today, CurrentAvailable = todayAvailable }) { XamlRoot = XamlRoot }.ShowAsync();
                     }
                 }
             }

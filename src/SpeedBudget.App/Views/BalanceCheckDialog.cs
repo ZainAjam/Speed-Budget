@@ -10,19 +10,25 @@ using Windows.UI;
 namespace SpeedBudget.App.Views;
 
 /// <summary>
-/// The result of comparing what a bank file says about the account (its cleared balance, its available balance, as at the file's date) with the
-/// same figures worked out in the app for that date.
+/// The result of comparing what a bank file says about the account (its available balance, and its cleared balance when it gives one, as at the
+/// file's date) with the same figures worked out in the app for that date. The available balance decides: the bank's available balance takes
+/// account of what is still pending, just as Speed Budget's counts the uncleared transactions with the cleared ones. Only when the file gives no
+/// available balance does the cleared balance decide.
 /// </summary>
-public sealed record BalanceCheck(SpeedBudget.Data.StatementInfo Info, IReadOnlyList<SpeedBudget.Data.BalanceComparison> Comparisons, long CurrentCleared, Guid AccountId, IReadOnlyList<SpeedBudget.Data.BankLine> Lines)
+public sealed record BalanceCheck(SpeedBudget.Data.StatementInfo Info, IReadOnlyList<SpeedBudget.Data.BalanceComparison> Comparisons, long CurrentCleared, long CurrentAvailable, Guid AccountId, IReadOnlyList<SpeedBudget.Data.BankLine> Lines)
 {
     public DateOnly Date => Info.Date;
-    public bool Matches => Comparisons.All(c => c.Matches);
 
-    /// <summary>The cleared balance against the file's, when the file gave one.</summary>
+    public SpeedBudget.Data.BalanceComparison? Available => Comparisons.FirstOrDefault(c => c.Label == "Available");
     public SpeedBudget.Data.BalanceComparison? Cleared => Comparisons.FirstOrDefault(c => c.Label == "Cleared");
 
-    /// <summary>The way out of a difference ("Find the difference") works on the cleared balance, so it is offered when that is what differs.</summary>
-    public bool CanFindDifference => Cleared is { Matches: false };
+    /// <summary>The comparison that decides whether the account reconciles.</summary>
+    public SpeedBudget.Data.BalanceComparison? Verdict => Available ?? Cleared;
+
+    public bool Matches => Verdict is { Matches: true };
+
+    /// <summary>"Find the difference" works on the cleared balance, so it is offered when the account does not reconcile and that differs too.</summary>
+    public bool CanFindDifference => !Matches && Cleared is { Matches: false };
 }
 
 /// <summary>
@@ -51,9 +57,23 @@ public sealed class BalanceCheckDialog : ContentDialog
         var detail = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 420, Opacity = 0.85,
-            Text = string.Join("\n\n", check.Comparisons.Select(c => Describe(c, check.Date))) + TodayNote(check) + Hint(check),
+            Text = Message(check),
         };
         Content = new StackPanel { Spacing = 18, Padding = new Thickness(0, 12, 0, 4), HorizontalAlignment = HorizontalAlignment.Center, Children = { picture, title, detail } };
+    }
+
+    private static string Message(BalanceCheck check)
+    {
+        var parts = new List<string>();
+        if (check.Verdict is { } verdict) parts.Add(Describe(verdict, check.Date));
+        // When the available balance decides, the cleared balance is told as well: it agreeing is good news, and it differing is explained rather than a failure.
+        if (check.Available is not null && check.Cleared is { } cleared)
+            parts.Add(cleared.Matches
+                ? "The cleared balance agrees too."
+                : check.Matches
+                    ? $"Speed Budget's cleared balance on that date ({Format.Money(cleared.AppBalance)}) is {Format.Money(Math.Abs(cleared.AppBalance - cleared.FileBalance))} {(cleared.AppBalance > cleared.FileBalance ? "higher" : "lower")} than the file's ({Format.Money(cleared.FileBalance)}): some transactions are cleared in one and not in the other, but the available balances agree."
+                    : Describe(cleared, check.Date));
+        return string.Join("\n\n", parts) + TodayNote(check) + Hint(check);
     }
 
     private static string Describe(SpeedBudget.Data.BalanceComparison c, DateOnly date)
@@ -70,12 +90,18 @@ public sealed class BalanceCheckDialog : ContentDialog
     {
         if (check.Matches) return "";
         if (check.Cleared is { Matches: false }) return "\n\nA transaction may be missing, entered wrongly, or not cleared yet.";
-        return "\n\nThe cleared balance agrees, so the difference is in the uncleared transactions: one may be missing, wrong, or already cleared at the bank.";
+        if (check.Cleared is { Matches: true }) return "\n\nThe cleared balance agrees, so the difference is in the uncleared transactions: one may be missing, wrong, or already cleared at the bank.";
+        return "\n\nA transaction may be missing, entered wrongly, or marked cleared or uncleared wrongly.";
     }
 
-    /// <summary>The account screen shows today's cleared balance, which also counts cleared transactions dated after the file's date: say so when the two differ.</summary>
-    private static string TodayNote(BalanceCheck check) => check.Cleared is not { } cleared || check.CurrentCleared == cleared.AppBalance ? "" :
-        $"\n\nThe cleared balance at the top of the account screen ({Format.Money(check.CurrentCleared)}) is today's, so it also counts cleared transactions dated after {check.Date:d MMM yyyy}.";
+    /// <summary>The account screen shows today's balances, which also count transactions dated after the file's date: say so when the figure that was compared differs from today's.</summary>
+    private static string TodayNote(BalanceCheck check)
+    {
+        if (check.Verdict is not { } verdict) return "";
+        var (today, what) = verdict.Label == "Available" ? (check.CurrentAvailable, "available") : (check.CurrentCleared, "cleared");
+        return today == verdict.AppBalance ? "" :
+            $"\n\nThe {what} balance at the top of the account screen ({Format.Money(today)}) is today's, so it also counts transactions dated after {check.Date:d MMM yyyy}.";
+    }
 
     // ---- The green tick: the disc pops in, then the tick draws itself ----
 

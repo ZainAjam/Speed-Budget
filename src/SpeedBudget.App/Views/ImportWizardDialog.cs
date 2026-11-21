@@ -753,7 +753,7 @@ public sealed class ImportWizardDialog : ContentDialog
         if (result is not null && info is { HasBalances: true })
         {
             var comparisons = await _vm.CompareStatementAsync(account, info);
-            Outcome = new BalanceCheck(info, comparisons, await _vm.ClearedBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)), account, _parse.Lines);
+            Outcome = new BalanceCheck(info, comparisons, await _vm.ClearedBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)), await _vm.AvailableBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)), account, _parse.Lines);
         }
         return result is not null;
     }
