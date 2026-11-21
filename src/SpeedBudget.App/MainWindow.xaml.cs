@@ -119,6 +119,13 @@ public sealed partial class MainWindow : Window
         {
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
             if (_zoomHold || _paneHeld || _pressHeld) { args.Cancel = true; return; }
+            // Choosing an item closes an overlay panel by itself; with "show on hover" the panel shuts only when the pointer leaves it.
+            if (AppServices.PanelMode == "hover" && !_ownClose && PointerOverPanel(wide: true))
+            {
+                args.Cancel = true;
+                DispatcherQueue.TryEnqueue(() => { if (!Nav.IsPaneOpen && PointerOverPanel(true)) Nav.IsPaneOpen = true; });   // it is still open: its state must say so
+                return;
+            }
             // The strip is already as wide as it will be when shut, so there is no wide, empty panel left to shrink while it closes.
             // (the open width is left alone while the panel closes: changing it in mid-flight left the panel stuck part-way)
             StartMoving();
@@ -279,9 +286,14 @@ public sealed partial class MainWindow : Window
             {
                 // Collapsed (and Expand on hover only): the narrow strip of icons. The panel is closed first and only then changed into the
                 // strip, rather than both at once while it is open, which Windows' own animation can refuse.
-                if (Nav.IsPaneOpen) Nav.IsPaneOpen = false;
-                Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
-                if (Nav.IsPaneOpen) Nav.IsPaneOpen = false;
+                _ownClose = true;
+                try
+                {
+                    if (Nav.IsPaneOpen) Nav.IsPaneOpen = false;
+                    Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
+                    if (Nav.IsPaneOpen) Nav.IsPaneOpen = false;
+                }
+                finally { _ownClose = false; }
             }
         }
         catch (Exception ex) { Diagnostics.Note($"The side panel setting could not be applied completely: {ex.Message}"); }
@@ -361,6 +373,7 @@ public sealed partial class MainWindow : Window
         _pendingOpen = null;
         if (Nav.IsPaneOpen == open) return;
         if (open ? _noOpenUntilExit : (_paneHeld || _pressHeld)) return;
+        if (!open && PointerOverPanel()) return;   // the panel shuts only when the pointer is away from it
         // A panel asked to open and shut in quick turns is left part-way: a request is held back until the last one has had time to start.
         var wait = 160 - (Environment.TickCount64 - _lastPaneRequest);
         if (wait > 0)
@@ -383,7 +396,8 @@ public sealed partial class MainWindow : Window
                 if (Nav.IsPaneOpen != open && (open || (!_paneHeld && !_pressHeld)))
                 {
                     if (open) Nav.OpenPaneLength = _openWidth;
-                    Nav.IsPaneOpen = open;
+                    _ownClose = !open;
+                    try { Nav.IsPaneOpen = open; } finally { _ownClose = false; }
                 }
             }
             catch (Exception ex)
@@ -430,6 +444,20 @@ public sealed partial class MainWindow : Window
         _pointerWatch.Start();
     }
 
+    /// <summary>Whether the pointer is over the panel (strip or open), read from the screen so it does not depend on pointer events.</summary>
+    private bool PointerOverPanel(bool wide = false)
+    {
+        try
+        {
+            if (_hwnd == IntPtr.Zero) _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            if (Nav.XamlRoot is null || !Native.GetCursorPos(out var p) || !Native.ScreenToClient(_hwnd, ref p) || !Native.GetClientRect(_hwnd, out var c)) return false;
+            if (p.X < 0 || p.Y < 0 || p.X >= c.Right || p.Y >= c.Bottom) return false;
+            var x = p.X / Math.Max(0.5, Nav.XamlRoot.RasterizationScale);
+            return x <= (wide || Nav.IsPaneOpen ? _openWidth : Nav.CompactPaneLength);
+        }
+        catch { return false; }
+    }
+
     private void WatchPointer()
     {
         try
@@ -450,7 +478,7 @@ public sealed partial class MainWindow : Window
             if (_noOpenUntilExit && x > Nav.CompactPaneLength) _noOpenUntilExit = false;
             if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
             else if (Nav.IsPaneOpen && x > _openWidth && !_paneHeld && !_pressHeld) SetPane(false);
-            CheckPaneSettled(!_noOpenUntilExit && (x <= Nav.CompactPaneLength || (Nav.IsPaneOpen && x <= _openWidth)) || _paneHeld || _pressHeld);
+            CheckPaneSettled(!_noOpenUntilExit && (x <= Nav.CompactPaneLength || ((Nav.IsPaneOpen || PaneDrawnWidth() > Nav.CompactPaneLength + 8) && x <= _openWidth)) || _paneHeld || _pressHeld);
         }
         catch (Exception ex) { Diagnostics.Note($"The pointer watch failed: {ex.Message}"); }
     }
@@ -503,7 +531,8 @@ public sealed partial class MainWindow : Window
             Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
             Nav.UpdateLayout();
             Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
-            Nav.IsPaneOpen = false;
+            _ownClose = true;
+            try { Nav.IsPaneOpen = false; } finally { _ownClose = false; }
             Nav.UpdateLayout();
         }
         catch (Exception ex) { Diagnostics.Note($"The left panel could not be put right: {ex.Message}"); }
@@ -535,10 +564,10 @@ public sealed partial class MainWindow : Window
     private void PaneItemChosen()
     {
         if (AppServices.PanelMode != "hover") return;
-        _noOpenUntilExit = true;
-        _pressHeld = false;
-        if (Nav.IsPaneOpen) SetPane(false);
+        _pressHeld = false;   // the panel stays as it is: it shuts only when the pointer leaves it
     }
+
+    private bool _ownClose;   // the panel is being closed on purpose (the pointer left it); the navigation view's own closing on a click is refused
 
     /// <summary>A section title in the left panel: bold, blue and a little larger than the items, so it reads as a heading.</summary>
     // It is an ordinary row (not a NavigationViewItemHeader) so that it keeps its place when the panel is collapsed to icons:
@@ -554,6 +583,8 @@ public sealed partial class MainWindow : Window
             Text = text, FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center,
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentTextFillColorPrimaryBrush"],
         };
+        label.Opacity = _headingsOn ? 1 : 0;
+        label.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(110 ) };   // fades rather than snapping, as the panel opens or shuts
         _headingLabels.Add(label);
         return label;
     }
@@ -563,8 +594,11 @@ public sealed partial class MainWindow : Window
     /// <summary>The section titles show only while the panel is open: in the narrow strip they would be cut off.</summary>
     private void ShowHeadings(bool open)
     {
-        foreach (var label in _headingLabels) label.Opacity = open || (AppServices.PanelMode == "show" && !_narrowWindow) ? 1 : 0;
+        _headingsOn = open || (AppServices.PanelMode == "show" && !_narrowWindow);
+        foreach (var label in _headingLabels) label.Opacity = _headingsOn ? 1 : 0;
     }
+
+    private bool _headingsOn;   // headings made later (when the account list is rebuilt) start as the others are, so none shows cut off in the strip
 
     private readonly List<NavigationViewItem> _accountItems = [];
 
@@ -1107,50 +1141,8 @@ public sealed partial class MainWindow : Window
         var burst = Environment.TickCount64 - _lastNavigate < 350;
         _lastNavigate = Environment.TickCount64;
         _navigateTimer.Stop();
-        // While the panel is still open (it shuts as the item is chosen), the page waits until the panel has shut completely, and only then
-        // is built: building a page keeps the screen busy, and the panel's closing must not stutter under it.
-        var paneShutting = (AppServices.PanelMode != "show" || _narrowWindow) && (Nav.IsPaneOpen || _paneMoving);
-        var token = ++_showToken;
-        if (paneShutting)
-        {
-            WhenPaneShut(() =>
-            {
-                if (token != _showToken) return;   // a later choice has taken this one's place
-                _lastNavigate = Environment.TickCount64;
-                try { Navigate(_pendingTag, _pendingParameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {_pendingTag}: {ex.Message}"); }
-            });
-        }
-        else if (!burst) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
+        if (!burst) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
         else _navigateTimer.Start();
-    }
-
-    private int _showToken;
-
-    /// <summary>
-    /// Runs something once the left panel has finished closing (its closing animation is over), so that nothing heavy starts while it is still
-    /// sliding. The panel is asked to close if it is open; if it does not (it is held open, or its end is missed), the thing runs after a moment anyway.
-    /// </summary>
-    private void WhenPaneShut(Action then)
-    {
-        if (Nav.IsPaneOpen) SetPane(false);
-        var finished = false;
-        Microsoft.UI.Dispatching.DispatcherQueueTimer? safety = null;
-        void Finish()
-        {
-            if (finished) return;
-            finished = true;
-            Nav.PaneClosed -= OnClosed;
-            safety?.Stop();
-            DispatcherQueue.TryEnqueue(() => then());   // one more turn, so the shut panel is drawn before the page starts to build
-        }
-        void OnClosed(NavigationView sender, object args) => Finish();
-        if (!Nav.IsPaneOpen && !_paneMoving) { Finish(); return; }
-        Nav.PaneClosed += OnClosed;
-        safety = DispatcherQueue.CreateTimer();
-        safety.Interval = TimeSpan.FromMilliseconds(700);
-        safety.IsRepeating = false;
-        safety.Tick += (_, _) => Finish();
-        safety.Start();
     }
 
     private long _lastNavigate;
