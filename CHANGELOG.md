@@ -10,6 +10,8 @@ into the release.
 
 - **The side panel is frosted and easy to tell from the page.** It now has a frosted-glass background in a slightly different shade from the rest of the app, with a thin line down its edge, so you can see where it ends. The icons in the collapsed panel are no longer cut off.
 
+- **The side panel slides smoothly even while a page is loading.** Opening and closing the panel is now drawn by Windows on its own, so it no longer stutters while the screen is busy building a page.
+
 - **The side panel no longer shuts when you choose something in it.** With the panel set to open on hover, clicking an account or page now keeps the panel open; it closes only when the pointer leaves it. The page also opens straight away again, and the panel's section titles ("Budget", "Transactions") no longer stay behind, cut off, once the panel has collapsed.
 
 - **The side panel opens reliably when you hover over it.** Moving the pointer quickly in and out of the collapsed panel could leave it stuck part-way open, or not opening at all. The panel now takes its open and close requests one at a time, and puts itself right if it is ever left half-open.

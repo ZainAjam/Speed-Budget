@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using SpeedBudget.App.ViewModels;
 using SpeedBudget.App.Views;
@@ -264,7 +265,6 @@ public sealed partial class MainWindow : Window
             Nav.IsPaneOpen = true;
             _hover = !full;
             _wantOpen = false;
-            StopSlide();
             // The page starts where the panel (when always shown) or its strip ends; the open panel lies over the page.
             PageRoot.Margin = new Thickness(full ? _openWidth : Nav.CompactPaneLength, 0, 0, 0);
             ShowPane(full ? _openWidth : Nav.CompactPaneLength);
@@ -301,9 +301,6 @@ public sealed partial class MainWindow : Window
     private double _shown;               // how wide the navigation view is now, from the strip to its full width
     private bool _noOpenUntilExit;       // reserved: do not open again under the pointer until it has left the panel
     private double _openWidth = 320;     // how wide the panel is when open
-    private bool _sliding;
-    private long _slideStart;
-    private double _slideFrom, _slideTo;
     private Border? _panelEdge;   // a thin line down the panel's right side, so it can be seen where the panel ends and the page starts
 
     private bool PanelOpen => _hover ? _wantOpen : Nav.IsPaneOpen;
@@ -326,37 +323,78 @@ public sealed partial class MainWindow : Window
     /// <summary>How wide the strip of icons is.</summary>
     private const double PanelStripWidth = 56;
 
-    /// <summary>Makes the navigation view this wide (the strip up to the full panel).</summary>
+    /// <summary>Puts the panel at rest: the strip (hover mode) or the full panel (always shown), with nothing sliding.</summary>
     private void ShowPane(double width)
     {
+        _slideToken++;
         _shown = width;
         Nav.Width = width;
-        if (_panelEdge is not null) _panelEdge.Margin = new Thickness(width - 1, 0, 0, 0);
+        _atRest = true;
+        EnsureVisuals();
+        if (_panelClip is not null) { _panelClip.StopAnimation("RightInset"); _panelClip.RightInset = 0; }
+        if (_panelEdge is not null)
+        {
+            ElementCompositionPreview.GetElementVisual(_panelEdge).StopAnimation("Translation.X");
+            _panelEdge.Translation = default;
+            _panelEdge.Margin = new Thickness(width - 1, 0, 0, 0);
+        }
     }
 
-    private void SlideTo(double width)
+    // The panel slides on the compositor (the part of the screen that draws on its own thread), not by changing its width a little at a time:
+    // while a page is being built the app's own thread is busy, and a slide it had to drive would stutter. The panel is laid out at its full
+    // width for the whole slide; what slides is the cut-off at its right side (and the thin line along that edge goes with it).
+
+    private bool _atRest = true;         // the panel is the strip, laid out at the strip's width
+    private int _slideToken;
+    private Microsoft.UI.Composition.Compositor? _compositor;
+    private Microsoft.UI.Composition.InsetClip? _panelClip;
+
+    private void EnsureVisuals()
     {
-        _slideFrom = _shown;
-        _slideTo = width;
-        _slideStart = Environment.TickCount64;
-        if (_sliding) return;
-        _sliding = true;
-        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += OnSlide;
+        if (_compositor is not null) return;
+        var visual = ElementCompositionPreview.GetElementVisual(Nav);
+        _compositor = visual.Compositor;
+        _panelClip = _compositor.CreateInsetClip(0, 0, 0, 0);
+        visual.Clip = _panelClip;
     }
 
-    private void StopSlide()
+    private void SlidePane(bool open)
     {
-        if (!_sliding) return;
-        _sliding = false;
-        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnSlide;
+        EnsureVisuals();
+        if (_compositor is null || _panelClip is null || _panelEdge is null) { ShowPane(open ? _openWidth : Nav.CompactPaneLength); return; }
+        var token = ++_slideToken;
+        var hidden = (float)(_openWidth - Nav.CompactPaneLength);
+        var edge = ElementCompositionPreview.GetElementVisual(_panelEdge);
+        if (_atRest)
+        {
+            // From the strip: lay the panel out at full width, with all but the strip cut off, so opening reveals it.
+            Nav.Width = _openWidth;
+            _panelEdge.Margin = new Thickness(_openWidth - 1, 0, 0, 0);
+            _panelClip.RightInset = hidden;
+            _panelEdge.Translation = new System.Numerics.Vector3(-hidden, 0, 0);
+            _atRest = false;
+        }
+        var ease = _compositor.CreateCubicBezierEasingFunction(new System.Numerics.Vector2(0.2f, 0f), new System.Numerics.Vector2(0f, 1f));
+        var duration = TimeSpan.FromMilliseconds(open ? 200 : 170);
+        var batch = _compositor.CreateScopedBatch(Microsoft.UI.Composition.CompositionBatchTypes.Animation);
+        var clip = _compositor.CreateScalarKeyFrameAnimation();
+        clip.InsertExpressionKeyFrame(0f, "this.StartingValue");
+        clip.InsertKeyFrame(1f, open ? 0f : hidden, ease);
+        clip.Duration = duration;
+        _panelClip.StartAnimation("RightInset", clip);
+        var line = _compositor.CreateScalarKeyFrameAnimation();
+        line.InsertExpressionKeyFrame(0f, "this.StartingValue");
+        line.InsertKeyFrame(1f, open ? 0f : -hidden, ease);
+        line.Duration = duration;
+        edge.StartAnimation("Translation.X", line);
+        batch.End();
+        batch.Completed += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            // Shut and still shut: the panel goes back to being laid out as the strip.
+            if (token == _slideToken && !open && _hover && !_wantOpen) ShowPane(Nav.CompactPaneLength);
+        });
     }
 
-    private void OnSlide(object? sender, object e)
-    {
-        var t = Math.Min(1, (Environment.TickCount64 - _slideStart) / (_slideTo > _slideFrom ? 200.0 : 170.0));
-        ShowPane(_slideFrom + (_slideTo - _slideFrom) * (1 - Math.Pow(1 - t, 3)));
-        if (t >= 1) StopSlide();
-    }
 
     /// <summary>Opens or closes the left panel from a pointer event.</summary>
     private void SetPane(bool open)
@@ -365,7 +403,7 @@ public sealed partial class MainWindow : Window
         if (open ? _noOpenUntilExit : (_paneHeld || _pressHeld || PointerOverPanel())) return;
         _wantOpen = open;
         ShowHeadings(open);
-        SlideTo(open ? _openWidth : Nav.CompactPaneLength);
+        SlidePane(open);
     }
 
 
