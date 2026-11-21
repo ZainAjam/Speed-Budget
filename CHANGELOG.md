@@ -6,6 +6,8 @@ into the release.
 
 ## 0.9.34
 
+- **The side panel opens reliably when you hover over it.** Moving the pointer quickly in and out of the collapsed panel could leave it stuck part-way open, or not opening at all. The panel now takes its open and close requests one at a time, and puts itself right if it is ever left half-open.
+
 - **The side panel shuts completely before the page you chose opens.** With the panel set to open on hover, choosing an item (or an account) now closes the panel and waits until its closing animation has finished, and only then builds the page, so the panel no longer stutters while the screen is busy. If the panel is held open for any reason, the page opens after a moment anyway.
 
 - **Find the difference: the date fix now works, and tells you when it cannot.** "Use the file's date" did nothing on a transaction that was already reconciled with an earlier file (those are locked). It is now "Set its bank date to …": it sets only the bank's own date, which is allowed on a reconciled transaction too, and leaves the transaction's own date as you entered it. The balance check also counts a cleared transaction from its bank date, as the bank does, so a transaction entered on the 31st that reached the bank on the 3rd is no longer seen as a difference. Un-clear and Delete on a reconciled transaction now say it is locked instead of silently doing nothing.

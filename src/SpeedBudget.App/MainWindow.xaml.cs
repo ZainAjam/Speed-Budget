@@ -120,7 +120,7 @@ public sealed partial class MainWindow : Window
             // The navigation view closes its pane when something in it is pressed; pressing a zoom button must not close it.
             if (_zoomHold || _paneHeld || _pressHeld) { args.Cancel = true; return; }
             // The strip is already as wide as it will be when shut, so there is no wide, empty panel left to shrink while it closes.
-            Nav.OpenPaneLength = Nav.CompactPaneLength;
+            // (the open width is left alone while the panel closes: changing it in mid-flight left the panel stuck part-way)
             StartMoving();
             ShowHeadings(false);
         };
@@ -312,7 +312,8 @@ public sealed partial class MainWindow : Window
 
     private bool _paneChanging;      // a request is waiting to be made
     private bool _paneMoving;        // the panel is sliding open or shut
-    private bool? _pendingOpen;      // what the panel should be, once it has stopped
+    private long _lastPaneRequest;
+    private bool? _pendingOpen;     // what the panel should be, once it has stopped
     private bool _noOpenUntilExit;   // an item was just chosen: do not open again under the pointer that chose it
     private double _openWidth = 320; // how wide the panel is when open
     private Microsoft.UI.Dispatching.DispatcherQueueTimer? _paneRetry, _paneSafety;
@@ -360,6 +361,20 @@ public sealed partial class MainWindow : Window
         _pendingOpen = null;
         if (Nav.IsPaneOpen == open) return;
         if (open ? _noOpenUntilExit : (_paneHeld || _pressHeld)) return;
+        // A panel asked to open and shut in quick turns is left part-way: a request is held back until the last one has had time to start.
+        var wait = 160 - (Environment.TickCount64 - _lastPaneRequest);
+        if (wait > 0)
+        {
+            _pendingOpen = open;
+            _paneRetry ??= DispatcherQueue.CreateTimer();
+            _paneRetry.Interval = TimeSpan.FromMilliseconds(wait + 5);
+            _paneRetry.IsRepeating = false;
+            _paneRetry.Tick -= PaneRetry_Tick;
+            _paneRetry.Tick += PaneRetry_Tick;
+            _paneRetry.Start();
+            return;
+        }
+        _lastPaneRequest = Environment.TickCount64;
         _paneChanging = true;
         DispatcherQueue.TryEnqueue(() =>
         {
@@ -429,13 +444,88 @@ public sealed partial class MainWindow : Window
             {
                 _noOpenUntilExit = false;
                 if (Nav.IsPaneOpen && !_paneHeld && !_pressHeld) SetPane(false);   // the pointer has left the window
+                CheckPaneSettled(false);
                 return;
             }
             if (_noOpenUntilExit && x > Nav.CompactPaneLength) _noOpenUntilExit = false;
             if (!Nav.IsPaneOpen && x <= Nav.CompactPaneLength) SetPane(true);
             else if (Nav.IsPaneOpen && x > _openWidth && !_paneHeld && !_pressHeld) SetPane(false);
+            CheckPaneSettled(!_noOpenUntilExit && (x <= Nav.CompactPaneLength || (Nav.IsPaneOpen && x <= _openWidth)) || _paneHeld || _pressHeld);
         }
         catch (Exception ex) { Diagnostics.Note($"The pointer watch failed: {ex.Message}"); }
+    }
+
+    // ---- Looking at the panel itself ----
+    // Asking the panel to open or shut does not always end with it open or shut: when requests come quickly (the pointer going in and out of
+    // the strip) it can be left part-way, or with its state saying open while it is drawn shut. So, as well as asking, the panel's drawn width
+    // is looked at every moment: when it has stood still for a short while and is not what the pointer wants, it is closed and opened afresh.
+
+    private double _lastDrawnWidth;
+    private long _stillSince;
+    private bool _recovering;
+
+    /// <summary>How wide the panel is drawn now: about a full panel's width when open, a strip when shut, and in between while it moves or is stuck.</summary>
+    private double PaneDrawnWidth() => _allAccountsItem.ActualWidth;
+
+    /// <summary>
+    /// Called every moment while the pointer is watched. A panel that is still moving changes width all the time; one that has stood still
+    /// for a short while and is not what the pointer wants (open under the pointer, shut away from it) is stuck, and is put right.
+    /// </summary>
+    private void CheckPaneSettled(bool wantOpen)
+    {
+        var now = Environment.TickCount64;
+        var width = PaneDrawnWidth();
+        if (_recovering || Math.Abs(width - _lastDrawnWidth) > 1) { _lastDrawnWidth = width; _stillSince = now; return; }   // still moving
+        var strip = Nav.CompactPaneLength;
+        var drawnOpen = width > strip + (_openWidth - strip) * 0.85;
+        var drawnShut = width <= strip + 8;   // a shut panel is just the strip (its row is as wide as the strip)
+        if (wantOpen ? drawnOpen : drawnShut) { _stillSince = now; return; }
+        if (now - _stillSince < 420) return;   // a moment's grace
+        _stillSince = now;
+        RecoverPane(wantOpen);
+    }
+
+    /// <summary>
+    /// Puts right a panel that is stuck part-way. Its own drawing is started afresh (shown as a full panel, then as the strip again), and then,
+    /// if it should be open, it is asked to open a moment later.
+    /// </summary>
+    private void RecoverPane(bool open)
+    {
+        Diagnostics.Note($"The left panel was stuck (drawn {PaneDrawnWidth():0} wide, wanted {(open ? "open" : "shut")}): putting it right");
+        _recovering = true;
+        _paneMoving = false;
+        _paneChanging = false;
+        _pendingOpen = null;
+        _paneSafety?.Stop();
+        try
+        {
+            Nav.OpenPaneLength = _openWidth;
+            Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.Left;
+            Nav.UpdateLayout();
+            Nav.PaneDisplayMode = NavigationViewPaneDisplayMode.LeftCompact;
+            Nav.IsPaneOpen = false;
+            Nav.UpdateLayout();
+        }
+        catch (Exception ex) { Diagnostics.Note($"The left panel could not be put right: {ex.Message}"); }
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(160);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            try
+            {
+                if (open && AppServices.PanelMode == "hover")
+                {
+                    Nav.OpenPaneLength = _openWidth;
+                    Nav.UpdateLayout();   // the width is taken in before the panel is asked to open
+                    Nav.IsPaneOpen = true;
+                }
+            }
+            catch (Exception ex) { Diagnostics.Note($"The left panel could not be put right: {ex.Message}"); }
+            finally { _recovering = false; _paneMoving = false; _stillSince = Environment.TickCount64; }
+        };
+        timer.Start();
     }
 
     /// <summary>
