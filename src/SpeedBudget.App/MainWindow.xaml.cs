@@ -1017,10 +1017,50 @@ public sealed partial class MainWindow : Window
         var burst = Environment.TickCount64 - _lastNavigate < 350;
         _lastNavigate = Environment.TickCount64;
         _navigateTimer.Stop();
-        // While the panel is still open (it shuts as the item is chosen), the page waits a moment so the panel can shut first: building a page keeps the screen busy.
+        // While the panel is still open (it shuts as the item is chosen), the page waits until the panel has shut completely, and only then
+        // is built: building a page keeps the screen busy, and the panel's closing must not stutter under it.
         var paneShutting = (AppServices.PanelMode != "show" || _narrowWindow) && (Nav.IsPaneOpen || _paneMoving);
-        if (!burst && !paneShutting) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
+        var token = ++_showToken;
+        if (paneShutting)
+        {
+            WhenPaneShut(() =>
+            {
+                if (token != _showToken) return;   // a later choice has taken this one's place
+                _lastNavigate = Environment.TickCount64;
+                try { Navigate(_pendingTag, _pendingParameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {_pendingTag}: {ex.Message}"); }
+            });
+        }
+        else if (!burst) { try { Navigate(tag, parameter); } catch (Exception ex) { Diagnostics.Note($"could not open page {tag}: {ex.Message}"); } }
         else _navigateTimer.Start();
+    }
+
+    private int _showToken;
+
+    /// <summary>
+    /// Runs something once the left panel has finished closing (its closing animation is over), so that nothing heavy starts while it is still
+    /// sliding. The panel is asked to close if it is open; if it does not (it is held open, or its end is missed), the thing runs after a moment anyway.
+    /// </summary>
+    private void WhenPaneShut(Action then)
+    {
+        if (Nav.IsPaneOpen) SetPane(false);
+        var finished = false;
+        Microsoft.UI.Dispatching.DispatcherQueueTimer? safety = null;
+        void Finish()
+        {
+            if (finished) return;
+            finished = true;
+            Nav.PaneClosed -= OnClosed;
+            safety?.Stop();
+            DispatcherQueue.TryEnqueue(() => then());   // one more turn, so the shut panel is drawn before the page starts to build
+        }
+        void OnClosed(NavigationView sender, object args) => Finish();
+        if (!Nav.IsPaneOpen && !_paneMoving) { Finish(); return; }
+        Nav.PaneClosed += OnClosed;
+        safety = DispatcherQueue.CreateTimer();
+        safety.Interval = TimeSpan.FromMilliseconds(700);
+        safety.IsRepeating = false;
+        safety.Tick += (_, _) => Finish();
+        safety.Start();
     }
 
     private long _lastNavigate;
