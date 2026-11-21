@@ -19,6 +19,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
     public TransactionsPage()
     {
         InitializeComponent();
+        // The side panel starts out of sight: the page now shows before its layout is read, and an empty panel must not flash.
+        DetailHost.Translation = new System.Numerics.Vector3(4000, 0, 0);
+        DetailHost.IsHitTestVisible = false;
         ViewModel.TickedChanged += UpdateTicks;
         ViewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(TransactionsViewModel.IsSelecting)) { UpdateTicks(null, EventArgs.Empty); ShowSelectButtons(ViewModel.IsSelecting); } };
         // Oldest first opens at the bottom of the table; the rows stay out of sight until they are there, so no scrolling shows.
@@ -33,12 +36,15 @@ public sealed partial class TransactionsPage : Page, IReloadable
         StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
         Loaded += async (_, _) =>
         {
+            // Let the page show first (its frame, headings, buttons and the loading ring), then load the transactions into the table.
+            await LoadingOverlay.WaitForFirstFrameAsync();
+            if (!IsLoaded) return;   // the user moved on to another page meanwhile
             await LoadLayoutAsync();
             Layout.PropertyChanged += Layout_Changed;
             UpdateTableWidth();
             UpdateDetailPanel();
             try { await ViewModel.LoadAsync(); await ScrollToLatestAsync(); }
-            finally { EntryList.Opacity = 1; }
+            finally { EntryList.Opacity = 1; await TableLoading.HideAsync(); }
         };
         Unloaded += (_, _) => { Layout.PropertyChanged -= Layout_Changed; EditEscape.Pressed -= PickerEscape; };
         Loaded += (_, _) => { EditEscape.Pressed -= PickerEscape; EditEscape.Pressed += PickerEscape; };

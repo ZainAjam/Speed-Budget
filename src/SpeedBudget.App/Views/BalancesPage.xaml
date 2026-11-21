@@ -261,6 +261,8 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    <!-- While the lines load, the table shows a turning ring: the page, its headings and buttons are on screen at once -->
+                    <local:LoadingOverlay Grid.Row="1" x:Name="TableLoading" Text="Loading balances…" />
                     <TextBlock Grid.Row="1" Text="Nothing yet. Press Add Entry to add the balance on a date." Opacity="0.7" Margin="8,12,0,0"
                                Visibility="{x:Bind ViewModel.ShowDailyEmpty, Mode=OneWay}" />
                 </Grid>

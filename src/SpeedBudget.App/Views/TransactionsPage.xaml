@@ -418,6 +418,8 @@
                             </Style>
                         </ListView.ItemContainerStyle>
                     </ListView>
+                    <!-- While the rows load, the table shows a turning ring: the page, its headings and buttons are on screen at once -->
+                    <local:LoadingOverlay Grid.Row="1" x:Name="TableLoading" Text="Loading transactions…" />
                 </Grid>
             </Border>
 

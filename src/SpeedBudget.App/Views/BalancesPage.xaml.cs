@@ -44,6 +44,8 @@ public sealed partial class BalancesPage : Page, IReloadable
         ViewModel.PropertyChanged -= Columns_Changed;
         ViewModel.PropertyChanged += Columns_Changed;
         SetSelecting(false);   // selection mode never carries over from another table
+        TableLoading.Show();
+        await LoadingOverlay.WaitForFirstFrameAsync();   // let the page show first (frame, headings, buttons and the ring), then load the lines
         try
         {
             await LoadColumnsAsync();
@@ -52,6 +54,7 @@ public sealed partial class BalancesPage : Page, IReloadable
         catch (Exception ex) { Diagnostics.Note($"balances page could not load: {ex.Message}"); }   // switching accounts quickly may leave this page behind
         UpdateTableFit();
         if (ViewModel.SortIndex == 1) Sorted();   // oldest first: the latest lines are at the bottom
+        await TableLoading.HideAsync();
     }
 
     /// <summary>When the window is too narrow for the table at full size, the table is made smaller to fit instead of being cut off.</summary>
