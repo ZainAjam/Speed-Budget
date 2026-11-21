@@ -355,10 +355,17 @@ public sealed partial class MainWindow : Window
         var visual = ElementCompositionPreview.GetElementVisual(Nav);
         _compositor = visual.Compositor;
         _panelClip = _compositor.CreateInsetClip(0, 0, 0, 0);
+        if (_panelEdge is not null) ElementCompositionPreview.SetIsTranslationEnabled(_panelEdge, true);   // so the edge line can be moved on the compositor
         visual.Clip = _panelClip;
     }
 
     private void SlidePane(bool open)
+    {
+        try { SlidePaneCore(open); }
+        catch (Exception ex) { Diagnostics.Note($"The side panel could not slide: {ex.Message}"); ShowPane(open ? _openWidth : Nav.CompactPaneLength); }
+    }
+
+    private void SlidePaneCore(bool open)
     {
         EnsureVisuals();
         if (_compositor is null || _panelClip is null || _panelEdge is null) { ShowPane(open ? _openWidth : Nav.CompactPaneLength); return; }
