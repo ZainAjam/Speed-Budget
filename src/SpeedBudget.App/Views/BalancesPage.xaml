@@ -86,7 +86,19 @@
                 <Button Click="Sort_Click" Visibility="{x:Bind ViewModel.ShowDaily, Mode=OneWay}" AutomationProperties.Name="Sort order" ToolTipService.ToolTip="{x:Bind ViewModel.SortTip, Mode=OneWay}">
                     <FontIcon Glyph="&#xE8CB;" FontSize="16" />
                 </Button>
-                <ToggleButton x:Name="DailyButton" IsChecked="True" Click="Daily_Click" AutomationProperties.Name="Transactions" ToolTipService.ToolTip="Transactions: the balance on each date">
+                <!-- The eye: how far back to show the lines. It is coloured while the table is cut to a recent stretch. -->
+                <Button AutomationProperties.Name="How far back to show" ToolTipService.ToolTip="{x:Bind ViewModel.RangeTip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE7B3;" FontSize="16" Foreground="{x:Bind ViewModel.RangeBrush, Mode=OneWay}" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <RadioMenuFlyoutItem x:Name="RangeAll" GroupName="Range" Tag="0" Text="Show all transactions" IsChecked="True" Click="Range_Click" />
+                            <RadioMenuFlyoutItem x:Name="RangeWeek" GroupName="Range" Tag="1" Text="Show the last week" Click="Range_Click" />
+                            <RadioMenuFlyoutItem x:Name="RangeMonth" GroupName="Range" Tag="2" Text="Show the last month" Click="Range_Click" />
+                            <RadioMenuFlyoutItem x:Name="RangeQuarter" GroupName="Range" Tag="3" Text="Show the last quarter" Click="Range_Click" />
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+                <ToggleButton x:Name="DailyButton" Margin="12,0,0,0" IsChecked="True" Click="Daily_Click" AutomationProperties.Name="Transactions" ToolTipService.ToolTip="Transactions: the balance on each date">
                     <FontIcon Glyph="&#xE8FD;" FontSize="16" />
                 </ToggleButton>
                 <ToggleButton x:Name="MonthButton" Click="Month_Click" AutomationProperties.Name="Report" ToolTipService.ToolTip="Report: the gains, withdrawals and money left for each month">

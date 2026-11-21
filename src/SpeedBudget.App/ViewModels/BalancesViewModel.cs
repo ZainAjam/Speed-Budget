@@ -290,6 +290,38 @@ public sealed partial class BalancesViewModel : ObservableObject
         if (AccountId != Guid.Empty) _ = ResortAsync();
     }
 
+
+    private static int s_range;   // 0 every transaction, 1 the last week, 2 the last month, 3 the last quarter (remembered while the app is open)
+
+    /// <summary>How far back the table goes.</summary>
+    [ObservableProperty] public partial int RangeIndex { get; set; } = s_range;
+
+    partial void OnRangeIndexChanged(int value)
+    {
+        s_range = value;
+        OnPropertyChanged(nameof(RangeTip));
+        OnPropertyChanged(nameof(RangeBrush));
+        if (AccountId != Guid.Empty) _ = ResortAsync();
+    }
+
+    /// <summary>The eye's tip: how far back the table goes now.</summary>
+    public string RangeTip => RangeIndex switch
+    {
+        1 => "Showing the last week",
+        2 => "Showing the last month",
+        3 => "Showing the last quarter",
+        _ => "Showing every transaction. Click to choose how far back to show",
+    };
+
+    /// <summary>The eye is coloured while the table is cut to a recent stretch.</summary>
+    public Brush RangeBrush => Format.Theme(RangeIndex != 0 ? "AccentTextFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
+
+    /// <summary>The first date shown, or null when everything is.</summary>
+    private DateOnly? RangeStart()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        return RangeIndex switch { 1 => today.AddDays(-7), 2 => today.AddMonths(-1), 3 => today.AddMonths(-3), _ => null };
+    }
     /// <summary>Raised once the lines are in their new order, so the page can show the end of the table that is now the latest.</summary>
     public event Action? SortReloaded;
 
@@ -357,11 +389,14 @@ public sealed partial class BalancesViewModel : ObservableObject
             await Task.Delay(1);   // a moment for them to be drawn
 
             // Newest first, so the latest balance is at the top beside the boxes for the next one.
-            var lines = report.Rows.Select(r => new BalanceLine(r)).ToList();
+            var start = RangeStart();   // the eye: only a recent stretch, when chosen
+            var shown = start is null ? report.Rows : report.Rows.Where(r => r.Date >= start).ToList();
+            var shownMonths = shown.Select(r => r.Month).ToHashSet();
+            var lines = shown.Select(r => new BalanceLine(r)).ToList();
             if (SortIndex == 0) lines.Reverse();   // newest first: the latest balance is at the top, beside Add Entry
             ApplyLines(lines);
             Months.Clear();
-            foreach (var month in report.Months.Reverse()) Months.Add(new BalanceMonthLine(month));
+            foreach (var month in report.Months.Reverse().Where(m => start is null || shownMonths.Contains(m.Month))) Months.Add(new BalanceMonthLine(month));
         }
         catch (Exception ex) { Warn($"Could not load the balances: {ex.Message}"); }
         finally { _gate.Release(); }

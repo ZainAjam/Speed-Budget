@@ -18,6 +18,7 @@ public sealed partial class BalancesPage : Page, IReloadable
     public BalancesPage()
     {
         InitializeComponent();
+        (ViewModel.RangeIndex switch { 1 => RangeWeek, 2 => RangeMonth, 3 => RangeQuarter, _ => RangeAll }).IsChecked = true;   // the stretch chosen earlier
         // A press outside the table lets go of the highlighted line, as on the transactions tables (handled presses count too).
         AddHandler(PointerPressedEvent, new PointerEventHandler(Page_PointerPressed), true);
         ViewModel.SortReloaded += () => DispatcherQueue.TryEnqueue(Sorted);
@@ -184,6 +185,12 @@ public sealed partial class BalancesPage : Page, IReloadable
     {
         if (sender is NumberBox { DataContext: BalanceLine { IsNew: true } } box)
             box.DispatcherQueue.TryEnqueue(() => box.Focus(FocusState.Programmatic));
+    }
+
+    /// <summary>The eye's menu: how far back the table goes.</summary>
+    private void Range_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string tag } && int.TryParse(tag, out var index)) ViewModel.RangeIndex = index;
     }
 
     /// <summary>The sort button: switches between newest first and oldest first.</summary>
