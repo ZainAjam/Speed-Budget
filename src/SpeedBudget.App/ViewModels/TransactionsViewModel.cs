@@ -1581,6 +1581,21 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
+    /// <summary>Like <see cref="FixAsync"/>, for a change that can be refused (false): the table is reloaded either way.</summary>
+    public async Task<bool> TryFixAsync(Func<BudgetStore, Task<bool>> change)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var done = await change(_store);
+            _hints = await _store.GetPayeeHintsAsync();
+            _rebuildAll = true;
+            await LoadRowsAsync(null);
+            return done;
+        }
+        finally { _gate.Release(); }
+    }
+
     /// <summary>The cleared balance of an account as at a date (the figure the account screen shows, for that day).</summary>
     public async Task<long> ClearedBalanceAsOfAsync(Guid accountId, DateOnly date) => (await _store.GetBalancesAsync(accountId, default, date)).ClearedBalance;
 

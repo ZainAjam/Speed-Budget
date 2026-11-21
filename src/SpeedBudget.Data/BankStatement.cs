@@ -146,10 +146,14 @@ public sealed partial class BudgetStore
     /// </summary>
     public async Task<IReadOnlyList<BalanceComparison>> CompareStatementAsync(Guid accountId, StatementInfo info, CancellationToken ct = default)
     {
-        var app = await GetBalancesAsync(accountId, ct, info.Date);
+        // A cleared transaction counts from the day the bank has it (its bank date, else its date); an uncleared one from its own date.
+        var opening = (await db.Accounts.AsNoTracking().SingleAsync(a => a.Id == accountId, ct)).OpeningBalance;
+        var lines = await db.Transactions.AsNoTracking().Where(t => t.AccountId == accountId && !t.IsUndated).Select(t => new { t.Amount, t.IsCleared, t.Date, t.BankDate }).ToListAsync(ct);
+        var cleared = opening + lines.Where(t => t.IsCleared && (t.BankDate ?? t.Date) <= info.Date).Sum(t => t.Amount);
+        var uncleared = lines.Where(t => !t.IsCleared && t.Date <= info.Date).Sum(t => t.Amount);
         var result = new List<BalanceComparison>();
-        if (info.Cleared is { } cleared) result.Add(new BalanceComparison("Cleared", cleared, app.ClearedBalance));
-        if (info.Available is { } available) result.Add(new BalanceComparison("Available", available, app.BookBalance));
+        if (info.Cleared is { } statedCleared) result.Add(new BalanceComparison("Cleared", statedCleared, cleared));
+        if (info.Available is { } statedAvailable) result.Add(new BalanceComparison("Available", statedAvailable, cleared + uncleared));
         return result;
     }
 }

@@ -97,26 +97,26 @@ public sealed class BalanceFixDialog : ContentDialog
                 var newOpening = opening - item.Amount;
                 return Card("The account and the file already differ before the file starts",
                     $"Before {item.Date:d MMM yyyy} Speed Budget's cleared balance is {Format.Money(Math.Abs(item.Amount))} {(item.Amount > 0 ? "higher" : "lower")} than the file's. This is usually the account's opening balance being different, or earlier history the file does not cover.",
-                    [($"Change the opening balance to {Format.Money(newOpening)}", $"open", () => _vm.FixAsync(s => s.SetOpeningBalanceAsync(account, newOpening)), false)]);
+                    [($"Change the opening balance to {Format.Money(newOpening)}", $"open", async () => { await _vm.FixAsync(s => s.SetOpeningBalanceAsync(account, newOpening)); return true; }, false)]);
             }
             case DiagnosisKind.DatedDifferently:
-                return Card($"{item.Transaction!.Payee}, {Format.Money(item.Transaction.Amount)}: dated {item.Transaction.Date:d MMM yyyy} in Speed Budget, {item.Line!.Date:d MMM yyyy} in the file",
-                    "It is the same transaction, but the dates differ, so the balances disagree on the days between.",
-                    [($"Use the file's date ({item.Line.Date:d MMM yyyy})", $"date{item.Transaction.Id}", () => _vm.FixAsync(s => s.SetBankDateAsync(item.Transaction.Id, item.Line.Date)), false)]);
+                return Card($"{item.Transaction!.Payee}, {Format.Money(item.Transaction.Amount)}: the bank has it on {item.Line!.Date:d MMM yyyy}, Speed Budget on {item.Transaction.BankDate ?? item.Transaction.Date:d MMM yyyy}",
+                    "It is the same transaction, but the bank's date and the date Speed Budget counts it from differ, so the balances disagree on the days between. Setting the bank date leaves the transaction's own date as it is.",
+                    [($"Set its bank date to {item.Line.Date:d MMM yyyy}", $"date{item.Transaction.Id}", () => _vm.TryFixAsync(s => s.SetBankDateAsync(item.Transaction.Id, item.Line.Date)), false)]);
             case DiagnosisKind.ClearedNotInFile:
                 return Card($"In Speed Budget but not in the file: {item.Transaction!.Date:d MMM yyyy}, {item.Transaction.Payee}, {Format.Money(item.Transaction.Amount)}",
                     "It is cleared in Speed Budget, but the bank's file has no such line that day. It may be a duplicate, or cleared by mistake.",
-                    [("Un-clear it", $"unclear{item.Transaction.Id}", () => _vm.FixAsync(s => s.SetClearedAsync(item.Transaction.Id, false)), false),
-                     ("Delete it", $"delete{item.Transaction.Id}", () => _vm.FixAsync(s => s.DeleteTransactionAsync(item.Transaction.Id)), true)]);
+                    [("Un-clear it", $"unclear{item.Transaction.Id}", () => _vm.TryFixAsync(s => s.SetClearedAsync(item.Transaction.Id, false)), false),
+                     ("Delete it", $"delete{item.Transaction.Id}", () => _vm.TryFixAsync(s => s.DeleteTransactionAsync(item.Transaction.Id)), true)]);
             default:
                 return Card($"In the file but not in Speed Budget: {item.Line!.Date:d MMM yyyy}, {(item.Line.Description == "" ? "(no counterparty)" : item.Line.Description)}, {Format.Money(item.Line.Amount)}",
                     "The bank has this line but the account has no cleared transaction for it that day (it may have been left out of the import).",
-                    [("Add it", $"add{item.Line.Line}", () => _vm.FixAsync(s => s.ApplyBankMatchesAsync(account, Array.Empty<BankClear>(), [item.Line])), false)]);
+                    [("Add it", $"add{item.Line.Line}", async () => { await _vm.FixAsync(s => s.ApplyBankMatchesAsync(account, Array.Empty<BankClear>(), [item.Line])); return true; }, false)]);
         }
     }
 
     /// <summary>One finding: what it is, what it means, and a button for each fix. A fix that deletes something needs a second press.</summary>
-    private Border Card(string title, string detail, IReadOnlyList<(string Label, string Key, Func<Task> Fix, bool Confirm)> fixes)
+    private Border Card(string title, string detail, IReadOnlyList<(string Label, string Key, Func<Task<bool>> Fix, bool Confirm)> fixes)
     {
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
         foreach (var (label, key, fix, confirm) in fixes)
@@ -126,8 +126,11 @@ public sealed class BalanceFixDialog : ContentDialog
             {
                 if (confirm && _confirming != key) { _confirming = key; button.Content = "Press again to delete"; return; }
                 button.IsEnabled = false;
-                try { await fix(); } catch (Exception ex) { _summary.Text = $"That could not be done: {ex.Message}"; }
+                var done = true;
+                string? problem = null;
+                try { done = await fix(); } catch (Exception ex) { done = false; problem = $"That could not be done: {ex.Message}"; }
                 await RefreshAsync();
+                if (!done) _summary.Text = (problem ?? "That transaction is reconciled with an earlier file, so it is locked and was not changed.") + " " + _summary.Text;
             };
             buttons.Children.Add(button);
         }

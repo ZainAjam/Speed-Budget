@@ -314,4 +314,23 @@ public sealed class BankImportTests : IDisposable
         var newest = all.Single(t => t.Amount == -300);
         Assert.Equal(item.Id, (await _db.SplitLines.AsNoTracking().SingleAsync(l => l.TransactionId == newest.Id)).BudgetItemId);
     }
+
+    [Fact]
+    public async Task The_bank_date_can_be_set_on_a_reconciled_transaction_and_the_balance_follows_it()
+    {
+        var id = await AccountWithAsync(100000, (3, -1000, true), (4, -2000, true));
+        var tx = await _db.Transactions.SingleAsync(t => t.Amount == -2000);
+        tx.IsReconciled = true;
+        await _db.SaveChangesAsync();
+
+        // The file has the -2000 on the 6th. As entered (the 4th), the account is 2000 down already on the 5th.
+        var info = new StatementInfo(new DateOnly(2026, 11, 5), 99000, 99000);
+        Assert.False((await _store.CompareStatementAsync(id, info)).All(c => c.Matches));
+
+        Assert.True(await _store.SetBankDateAsync(tx.Id, new DateOnly(2026, 11, 6)));
+        var after = await _db.Transactions.AsNoTracking().SingleAsync(t => t.Amount == -2000);
+        Assert.Equal(new DateOnly(2026, 11, 4), after.Date);          // its own date is left alone
+        Assert.Equal(new DateOnly(2026, 11, 6), after.BankDate);
+        Assert.True((await _store.CompareStatementAsync(id, info)).All(c => c.Matches));   // the bank has it on the 6th, so on the 5th the account agrees
+    }
 }

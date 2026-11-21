@@ -33,6 +33,9 @@ public sealed partial class BudgetStore
     /// <summary>The most days apart that a line of the file and a transaction can be and still be taken as the same one, dated differently.</summary>
     private const int SameTransactionDays = 5;
 
+    /// <summary>The day the bank has a transaction on: its bank date when it has one, otherwise its date.</summary>
+    private static DateOnly Eff(TransactionEntity t) => t.BankDate ?? t.Date;
+
     /// <summary>
     /// Compares the file's running balance with the account's cleared balance at the end of each day the file covers. The gap before the first
     /// line points at the opening balance; a change in the gap on a day points at that day: the lines of the file and the cleared transactions of
@@ -45,7 +48,7 @@ public sealed partial class BudgetStore
 
         var account = await db.Accounts.AsNoTracking().SingleAsync(a => a.Id == accountId, ct);
         var cleared = await db.Transactions.AsNoTracking().Where(t => t.AccountId == accountId && t.IsCleared && !t.IsUndated).ToListAsync(ct);
-        long AppAsOf(DateOnly date) => account.OpeningBalance + cleared.Where(t => t.Date <= date).Sum(t => t.Amount);
+        long AppAsOf(DateOnly date) => account.OpeningBalance + cleared.Where(t => Eff(t) <= date).Sum(t => t.Amount);
 
         // The file's running balance can be followed day by day only when its last line agrees with the balance the file states. Otherwise (a balance
         // read from a cell, and no balance on each line) the whole file is compared in one go: lines and cleared transactions are paired off by amount.
@@ -53,15 +56,15 @@ public sealed partial class BudgetStore
         {
             var from = lines.Min(l => l.Date);
             var to = lines.Max(l => l.Date);
-            var theirs = cleared.Where(t => t.Date >= from && t.Date <= to).ToList();
+            var theirs = cleared.Where(t => Eff(t) >= from && Eff(t) <= to).ToList();
             var leftOver = new List<BankLine>();
             foreach (var line in lines)
             {
-                var match = theirs.Where(t => t.Amount == line.Amount).OrderBy(t => Math.Abs(t.Date.DayNumber - line.Date.DayNumber)).FirstOrDefault();
+                var match = theirs.Where(t => t.Amount == line.Amount).OrderBy(t => Math.Abs(Eff(t).DayNumber - line.Date.DayNumber)).FirstOrDefault();
                 if (match is not null) theirs.Remove(match); else leftOver.Add(line);
             }
             var found = new List<DiagnosisItem>();
-            found.AddRange(theirs.Select(t => new DiagnosisItem(DiagnosisKind.ClearedNotInFile, t.Date, t.Amount, t, null)));
+            found.AddRange(theirs.Select(t => new DiagnosisItem(DiagnosisKind.ClearedNotInFile, Eff(t), t.Amount, t, null)));
             found.AddRange(leftOver.Select(l => new DiagnosisItem(DiagnosisKind.InFileNotInApp, l.Date, -l.Amount, null, l)));
             var residual = (AppAsOf(closing.Date) - closing.Balance) - found.Sum(i => i.Amount);
             if (residual != 0) found.Add(new DiagnosisItem(DiagnosisKind.OpeningGap, from, residual, null, null));
@@ -102,7 +105,7 @@ public sealed partial class BudgetStore
             {
                 // Something differs on this day: pair the file's lines with the account's cleared transactions by amount.
                 // (the account's transactions since the last day the file covers count too, as the file may have them under a later date)
-                var theirs = cleared.Where(t => previous == DateOnly.MinValue ? t.Date == date : t.Date > previous && t.Date <= date).ToList();
+                var theirs = cleared.Where(t => previous == DateOnly.MinValue ? Eff(t) == date : Eff(t) > previous && Eff(t) <= date).ToList();
                 foreach (var line in dayLines)
                 {
                     var match = theirs.FirstOrDefault(t => t.Amount == line.Amount);
@@ -117,14 +120,14 @@ public sealed partial class BudgetStore
         // The same amount left over on both sides a few days apart is one transaction dated differently.
         foreach (var tx in appLeft.ToList())
         {
-            var line = fileLeft.Where(l => l.Amount == tx.Amount && Math.Abs(l.Date.DayNumber - tx.Date.DayNumber) <= SameTransactionDays)
-                .OrderBy(l => Math.Abs(l.Date.DayNumber - tx.Date.DayNumber)).FirstOrDefault();
+            var line = fileLeft.Where(l => l.Amount == tx.Amount && Math.Abs(l.Date.DayNumber - Eff(tx).DayNumber) <= SameTransactionDays)
+                .OrderBy(l => Math.Abs(l.Date.DayNumber - Eff(tx).DayNumber)).FirstOrDefault();
             if (line is null) continue;
             appLeft.Remove(tx);
             fileLeft.Remove(line);
-            items.Add(new DiagnosisItem(DiagnosisKind.DatedDifferently, tx.Date, 0, tx, line));
+            items.Add(new DiagnosisItem(DiagnosisKind.DatedDifferently, Eff(tx), 0, tx, line));
         }
-        items.AddRange(appLeft.Select(t => new DiagnosisItem(DiagnosisKind.ClearedNotInFile, t.Date, t.Amount, t, null)));
+        items.AddRange(appLeft.Select(t => new DiagnosisItem(DiagnosisKind.ClearedNotInFile, Eff(t), t.Amount, t, null)));
         items.AddRange(fileLeft.Select(l => new DiagnosisItem(DiagnosisKind.InFileNotInApp, l.Date, -l.Amount, null, l)));
 
 
@@ -141,14 +144,16 @@ public sealed partial class BudgetStore
         return true;
     }
 
-    /// <summary>Gives a transaction the date (and bank date) the bank has for it. A reconciled transaction, or one side of a transfer, is left alone.</summary>
+    /// <summary>
+    /// Gives a transaction the bank date the bank has for it, and leaves its own date alone (a transaction is often entered on the day it was
+    /// made and reaches the bank days later). This is the bank's own date, so it can be set on a reconciled transaction too. A transaction
+    /// with no date yet takes the date as well, as it then has happened.
+    /// </summary>
     public async Task<bool> SetBankDateAsync(Guid transactionId, DateOnly date, CancellationToken ct = default)
     {
         var t = await db.Transactions.SingleAsync(x => x.Id == transactionId, ct);
-        if (t.IsReconciled || t.TransferPairId is not null) return false;
-        t.Date = date;
         t.BankDate = date;
-        t.IsUndated = false;
+        if (t.IsUndated) { t.IsUndated = false; t.Date = date; }
         await db.SaveChangesAsync(ct);
         return true;
     }
