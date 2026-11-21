@@ -8,7 +8,8 @@ using SpeedBudget.Core;
 namespace SpeedBudget.Data;
 
 /// <summary>One line of a bank file. Amount is signed in cents: money in is positive, money out is negative.</summary>
-public sealed record BankLine(int Line, DateOnly Date, string Description, string? Memo, long Amount, long? Balance = null);
+/// <summary>One line of a bank file. <paramref name="ItemId"/> is the budget item chosen for it when it is added as a new transaction.</summary>
+public sealed record BankLine(int Line, DateOnly Date, string Description, string? Memo, long Amount, long? Balance = null, Guid? ItemId = null);
 
 /// <summary>
 /// Where the lines of a bank file are: how many heading rows come first, and which column holds what (-1 = none). Money is either
@@ -393,7 +394,7 @@ public sealed partial class BudgetStore
             if (t.BankDate is null || (choice.FileDate && t.BankDate != line.Date)) { t.BankDate = line.Date; changed = true; }   // the bank date is the bank's own
             if (!t.IsCleared) { t.IsCleared = true; changed = true; }
             t.IsReconciled = true;   // the account and the bank's file agree on this one
-            if (changed && !wasCleared) cleared++;   // one already cleared that is only being marked reconciled is not counted
+            cleared++;   // counted as reconciled: the pair was confirmed
         }
 
         var payees = new HashSet<string>(chosenPayees, StringComparer.OrdinalIgnoreCase);
@@ -403,9 +404,9 @@ public sealed partial class BudgetStore
         {
             if (!nextOrder.TryGetValue(line.Date, out var order)) order = await NextDayOrderAsync(line.Date, ct);
             nextOrder[line.Date] = order + 2;
-            var entity = new TransactionEntity { AccountId = accountId, Date = line.Date, DayOrder = order, BankDate = line.Date, Payee = line.Description, Memo = line.Memo, Amount = line.Amount, IsCleared = true };
+            var entity = new TransactionEntity { AccountId = accountId, Date = line.Date, DayOrder = order, BankDate = line.Date, Payee = line.Description, Memo = line.Memo, Amount = line.Amount, IsCleared = true, IsReconciled = true };
             db.Transactions.Add(entity);
-            db.SplitLines.Add(new SplitLineEntity { TransactionId = entity.Id, BudgetItemId = null, Amount = entity.Amount });
+            db.SplitLines.Add(new SplitLineEntity { TransactionId = entity.Id, BudgetItemId = line.ItemId, Amount = entity.Amount });
             payees.Add(line.Description);
             added++;
         }

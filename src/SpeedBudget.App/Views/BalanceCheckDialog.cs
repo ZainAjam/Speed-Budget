@@ -15,7 +15,7 @@ namespace SpeedBudget.App.Views;
 /// account of what is still pending, just as Speed Budget's counts the uncleared transactions with the cleared ones. Only when the file gives no
 /// available balance does the cleared balance decide.
 /// </summary>
-public sealed record BalanceCheck(SpeedBudget.Data.StatementInfo Info, IReadOnlyList<SpeedBudget.Data.BalanceComparison> Comparisons, long CurrentCleared, long CurrentAvailable, Guid AccountId, IReadOnlyList<SpeedBudget.Data.BankLine> Lines)
+public sealed record BalanceCheck(SpeedBudget.Data.StatementInfo Info, IReadOnlyList<SpeedBudget.Data.BalanceComparison> Comparisons, Guid AccountId, IReadOnlyList<SpeedBudget.Data.BankLine> Lines)
 {
     public DateOnly Date => Info.Date;
 
@@ -73,7 +73,7 @@ public sealed class BalanceCheckDialog : ContentDialog
                 : check.Matches
                     ? $"Speed Budget's cleared balance on that date ({Format.Money(cleared.AppBalance)}) is {Format.Money(Math.Abs(cleared.AppBalance - cleared.FileBalance))} {(cleared.AppBalance > cleared.FileBalance ? "higher" : "lower")} than the file's ({Format.Money(cleared.FileBalance)}): some transactions are cleared in one and not in the other, but the available balances agree."
                     : Describe(cleared, check.Date));
-        return string.Join("\n\n", parts) + TodayNote(check) + Hint(check);
+        return string.Join("\n\n", parts) + Hint(check);
     }
 
     private static string Describe(SpeedBudget.Data.BalanceComparison c, DateOnly date)
@@ -94,14 +94,6 @@ public sealed class BalanceCheckDialog : ContentDialog
         return "\n\nA transaction may be missing, entered wrongly, or marked cleared or uncleared wrongly.";
     }
 
-    /// <summary>The account screen shows today's balances, which also count transactions dated after the file's date: say so when the figure that was compared differs from today's.</summary>
-    private static string TodayNote(BalanceCheck check)
-    {
-        if (check.Verdict is not { } verdict) return "";
-        var (today, what) = verdict.Label == "Available" ? (check.CurrentAvailable, "available") : (check.CurrentCleared, "cleared");
-        return today == verdict.AppBalance ? "" :
-            $"\n\nThe {what} balance at the top of the account screen ({Format.Money(today)}) is today's, so it also counts transactions dated after {check.Date:d MMM yyyy}.";
-    }
 
     // ---- The green tick: the disc pops in, then the tick draws itself ----
 

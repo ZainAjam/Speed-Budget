@@ -92,8 +92,11 @@ public sealed class ReconcileRow : INotifyPropertyChanged
     public TransactionEntity? Existing => Match.Existing;
     public bool HasMatch => Existing is not null;
 
-    /// <summary>Already cleared: confirming the match changes nothing.</summary>
-    public bool AlreadyCleared => Existing is { IsCleared: true, IsUndated: false } || Existing is { IsReconciled: true };
+    /// <summary>The transaction is cleared in the table already (a bank date or the tick).</summary>
+    public bool AlreadyCleared => Existing is { IsCleared: true, IsUndated: false };
+
+    /// <summary>Already reconciled with an earlier file: nothing left to do for it.</summary>
+    public bool AlreadyReconciled => Existing is { IsReconciled: true };
 
     /// <summary>The pair is still taken to be the same transaction; false once the user has rejected it.</summary>
     public bool Matched { get => _matched; set => Set(ref _matched, value); }
@@ -104,9 +107,15 @@ public sealed class ReconcileRow : INotifyPropertyChanged
     /// <summary>To be added as a new transaction (a line with no match, or whose match was rejected).</summary>
     public bool Import { get => _import; set => Set(ref _import, value); }
 
-    public bool CanConfirm => HasMatch && !AlreadyCleared;
-    public double MatchOpacity => AlreadyCleared ? 0.6 : 1;
-    public Visibility ClearedNoteVisibility => AlreadyCleared ? Visibility.Visible : Visibility.Collapsed;
+    public bool CanConfirm => HasMatch && !AlreadyReconciled;
+    public double MatchOpacity => AlreadyReconciled ? 0.6 : 1;
+    /// <summary>Whether the table has the transaction cleared or not yet.</summary>
+    public string TableStatus => Existing is null ? "" : Existing.IsUndated ? "Expected, no date yet" : Existing.IsCleared ? "Cleared in the table" : "Not cleared yet in the table";
+
+    /// <summary>The budget item a new transaction gets, picked like the item of a transaction in the table.</summary>
+    public ItemOption? Item { get; set; }
+    public IEnumerable<ItemOption> ItemOptions { get; init; } = [];
+    public Visibility ItemVisibility { get; init; } = Visibility.Collapsed;
 
     // For a new transaction: what to add. The user can pick the counterparty and change the memo.
     public string Payee { get; set; } = "";
@@ -444,6 +453,7 @@ public sealed class ImportWizardDialog : ContentDialog
 
     // ---- Step 2: the reconciliation ----
 
+    private TextBlock? _itemHeading;
     private readonly Pivot _pivot = new();
     private readonly TextBlock _matchHead = new() { Text = "Already in the table", FontSize = 15 }, _newHead = new() { Text = "Not in the table", FontSize = 15 };
     private readonly PivotItem _matchTab = new();
@@ -507,8 +517,8 @@ public sealed class ImportWizardDialog : ContentDialog
                   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                   <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <CheckBox Content="Clear this transaction" IsChecked="{Binding Apply, Mode=TwoWay}" IsEnabled="{Binding CanConfirm}" MinWidth="0"/>
-                    <TextBlock Grid.Column="1" Text="Already cleared: nothing to change" Opacity="0.7" VerticalAlignment="Center" Visibility="{Binding ClearedNoteVisibility}"/>
+                    <CheckBox Content="Same transaction: reconcile it" IsChecked="{Binding Apply, Mode=TwoWay}" IsEnabled="{Binding CanConfirm}" MinWidth="0" ToolTipService.ToolTip="Tick to confirm that these are the same transaction: it is then marked reconciled, and cleared"/>
+                    <TextBlock Grid.Column="1" Text="{Binding TableStatus}" Opacity="0.7" VerticalAlignment="Center"/>
                     <Button Grid.Column="2" Command="{Binding RejectCommand}" Content="Not the same transaction" Padding="10,4" ToolTipService.ToolTip="This line is not that transaction: move it to the Not in the table tab"/>
                   </Grid>
                   <Grid Grid.Row="1" ColumnSpacing="10">
@@ -574,14 +584,15 @@ public sealed class ImportWizardDialog : ContentDialog
         _matchTab.Content = matchPanel;
 
         // Tab 2: lines of the file that the table does not have, to pick which ones to import.
-        const string newColumns = """<ColumnDefinition Width="34"/><ColumnDefinition Width="112"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="110"/><ColumnDefinition Width="116"/>""";
+        const string newColumns = """<ColumnDefinition Width="34"/><ColumnDefinition Width="112"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="104"/><ColumnDefinition Width="116"/>""";
         _newList.ItemTemplate = (DataTemplate)XamlReader.Load(Template(newColumns, """
             <CheckBox IsChecked="{Binding Import, Mode=TwoWay}" MinWidth="0" Padding="0" VerticalAlignment="Center" ToolTipService.ToolTip="Tick to add this as a new transaction"/>
             <TextBlock Grid.Column="1" Text="{Binding DateText}" VerticalAlignment="Center"/>
             <local:PayeePicker Grid.Column="2" ItemsSource="{Binding Suggestions}" Icons="{Binding Icons}" SelectedPayee="{Binding Payee, Mode=TwoWay}" AllowEdit="False" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
             <TextBox Grid.Column="3" Text="{Binding Memo, Mode=TwoWay}" PlaceholderText="Memo" VerticalAlignment="Center" MinWidth="0"/>
-            <TextBlock Grid.Column="4" Text="{Binding AmountText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-            <Button Grid.Column="5" Command="{Binding RestoreCommand}" Visibility="{Binding RestoreVisibility}" Content="Back to match" Padding="8,4" VerticalAlignment="Center" HorizontalAlignment="Right" ToolTipService.ToolTip="Put this line back beside the transaction it matched"/>
+            <local:ItemPicker Grid.Column="4" ItemsSource="{Binding ItemOptions}" SelectedItem="{Binding Item, Mode=TwoWay}" AllowCreate="False" AllowEdit="False" AllowSplit="False" Visibility="{Binding ItemVisibility}" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="5" Text="{Binding AmountText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            <Button Grid.Column="6" Command="{Binding RestoreCommand}" Visibility="{Binding RestoreVisibility}" Content="Back to match" Padding="8,4" VerticalAlignment="Center" HorizontalAlignment="Right" ToolTipService.ToolTip="Put this line back beside the transaction it matched"/>
             """));
         _newList.ItemContainerStyle = (Style)XamlReader.Load(itemStyle);
         _newList.ItemsSource = _newRows;
@@ -591,9 +602,11 @@ public sealed class ImportWizardDialog : ContentDialog
               <TextBlock Grid.Column="1" Text="Date" FontWeight="SemiBold"/>
               <TextBlock Grid.Column="2" Text="Counterparty" FontWeight="SemiBold"/>
               <TextBlock Grid.Column="3" Text="Memo" FontWeight="SemiBold"/>
-              <TextBlock Grid.Column="4" Text="Amount" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+              <TextBlock Grid.Column="4" Text="Budget item" FontWeight="SemiBold"/>
+              <TextBlock Grid.Column="5" Text="Amount" FontWeight="SemiBold" HorizontalAlignment="Right"/>
             </Grid>
             """);
+        _itemHeading = newHeading.Children.OfType<TextBlock>().FirstOrDefault(t => t.Text == "Budget item");
         var newPanel = new Grid { RowSpacing = 6 };
         for (var i = 0; i < 3; i++) newPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         newPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -639,7 +652,13 @@ public sealed class ImportWizardDialog : ContentDialog
         if (AccountId is not { } account) return;
         var matches = await _vm.MatchBankLinesAsync(account, _parse.Lines);
         var payees = _vm.Payees.ToList();
-        _rows = matches.Select(m => new ReconcileRow { Match = m, Payee = m.Line.Description, Memo = m.Line.Memo ?? "", Suggestions = payees, Icons = _vm.PayeeIconsForImport }).ToList();
+        var onBudget = _vm.AccountIsOnBudget(AccountId);
+        _rows = matches.Select(m => new ReconcileRow
+        {
+            Match = m, Payee = m.Line.Description, Memo = m.Line.Memo ?? "", Suggestions = payees, Icons = _vm.PayeeIconsForImport,
+            Item = _vm.NoItem, ItemOptions = _vm.ItemOptions, ItemVisibility = onBudget ? Visibility.Visible : Visibility.Collapsed,
+        }).ToList();
+        if (_itemHeading is not null) _itemHeading.Visibility = onBudget ? Visibility.Visible : Visibility.Collapsed;
         foreach (var row in _rows)
         {
             row.ChooseDefaults();
@@ -661,7 +680,7 @@ public sealed class ImportWizardDialog : ContentDialog
     /// <summary>The first tab holds the pairs the user has not rejected; the second the lines with no match and the rejected pairs, in the order of the file.</summary>
     private void SyncLists()
     {
-        Sync(_matchRows, _rows.Where(r => r.CanConfirm && r.Matched).ToList());   // a transaction that is already cleared needs nothing, so it is not shown
+        Sync(_matchRows, _rows.Where(r => r.CanConfirm && r.Matched).ToList());   // one already reconciled with an earlier file needs nothing, so it is not shown
         Sync(_newRows, _rows.Where(Offered).ToList());
     }
 
@@ -699,34 +718,30 @@ public sealed class ImportWizardDialog : ContentDialog
     }
 
     private IEnumerable<ReconcileRow> ToClear => _rows.Where(r => r.CanConfirm && r.Matched && r.Apply);
-    /// <summary>Matched transactions that are already cleared: nothing to change, but they agree with the file, so they become reconciled.</summary>
-    private IEnumerable<ReconcileRow> ToReconcileOnly => _rows.Where(r => r.AlreadyCleared && r.HasMatch && r.Matched && r.Existing is { IsReconciled: false });
     private IEnumerable<ReconcileRow> ToAdd => _rows.Where(r => Offered(r) && r.Import);
 
-    /// <summary>Says how many lines matched transactions that are already cleared, as these are not listed.</summary>
+    /// <summary>Says how many lines matched transactions that were reconciled with an earlier file, as these are not listed.</summary>
     private string ClearedNote()
     {
-        var done = _rows.Count(r => r.AlreadyCleared);
-        return done == 0 ? "" : $" {done} line{(done == 1 ? "" : "s")} matched transactions that are already cleared, so {(done == 1 ? "it is" : "they are")} not shown.";
+        var done = _rows.Count(r => r.AlreadyReconciled);
+        return done == 0 ? "" : $" {done} line{(done == 1 ? "" : "s")} matched transactions that are already reconciled, so {(done == 1 ? "it is" : "they are")} not shown.";
     }
 
     private void UpdateSummary()
     {
         var withMatch = _matchRows.Count;
-        var clear = ToClear.Count();
+        var reconcile = ToClear.Count();
         var add = ToAdd.Count();
         var offered = _newRows.Count;
         _matchHead.Text = $"Already in the table ({withMatch})";
         _newHead.Text = $"Not in the table ({offered})";
         _matchHelp.Text = withMatch == 0
-            ? "No line of the file matches a transaction in the table that is not yet cleared." + ClearedNote()
-            : "Each line of the file that looks like a transaction already in the table is shown as a card, with the table's version on the left and the file's on the right. Where a value differs, press the version you want to keep (it is outlined and ticked). Tick Clear to clear the transaction with those choices, or press Not the same transaction if it is a different one.";
-        _newHelp.Text = offered == 0 ? "Every line of the file is already in the table." : "These lines of the file are not in the table. Tick the ones to add as new, cleared transactions, and choose the counterparty and edit the memo if you like."
-            + (_vm.AccountIsOnBudget(AccountId) ? " They have no budget item yet: give them one in the table." : "");
-        _reconcileSummary.Text = $"{clear} transaction{(clear == 1 ? "" : "s")} will be cleared and {add} new transaction{(add == 1 ? "" : "s")} added. Nothing changes until you press Apply.";
-        var agree = ToReconcileOnly.Count();
-        if (agree > 0) _reconcileSummary.Text += $" {agree} already-cleared transaction{(agree == 1 ? "" : "s")} agree{(agree == 1 ? "s" : "")} with the file and will be marked reconciled.";
-        IsPrimaryButtonEnabled = clear + add > 0 || agree > 0 || ReadStatement() is { HasBalances: true };   // with balances in the file, Apply still checks the account against them
+            ? "No line of the file matches a transaction in the table that is not yet reconciled." + ClearedNote()
+            : "Each line of the file that looks like a transaction already in the table is shown as a card, cleared or not, with the table's version on the left and the file's on the right. Where a value differs, press the version you want to keep (it is outlined and ticked). Tick Same transaction to reconcile it: it is marked reconciled, and cleared. Press Not the same transaction if it is a different one." + ClearedNote();
+        _newHelp.Text = offered == 0 ? "Every line of the file is already in the table." : "These lines of the file are not in the table. Tick the ones to add as new, reconciled transactions, and choose the counterparty, the budget item and the memo if you like."
+            + (_vm.AccountIsOnBudget(AccountId) ? " A budget item can be chosen later in the table too." : "");
+        _reconcileSummary.Text = $"{reconcile} transaction{(reconcile == 1 ? "" : "s")} in the table will be reconciled and {add} new transaction{(add == 1 ? "" : "s")} added. Nothing changes until you press Apply.";
+        IsPrimaryButtonEnabled = reconcile + add > 0 || ReadStatement() is { HasBalances: true };   // with balances in the file, Apply still checks the account against them
     }
 
     /// <summary>The Select all and Deselect all buttons of a tab.</summary>
@@ -745,15 +760,15 @@ public sealed class ImportWizardDialog : ContentDialog
     private async Task<bool> ApplyAsync()
     {
         if (AccountId is not { } account) return false;
-        var clear = ToClear.Select(r => new BankClear(r.Match, r.UseFileDate, r.UseFilePayee, r.UseFileMemo, r.UseFileAmount)).Concat(ToReconcileOnly.Select(r => new BankClear(r.Match))).ToList();
-        var add = ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim(), Memo = string.IsNullOrWhiteSpace(r.Memo) ? null : r.Memo.Trim() }).ToList();
+        var clear = ToClear.Select(r => new BankClear(r.Match, r.UseFileDate, r.UseFilePayee, r.UseFileMemo, r.UseFileAmount)).ToList();
+        var add = ToAdd.Select(r => r.Match.Line with { Description = (r.Payee ?? "").Trim(), Memo = string.IsNullOrWhiteSpace(r.Memo) ? null : r.Memo.Trim(), ItemId = r.Item?.Id }).ToList();
         var statement = CurrentStatement();
         var info = ReadStatement();   // what the file says about the balances, read before the account changes
         var result = await _vm.ApplyBankMatchesAsync(account, clear, add, CurrentFormat(), _rememberBox.IsChecked == true, statement);
         if (result is not null && info is { HasBalances: true })
         {
             var comparisons = await _vm.CompareStatementAsync(account, info);
-            Outcome = new BalanceCheck(info, comparisons, await _vm.ClearedBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)), await _vm.AvailableBalanceAsOfAsync(account, DateOnly.FromDateTime(DateTime.Today)), account, _parse.Lines);
+            Outcome = new BalanceCheck(info, comparisons, account, _parse.Lines);
         }
         return result is not null;
     }

@@ -1574,7 +1574,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             _hints = await _store.GetPayeeHintsAsync();
             _rebuildAll = true;
             await LoadRowsAsync(null);
-            Message = $"Import: {result.Cleared} cleared, {result.Added} added.";
+            Message = $"Import: {result.Cleared} reconciled, {result.Added} added.";
             return result;
         }
         catch (Exception ex) { Message = $"The import failed: {ex.Message}"; return null; }

@@ -291,4 +291,27 @@ public sealed class BankImportTests : IDisposable
         Assert.Equal(211488, info.Cleared);     // the file runs newest first: of the two lines on the 18th, the first is the latest
         Assert.Equal(209388, info.Available);
     }
+
+    [Fact]
+    public async Task Confirmed_pairs_and_new_lines_end_up_cleared_and_reconciled_and_new_lines_take_their_budget_item()
+    {
+        var group = await _store.AddGroupAsync("Food", ItemKind.Expense);
+        var item = await _store.AddItemAsync(group.Id, null, "Groceries", ItemKind.Expense);
+        var account = new AccountEntity { Name = "Cheque", IsOnBudget = true };
+        _db.Accounts.Add(account);
+        await _db.SaveChangesAsync();
+        await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new DateOnly(2026, 11, 3), Amount = -1000, Payee = "Shop", IsCleared = true }, new[] { new SplitLineEntity { Amount = -1000 } });       // already cleared
+        await _store.AddTransactionAsync(new TransactionEntity { AccountId = account.Id, Date = new DateOnly(2026, 11, 4), Amount = -2000, Payee = "Other" }, new[] { new SplitLineEntity { Amount = -2000 } });                  // not cleared
+
+        BankLine L(int n, int day, long amount, Guid? itemId = null) => new(n, new DateOnly(2026, 11, day), "x", null, amount, null, itemId);
+        var matches = await _store.MatchBankLinesAsync(account.Id, [L(1, 3, -1000), L(2, 4, -2000)]);
+        var (reconciled, added) = await _store.ApplyBankMatchesAsync(account.Id, matches.Select(m => new BankClear(m)), [L(3, 5, -300, item.Id)]);
+        Assert.Equal((2, 1), (reconciled, added));
+
+        var all = await _db.Transactions.AsNoTracking().Where(t => t.AccountId == account.Id).ToListAsync();
+        Assert.Equal(3, all.Count);
+        Assert.All(all, t => { Assert.True(t.IsCleared); Assert.True(t.IsReconciled); });
+        var newest = all.Single(t => t.Amount == -300);
+        Assert.Equal(item.Id, (await _db.SplitLines.AsNoTracking().SingleAsync(l => l.TransactionId == newest.Id)).BudgetItemId);
+    }
 }

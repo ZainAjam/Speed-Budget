@@ -85,8 +85,6 @@ public sealed class BalanceFixDialog : ContentDialog
         foreach (var item in d.Items) _list.Children.Add(CardFor(item, opening));
         if (d.Items.Count == 0)
             _list.Children.Add(Card("No single transaction explains the difference", "The file's balances and its lines do not add up to the account in a way that points at one transaction. Check the balance column of the file, or add a balancing transaction below.", []));
-        if (d.AfterLastDate != 0)
-            _list.Children.Add(Card("Cleared after the file's last date", $"{Format.Money(d.AfterLastDate)} of transactions dated after {d.LastDate:d MMM yyyy} are cleared in Speed Budget. They are not part of this comparison, so they are not a cause.", []));
     }
 
     private UIElement CardFor(DiagnosisItem item, long opening)
