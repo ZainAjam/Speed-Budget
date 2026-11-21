@@ -345,13 +345,7 @@ public sealed partial class BalancesViewModel : ObservableObject
             Title = (await _store.GetAccountsAsync()).FirstOrDefault(a => a.Id == accountId)?.Name ?? "";
             var report = await _store.GetBalanceReportAsync(accountId);
 
-            // Newest first, so the latest balance is at the top beside the boxes for the next one.
-            var lines = report.Rows.Select(r => new BalanceLine(r)).ToList();
-            if (SortIndex == 0) lines.Reverse();   // newest first: the latest balance is at the top, beside Add Entry
-            ApplyLines(lines);
-            Months.Clear();
-            foreach (var month in report.Months.Reverse()) Months.Add(new BalanceMonthLine(month));
-
+            // The figures above the table show first; the lines (the part that can be long) follow.
             _latestDate = report.Rows.LastOrDefault()?.Date;
             OriginalText = report.Rows.FirstOrDefault() is { } original ? Format.Money(original.Balance) : "";
             BalanceText = report.Rows.LastOrDefault() is { } latest ? Format.Money(latest.Balance) : "";
@@ -360,6 +354,14 @@ public sealed partial class BalancesViewModel : ObservableObject
             WithdrawalsText = Format.Money(-report.Totals.Withdrawals);
             GainsText = Format.Money(report.Totals.GainsLosses);
             GainsBrush = Format.Signed(report.Totals.GainsLosses);
+            await Task.Delay(1);   // a moment for them to be drawn
+
+            // Newest first, so the latest balance is at the top beside the boxes for the next one.
+            var lines = report.Rows.Select(r => new BalanceLine(r)).ToList();
+            if (SortIndex == 0) lines.Reverse();   // newest first: the latest balance is at the top, beside Add Entry
+            ApplyLines(lines);
+            Months.Clear();
+            foreach (var month in report.Months.Reverse()) Months.Add(new BalanceMonthLine(month));
         }
         catch (Exception ex) { Warn($"Could not load the balances: {ex.Message}"); }
         finally { _gate.Release(); }

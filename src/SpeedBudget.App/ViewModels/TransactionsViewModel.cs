@@ -793,11 +793,39 @@ public sealed partial class TransactionsViewModel : ObservableObject
         if (_loaded) _ = ReloadAsync();
     }
 
+    /// <summary>Set once the account's name, badge, accounts and drop-down lists have been loaded ahead of the rows, so the next load need not do them again.</summary>
+    private bool _headerFresh;
+
+    /// <summary>
+    /// The quick first part of a load: the account's name and badge and the three figures at the top, with the lists the pickers need. The
+    /// rows follow with <see cref="LoadAsync"/>, so the page can show all of this at once and only the table has to wait.
+    /// </summary>
+    public async Task LoadHeaderAsync()
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await LoadHeaderCoreAsync();
+            await RefreshFiguresAsync();
+            _headerFresh = true;
+        }
+        finally { _gate.Release(); }
+    }
+
     public async Task LoadAsync()
     {
         await _gate.WaitAsync();
         try
         {
+            if (_headerFresh) _headerFresh = false; else await LoadHeaderCoreAsync();
+            _loaded = true;
+            await LoadRowsAsync(null);
+        }
+        finally { _gate.Release(); }
+    }
+
+    private async Task LoadHeaderCoreAsync()
+    {
             _accounts = await _store.GetAccountsAsync();
             var groups = await _store.GetGroupsAsync();
             var items = await _store.GetItemsAsync();
@@ -825,10 +853,6 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
             SyncColumnLayout();
             OnPropertyChanged(nameof(CanStartMonth));
-            _loaded = true;
-            await LoadRowsAsync(null);
-        }
-        finally { _gate.Release(); }
     }
 
     private async Task LoadPayeesAsync()
@@ -928,13 +952,19 @@ public sealed partial class TransactionsViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>Recalculates the balances shown at the top. The caller must hold the gate.</summary>
-    private async Task RefreshBalancesAsync(IReadOnlyList<MonthSummary>? months = null)
+    /// <summary>The three figures above the table: cleared, uncleared and available. Quick to work out, so they show before the rows do.</summary>
+    private async Task RefreshFiguresAsync()
     {
         var balances = await _store.GetBalancesAsync(AccountId);
         AvailableText = Format.Money(balances.BookBalance);
         ClearedText = Format.Money(balances.ClearedBalance);
         UnclearedText = Format.Money(balances.UnclearedTotal);
+    }
+
+    /// <summary>Recalculates the balances shown at the top, and what is left on each budget item. The caller must hold the gate.</summary>
+    private async Task RefreshBalancesAsync(IReadOnlyList<MonthSummary>? months = null)
+    {
+        await RefreshFiguresAsync();
 
         // What is left on each expense item this month, shown beside it in the item drop-down.
         months ??= BudgetEngine.Calculate(await _store.LoadSnapshotAsync());

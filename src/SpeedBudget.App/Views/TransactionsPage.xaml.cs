@@ -36,9 +36,12 @@ public sealed partial class TransactionsPage : Page, IReloadable
         StartMonthBox.ItemsSource = Enumerable.Range(1, 12).Select(m => System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)).ToList();
         Loaded += async (_, _) =>
         {
-            // Let the page show first (its frame, headings, buttons and the loading ring), then load the transactions into the table.
+            // The account's name, badge and figures are quick, so they load at once; the page shows (frame, headings, buttons, the loading ring) and
+            // only then are the transactions loaded into the table, which is the one part that can take long.
+            var header = ViewModel.LoadHeaderAsync();
             await LoadingOverlay.WaitForFirstFrameAsync();
             if (!IsLoaded) return;   // the user moved on to another page meanwhile
+            try { await header; } catch (Exception ex) { Diagnostics.Note($"could not load the account header: {ex.Message}"); }
             await LoadLayoutAsync();
             Layout.PropertyChanged += Layout_Changed;
             UpdateTableWidth();
