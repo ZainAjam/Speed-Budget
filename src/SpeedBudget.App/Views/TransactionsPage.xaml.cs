@@ -170,6 +170,9 @@ public sealed partial class TransactionsPage : Page, IReloadable
         if (ViewModel.SelectedEntry is null || ViewModel.IsRowEditing) return;   // a row being edited is only left with Enter, the green check or Esc
         var source = e.OriginalSource as DependencyObject;
         if (IsWithin(source, TableRegion) || IsWithin(source, DetailHost)) return;
+        // A button above the table (multi-select, sort, hide) does its own work: taking the focus from it as it is pressed would swallow the click.
+        for (var node = source; node is not null && !ReferenceEquals(node, this); node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node))
+            if (node is Microsoft.UI.Xaml.Controls.Primitives.ButtonBase) return;
         ClearEditing();
     }
 
