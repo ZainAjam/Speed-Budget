@@ -221,4 +221,50 @@ public sealed class BankImportTests : IDisposable
         Assert.True(await _store.DeleteTransactionAsync(tx.Id));
         Assert.Empty(await _db.Transactions.AsNoTracking().ToListAsync());
     }
+
+    [Fact]
+    public void The_statement_figures_are_found_by_their_labels_and_read_from_their_cells()
+    {
+        var path = Csv("Account,123456\nStatement date,2026-11-20\nAvailable balance,1500.00\nClosing balance,\"1,200.00\"\nDate,Description,Amount\n2026-11-18,Rent,-9000.00\n2026-11-19,Shop,-50.00\n");
+        var table = BankFile.ReadTable(path);
+        var format = BankFile.Detect(table)!;
+        var settings = BankStatement.Detect(table, format);
+        Assert.Equal(new BalanceSource(2, 1, 4), settings.Cleared);     // row 4 of the sheet, the second column
+        Assert.Equal(new BalanceSource(2, 1, 3), settings.Available);
+        Assert.Equal(new BalanceSource(2, 1, 2), settings.FileDate);
+
+        var info = BankStatement.Read(table, format, settings, BankFile.Parse(table, format).Lines)!;
+        Assert.Equal(new DateOnly(2026, 11, 20), info.Date);
+        Assert.Equal(120000, info.Cleared);
+        Assert.Equal(150000, info.Available);
+
+        // Without a date cell the file's date is that of its latest line.
+        var byLines = BankStatement.Read(table, format, settings with { FileDate = BalanceSource.None }, BankFile.Parse(table, format).Lines)!;
+        Assert.Equal(new DateOnly(2026, 11, 19), byLines.Date);
+    }
+
+    [Fact]
+    public async Task The_cleared_and_available_balances_are_compared_on_the_files_date()
+    {
+        var id = await AccountWithAsync(100000, (3, -1000, true), (4, -500, false), (8, -2000, true));
+        var info = new StatementInfo(new DateOnly(2026, 11, 5), 99000, 98500);
+        var comparisons = await _store.CompareStatementAsync(id, info);
+        Assert.All(comparisons, c => Assert.True(c.Matches));
+        Assert.Equal(2, comparisons.Count);
+
+        var wrong = await _store.CompareStatementAsync(id, info with { Available = 99000 });
+        Assert.True(wrong.Single(c => c.Label == "Cleared").Matches);
+        Assert.False(wrong.Single(c => c.Label == "Available").Matches);
+    }
+
+    [Fact]
+    public async Task Without_balances_on_each_line_the_whole_file_is_compared_against_the_stated_balance()
+    {
+        var id = await AccountWithAsync(100000, (3, -1000, true), (4, -700, true));   // the 4th is not in the file
+        BankLine Plain(int n, int day, long amount) => new(n, new DateOnly(2026, 11, day), "x", null, amount);
+        var diagnosis = await _store.DiagnoseBalanceAsync(id, [Plain(1, 3, -1000), Plain(2, 5, -300)], (new DateOnly(2026, 11, 5), 98700));
+        Assert.Contains(diagnosis!.Items, i => i.Kind == DiagnosisKind.ClearedNotInFile && i.Transaction!.Amount == -700);
+        Assert.Contains(diagnosis.Items, i => i.Kind == DiagnosisKind.InFileNotInApp && i.Line!.Amount == -300);
+        Assert.Equal(diagnosis.Gap, diagnosis.Items.Sum(i => i.Amount));
+    }
 }

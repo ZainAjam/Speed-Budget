@@ -65,7 +65,7 @@ public sealed class BalanceFixDialog : ContentDialog
     {
         _confirming = null;
         PrimaryButtonText = "Add a balancing transaction";
-        _diagnosis = await _vm.DiagnoseBalanceAsync(_check.AccountId, _check.Lines);
+        _diagnosis = await _vm.DiagnoseBalanceAsync(_check.AccountId, _check.Lines, _check.Info.Cleared is { } stated ? (_check.Info.Date, stated) : null);
         _list.Children.Clear();
         if (_diagnosis is not { } d) { _summary.Text = "The file has no balances to compare with."; return; }
 

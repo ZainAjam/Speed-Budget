@@ -38,13 +38,35 @@ public sealed partial class BudgetStore
     /// line points at the opening balance; a change in the gap on a day points at that day: the lines of the file and the cleared transactions of
     /// the account are paired off by amount, and what is left over on either side is the difference. Null when the file has no balances.
     /// </summary>
-    public async Task<BalanceDiagnosis?> DiagnoseBalanceAsync(Guid accountId, IReadOnlyList<BankLine> lines, CancellationToken ct = default)
+    public async Task<BalanceDiagnosis?> DiagnoseBalanceAsync(Guid accountId, IReadOnlyList<BankLine> lines, (DateOnly Date, long Balance)? statement = null, CancellationToken ct = default)
     {
-        if (BankBalance.Closing(lines) is not { } closing) return null;
+        var fileClosing = BankBalance.Closing(lines);
+        if ((statement ?? fileClosing) is not { } closing) return null;
 
         var account = await db.Accounts.AsNoTracking().SingleAsync(a => a.Id == accountId, ct);
         var cleared = await db.Transactions.AsNoTracking().Where(t => t.AccountId == accountId && t.IsCleared && !t.IsUndated).ToListAsync(ct);
         long AppAsOf(DateOnly date) => account.OpeningBalance + cleared.Where(t => t.Date <= date).Sum(t => t.Amount);
+
+        // The file's running balance can be followed day by day only when its last line agrees with the balance the file states. Otherwise (a balance
+        // read from a cell, and no balance on each line) the whole file is compared in one go: lines and cleared transactions are paired off by amount.
+        if (fileClosing is not { } followed || followed.Balance != closing.Balance)
+        {
+            var from = lines.Min(l => l.Date);
+            var to = lines.Max(l => l.Date);
+            var theirs = cleared.Where(t => t.Date >= from && t.Date <= to).ToList();
+            var leftOver = new List<BankLine>();
+            foreach (var line in lines)
+            {
+                var match = theirs.Where(t => t.Amount == line.Amount).OrderBy(t => Math.Abs(t.Date.DayNumber - line.Date.DayNumber)).FirstOrDefault();
+                if (match is not null) theirs.Remove(match); else leftOver.Add(line);
+            }
+            var found = new List<DiagnosisItem>();
+            found.AddRange(theirs.Select(t => new DiagnosisItem(DiagnosisKind.ClearedNotInFile, t.Date, t.Amount, t, null)));
+            found.AddRange(leftOver.Select(l => new DiagnosisItem(DiagnosisKind.InFileNotInApp, l.Date, -l.Amount, null, l)));
+            var residual = (AppAsOf(closing.Date) - closing.Balance) - found.Sum(i => i.Amount);
+            if (residual != 0) found.Add(new DiagnosisItem(DiagnosisKind.OpeningGap, from, residual, null, null));
+            return new BalanceDiagnosis(closing.Date, closing.Balance, AppAsOf(closing.Date), residual, AppAsOf(DateOnly.MaxValue) - AppAsOf(closing.Date), found.OrderBy(i => i.Date).ToList());
+        }
 
         // The file's balance at the end of each day: the balance of the day's last line (the first, when the file runs newest first).
         var oldestFirst = lines[0].Date <= lines[^1].Date;

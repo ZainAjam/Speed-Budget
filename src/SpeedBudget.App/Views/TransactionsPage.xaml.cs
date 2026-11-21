@@ -703,10 +703,11 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 {
                     var fix = new BalanceFixDialog(ViewModel, check) { XamlRoot = XamlRoot };
                     await fix.ShowAsync();
-                    if (fix.Resolved)   // it reconciles now
+                    if (fix.Resolved)   // the cleared balance agrees now: check everything again and show the result
                     {
+                        var again = await ViewModel.CompareStatementAsync(check.AccountId, check.Info);
                         var today = await ViewModel.ClearedBalanceAsOfAsync(check.AccountId, DateOnly.FromDateTime(DateTime.Today));
-                        await new BalanceCheckDialog(check with { AppBalance = check.FileBalance, CurrentBalance = today }) { XamlRoot = XamlRoot }.ShowAsync();
+                        await new BalanceCheckDialog(check with { Comparisons = again, CurrentCleared = today }) { XamlRoot = XamlRoot }.ShowAsync();
                     }
                 }
             }

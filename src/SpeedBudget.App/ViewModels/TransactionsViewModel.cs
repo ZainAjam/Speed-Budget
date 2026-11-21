@@ -1528,7 +1528,12 @@ public sealed partial class TransactionsViewModel : ObservableObject
 
     // ---- Finding why an import does not reconcile ----
 
-    public Task<BalanceDiagnosis?> DiagnoseBalanceAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.DiagnoseBalanceAsync(accountId, lines);
+    public Task<BalanceDiagnosis?> DiagnoseBalanceAsync(Guid accountId, IReadOnlyList<BankLine> lines, (DateOnly Date, long Balance)? statement = null) => _store.DiagnoseBalanceAsync(accountId, lines, statement);
+
+    public Task<StatementSettings?> GetStatementSettingsAsync(Guid accountId) => _store.GetStatementSettingsAsync(accountId);
+
+    /// <summary>The figures the file gave against the account on the file's date.</summary>
+    public Task<IReadOnlyList<BalanceComparison>> CompareStatementAsync(Guid accountId, StatementInfo info) => _store.CompareStatementAsync(accountId, info);
 
     public Task<long> GetOpeningBalanceAsync(Guid accountId) => _store.GetOpeningBalanceAsync(accountId);
 
@@ -1554,7 +1559,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     public Task<IReadOnlyList<BankMatch>> MatchBankLinesAsync(Guid accountId, IReadOnlyList<BankLine> lines) => _store.MatchBankLinesAsync(accountId, lines);
 
     /// <summary>Clears the matched transactions and adds the lines that were not in the table, in one save, and remembers the file layout for the account.</summary>
-    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankClear> clear, IReadOnlyList<BankLine> add, BankFormat format, bool skipSetup)
+    public async Task<(int Cleared, int Added)?> ApplyBankMatchesAsync(Guid accountId, IReadOnlyList<BankClear> clear, IReadOnlyList<BankLine> add, BankFormat format, bool skipSetup, StatementSettings statement)
     {
         await _gate.WaitAsync();
         try
@@ -1562,6 +1567,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
             var result = await _store.ApplyBankMatchesAsync(accountId, clear, add);
             await _store.SaveBankFormatAsync(accountId, format);
             await _store.SetBankSkipSetupAsync(accountId, skipSetup);
+            await _store.SaveStatementSettingsAsync(accountId, statement);
             _hints = await _store.GetPayeeHintsAsync();
             _rebuildAll = true;
             await LoadRowsAsync(null);
