@@ -8,6 +8,8 @@ into the release.
 
 - **Multi-select now tells you what it is.** While a table is in multi-select mode, a banner appears between the buttons saying so, that you can edit or delete several transactions at a time, and to press X to close multi-select mode.
 
+- **Multi-select puts the other buttons away.** While a table is in multi-select mode, the sort, eye and overflow buttons are hidden, and the edit, delete and close buttons sit at the right edge of the table. They come back when you close multi-select.
+
 ## 0.9.34
 
 - **The side panel is now a separate piece drawn over the page.** Choosing an account or page in the panel no longer makes it close and open again: it stays open until the pointer leaves it. The page behind keeps drawing while the panel opens and closes, so nothing waits on the panel or jumps.

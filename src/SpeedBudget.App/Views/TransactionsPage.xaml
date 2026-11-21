@@ -308,11 +308,11 @@
                         </Grid>
                     </Button>
                 </Grid>
-                <Button Click="Sort_Click" AutomationProperties.Name="Sort order" ToolTipService.ToolTip="{x:Bind ViewModel.SortTip, Mode=OneWay}">
+                <Button x:Name="SortButton" Click="Sort_Click" AutomationProperties.Name="Sort order" ToolTipService.ToolTip="{x:Bind ViewModel.SortTip, Mode=OneWay}">
                     <FontIcon Glyph="&#xE8CB;" FontSize="16" />
                 </Button>
                 <!-- The eye: what to hide. It is coloured while something is hidden. -->
-                <Button AutomationProperties.Name="What to show" ToolTipService.ToolTip="{x:Bind ViewModel.HideTip, Mode=OneWay}">
+                <Button x:Name="EyeButton" AutomationProperties.Name="What to show" ToolTipService.ToolTip="{x:Bind ViewModel.HideTip, Mode=OneWay}">
                     <FontIcon Glyph="&#xE7B3;" FontSize="16" Foreground="{x:Bind ViewModel.HideBrush, Mode=OneWay}" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -322,7 +322,7 @@
                     </Button.Flyout>
                 </Button>
                 <!-- The overflow menu: import and export -->
-                <Button AutomationProperties.Name="More" ToolTipService.ToolTip="More">
+                <Button x:Name="MoreButton" AutomationProperties.Name="More" ToolTipService.ToolTip="More">
                     <FontIcon Glyph="&#xE712;" FontSize="14" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight">

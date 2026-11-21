@@ -686,6 +686,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
     {
         if (_selectShown == selecting) return;
         _selectShown = selecting;
+        // While selecting, the sort, eye and more buttons are put away, so that the edit, delete and close buttons end at the table's right edge.
+        SortButton.Visibility = EyeButton.Visibility = MoreButton.Visibility = selecting ? Visibility.Collapsed : Visibility.Visible;
 
         _selectStory?.Stop();
         var story = _selectStory = new Storyboard();
