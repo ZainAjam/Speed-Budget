@@ -424,7 +424,7 @@
                             </Border>
                             <Border Height="16" />
                             <!-- Right-click the title to add a budget group (or, for income, an item) -->
-                            <Grid x:Name="InflowTitleRow" Height="76" Padding="12,0,0,28" Background="Transparent" ContextRequested="InflowTitle_ContextRequested">
+                            <Grid x:Name="InflowTitleRow" Height="76" Padding="12,0,0,2" Background="Transparent" ContextRequested="InflowTitle_ContextRequested">
                                 <TextBlock Text="Cash Received" Style="{StaticResource TitleTextBlockStyle}" FontSize="{x:Bind ViewModel.SectionFontSize, Mode=OneWay}" VerticalAlignment="Bottom"
                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                             </Grid>
@@ -432,7 +432,7 @@
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.IncomeLines}" ItemTemplate="{StaticResource IncomeNameTemplate}" />
                             </Border>
                             <Border Height="16" />
-                            <Grid x:Name="OutflowTitleRow" Height="76" Padding="12,0,0,28" Background="Transparent" ContextRequested="OutflowTitle_ContextRequested">
+                            <Grid x:Name="OutflowTitleRow" Height="76" Padding="12,0,0,2" Background="Transparent" ContextRequested="OutflowTitle_ContextRequested">
                                 <TextBlock Text="Cash Spend Planning" Style="{StaticResource TitleTextBlockStyle}" FontSize="{x:Bind ViewModel.SectionFontSize, Mode=OneWay}" VerticalAlignment="Bottom"
                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Grid>
