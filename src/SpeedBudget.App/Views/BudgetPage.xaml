@@ -46,7 +46,19 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="{x:Bind Text}" VerticalAlignment="Center" Opacity="0.85" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" />
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind Text}" VerticalAlignment="Center" Opacity="0.85" FontWeight="{x:Bind app:Glyphs.Weight(IsStrong)}" />
+                    <!-- What the figure means: pointed at, or clicked -->
+                    <Button Padding="4" Background="Transparent" BorderThickness="0" MinWidth="0" MinHeight="0" VerticalAlignment="Center"
+                            AutomationProperties.Name="{x:Bind Info}" ToolTipService.ToolTip="{x:Bind Info}">
+                        <FontIcon Glyph="&#xE946;" FontSize="13" Opacity="0.6" />
+                        <Button.Flyout>
+                            <Flyout>
+                                <TextBlock Text="{x:Bind Info}" TextWrapping="Wrap" MaxWidth="300" />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
                 <!-- Shows or hides the other monthly figures; only "Available to budget" stays in view when they are hidden -->
                 <Button Grid.Column="1" Click="SummaryToggle_Click" Visibility="{x:Bind IsStrong}" Padding="8" Background="Transparent" BorderThickness="0"
                         AutomationProperties.Name="Show or hide the monthly figures" ToolTipService.ToolTip="Show or hide the monthly figures">

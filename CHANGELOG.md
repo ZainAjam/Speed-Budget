@@ -4,6 +4,14 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.39
+
+- **The budget summary is in time order.** It now reads from last month into this month: carried over, released from last month, left over from last month, overspent last month, then income this month, held for next month, budgeted, and available to budget.
+
+- **Each summary line has an information icon.** Point at it, or click it, to read what the figure means.
+
+- **You can hold money for next month in any month.** Before, only money from that month's own income could be held, so a month whose money was released, carried over or left over from the month before could not hold any. Now the whole of Available to budget can be held.
+
 ## 0.9.38
 
 - **Money left on a budget item now goes back into the pool.** When a month ends, what is left on each budget item returns to "Available to budget" in the new month (a new "Left over from last month" line in the summary shows it), instead of staying on the item. Overspending already reduced the next month's pool, and still does. This applies to your existing months too, so the available figures of later months can change.

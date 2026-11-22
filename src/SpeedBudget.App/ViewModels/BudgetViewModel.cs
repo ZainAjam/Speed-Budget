@@ -89,7 +89,7 @@ public sealed partial class IncomeCell : LineCell
         ReceivedCents = m.Received;
         HeldCents = m.Held;
         ReceivedText = Format.Money(m.Received);
-        AvailableText = Format.Money(AvailableCents);
+        AvailableText = Format.Money(Math.Max(0, AvailableCents));   // more can be held on a line than it received (money released or carried in): it then shows nothing available
         CanHold = AvailableCents > 0;
         CanRelease = m.Held > 0;
     }
@@ -169,9 +169,12 @@ public static class SummaryView
     public static string Arrow(bool expanded) => expanded ? "\uE70E" : "\uE70D";
 }
 
-public sealed partial class SummaryLabel(string text, bool isStrong = false) : ObservableObject
+public sealed partial class SummaryLabel(string text, string info = "", bool isStrong = false) : ObservableObject
 {
     public string Text { get; } = text;
+
+    /// <summary>What the figure means, shown when its information icon is pointed at or clicked.</summary>
+    public string Info { get; } = info;
     public bool IsStrong { get; } = isStrong;
 
     /// <summary>Only "Available to budget" is always visible; the rest show while the figures are expanded.</summary>
@@ -271,7 +274,7 @@ public sealed partial class MonthColumn : ObservableObject
             : overBudget ? "More is budgeted than is available to budget"
             : "Some items are overspent";
 
-        var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.Returned, m.CarriedOver, -m.Budgeted, m.Available };
+        var values = new[] { m.CarriedOver, m.HeldIn, m.Returned, m.Overflow, m.Income, -m.HeldOut, -m.Budgeted, m.Available };
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
         Summary[7].Brush = Format.Signed(m.Available);
         Summary[7].Cents = m.Available;
@@ -308,9 +311,14 @@ public sealed partial class BudgetViewModel : ObservableObject
 
     public static readonly IReadOnlyList<SummaryLabel> SummaryLabels = new[]
     {
-        new SummaryLabel("Income this month"), new SummaryLabel("Held for next month"), new SummaryLabel("Released from last month"),
-        new SummaryLabel("Overspent last month"), new SummaryLabel("Left over from last month"), new SummaryLabel("Carried over"), new SummaryLabel("Budgeted"),
-        new SummaryLabel("Available to budget", isStrong: true),
+        new SummaryLabel("Carried over", "Money that was still unbudgeted at the end of last month. It stays available to budget until you give it to an item."),
+        new SummaryLabel("Released from last month", "Income you held back last month so that it would only become available this month."),
+        new SummaryLabel("Left over from last month", "Money left on budget items at the end of last month that you did not keep in the item. It goes back into the pool to budget with again. Items you chose to keep for next month keep their money and are not counted here."),
+        new SummaryLabel("Overspent last month", "What budget items spent beyond their budget last month. It is taken off this month's pool, and each overspent item starts this month from zero."),
+        new SummaryLabel("Income this month", "Money that arrived on your budget accounts this month (in the first month this includes what the accounts held when they were added)."),
+        new SummaryLabel("Held for next month", "Part of this month's available money that you set aside so that it is only available next month. Right-click Available to budget to hold or release an amount."),
+        new SummaryLabel("Budgeted", "The total you have given to budget items this month."),
+        new SummaryLabel("Available to budget", "What is left to give to budget items: carried over, plus released, plus left over, less overspent, plus income, less held, less budgeted. Right-click it to allocate, hold or cover.", isStrong: true),
     };
 
     private readonly BudgetStore _store = AppServices.Store;
@@ -705,13 +713,17 @@ public sealed partial class BudgetViewModel : ObservableObject
         finally { _gate.Release(); }
     }
 
-    /// <summary>How much of a month's available budget can be held for next month: it comes out of the income lines, so it can't be more than they still have.</summary>
+    /// <summary>
+    /// How much of a month's available budget can be held for next month: all of it, as long as the month has an income line to record the hold on
+    /// (money released from last month, carried over or left over can be held again as well as this month's own income).
+    /// </summary>
     public long HoldableFromAvailable(Guid monthId, long available) =>
-        Math.Min(available, Columns.FirstOrDefault(c => c.MonthId == monthId)?.Income.Where(i => i.Line.IsItem).Sum(i => Math.Max(0, i.AvailableCents)) ?? 0);
+        Columns.FirstOrDefault(c => c.MonthId == monthId)?.Income.Any(i => i.Line.IsItem) == true ? Math.Max(0, available) : 0;
 
     /// <summary>
-    /// Holds part of a month's available budget for next month. The amount is taken from the month's income lines, largest first,
-    /// the same as holding each of them by hand. Next month it comes back as released income.
+    /// Holds part of a month's available budget for next month. It is taken from the month's income lines, largest first, the same as
+    /// holding each of them by hand; whatever is more than the income lines still have (money that was released or carried in) is recorded
+    /// on the largest income line too. Next month it comes back as released income.
     /// </summary>
     public async Task HoldFromAvailableAsync(Guid monthId, long cents)
     {
@@ -720,16 +732,21 @@ public sealed partial class BudgetViewModel : ObservableObject
         try
         {
             var column = Columns.FirstOrDefault(c => c.MonthId == monthId);
-            if (column is null) return;
+            var incomes = column?.Income.Where(i => i.Line.IsItem).ToList() ?? [];
+            if (column is null || incomes.Count == 0) { Message = "Add an income line first: a hold is recorded on one."; return; }
+            var held = incomes.ToDictionary(i => i.ItemId, i => i.HeldCents);
             var left = cents;
-            foreach (var income in column.Income.Where(i => i.Line.IsItem && i.AvailableCents > 0).OrderByDescending(i => i.AvailableCents))
+            foreach (var income in incomes.Where(i => i.AvailableCents > 0).OrderByDescending(i => i.AvailableCents))
             {
                 if (left <= 0) break;
                 var take = Math.Min(left, income.AvailableCents);
-                await _store.SetIncomeHoldAsync(monthId, income.ItemId, income.HeldCents + take);
+                held[income.ItemId] += take;
                 left -= take;
             }
-            Message = left == 0 ? "" : $"Only {Format.Money(cents - left)} could be held: the rest of what is available is not from this month's income.";
+            if (left > 0) held[incomes.OrderByDescending(i => i.ReceivedCents).First().ItemId] += left;
+            foreach (var income in incomes.Where(i => held[i.ItemId] != i.HeldCents))
+                await _store.SetIncomeHoldAsync(monthId, income.ItemId, held[income.ItemId]);
+            Message = "";
             await RecalculateAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }

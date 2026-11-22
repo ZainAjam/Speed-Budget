@@ -685,11 +685,8 @@ public sealed partial class BudgetPage : Page, IReloadable
     /// <summary>Holds part of a month's available budget for next month: it leaves this month's available budget and appears in the next month's.</summary>
     private async Task HoldAvailableAsync(SummaryCell cell, long holdable)
     {
-        var note = holdable < cell.Cents
-            ? $" Only {Format.Money(holdable)} of the {Format.Money(cell.Cents)} available can be held, because the rest did not come from this month's income."
-            : "";
         var dialog = new HoldDialog("Hold for next month", holdable,
-            $"{Format.Money(cell.Cents)} is available to budget. Whatever you hold leaves this month's available budget and becomes available next month instead.{note}") { XamlRoot = XamlRoot };
+            $"{Format.Money(cell.Cents)} is available to budget. Whatever you hold leaves this month's available budget and becomes available next month instead.") { XamlRoot = XamlRoot };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         await ViewModel.HoldFromAvailableAsync(cell.MonthId, dialog.AmountCents);
     }
