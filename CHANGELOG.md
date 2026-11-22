@@ -7,7 +7,8 @@ into the release.
 ## 0.9.40
 
 - **Totals under the column headings.** Each month now shows the total directly under Received and Available now (added up from the Cash Received rows) and under Budgeted, Spent and Left (added up from the Cash Spend Planning rows). They update as you change a budget.
-n- **Section titles sit closer to their tables.** Cash Received and Cash Spend Planning now sit directly above the top of their tables, with less empty space between.
+
+- **Section titles sit closer to their tables.** Cash Received and Cash Spend Planning now sit directly above the top of their tables, with less empty space between.
 
 ## 0.9.39
 
