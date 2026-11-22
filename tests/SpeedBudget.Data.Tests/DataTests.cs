@@ -146,6 +146,25 @@ public sealed class DataTests : IDisposable
     }
 
     [Fact]
+    public async Task A_kept_leftover_is_saved_with_the_budget_and_follows_the_month_when_its_line_is_made()
+    {
+        var food = AddItem("Food", ItemKind.Expense);
+        var march = new DateOnly(2027, 3, 1);
+        var virtualMarch = BudgetEngine.VirtualMonthId(march);
+
+        await _store.SetKeepAsync(virtualMarch, food.Id, true);
+        Assert.Equal(new CarryKeep(virtualMarch, food.Id), Assert.Single((await _store.LoadSnapshotAsync()).Keeps!));
+
+        await _store.SetKeepAsync(virtualMarch, food.Id, false);
+        Assert.Empty((await _store.LoadSnapshotAsync()).Keeps!);
+
+        await _store.SetKeepAsync(BudgetEngine.FirstMonthId, food.Id, true);
+        var marker = await _store.AddMarkerAsync("Feb", new(2027, 2, 1), false);
+        Assert.Contains(new CarryKeep(BudgetEngine.FirstMonthId, food.Id), (await _store.LoadSnapshotAsync()).Keeps!);
+        Assert.NotNull(marker);
+    }
+
+    [Fact]
     public async Task Allocation_and_hold_are_upserted_not_duplicated()
     {
         var food = AddItem("Food", ItemKind.Expense);

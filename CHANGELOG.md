@@ -4,6 +4,12 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.38
+
+- **Money left on a budget item now goes back into the pool.** When a month ends, what is left on each budget item returns to "Available to budget" in the new month (a new "Left over from last month" line in the summary shows it), instead of staying on the item. Overspending already reduced the next month's pool, and still does. This applies to your existing months too, so the available figures of later months can change.
+
+- **Keep a leftover in its budget item.** Right-click the Left figure of an item that has money left and choose "Keep in this budget item for next month". A small arrow after the figure shows it was carried forward in the same item, and the same menu lets you send it back to the pool.
+
 ## 0.9.37
 
 - **Each budget month shows how it is doing.** Next to the month's title: a green circle with a tick when nothing is overspent or overbudgeted, a red circle with an exclamation mark when something is, and a yellow triangle with an exclamation mark when a coming month is overbudgeted. Hover over it for the reason.

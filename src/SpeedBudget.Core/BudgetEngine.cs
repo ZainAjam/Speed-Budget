@@ -162,7 +162,8 @@ public static class BudgetEngine
         }
 
         var results = new List<MonthSummary>();
-        long previousHeldOut = 0, previousDeficit = 0, previousAvailable = 0;
+        long previousHeldOut = 0, previousDeficit = 0, previousAvailable = 0, previousReturned = 0;
+        var keeps = (s.Keeps ?? []).Select(k => (k.MonthId, k.BudgetItemId)).ToHashSet();
 
         // What each item is carrying into the month: its positive balance at the end of the month before.
         var carriedIntoMonth = new Dictionary<Guid, long>();
@@ -171,7 +172,8 @@ public static class BudgetEngine
         {
             // What the budget accounts already held when they were added is money to budget with, so it counts as income of the first month.
             var opening = monthId == FirstMonthId ? s.Accounts.Where(a => a.IsOnBudget).Sum(a => a.OpeningBalance) : 0;
-            long income = opening, budgeted = 0, deficit = 0;
+            long income = opening, budgeted = 0, deficit = 0, returned = 0;
+            var keptHere = new HashSet<Guid>();
             var items = new List<ItemMonth>();
             var carryOut = new Dictionary<Guid, long>();
             var incomeItems = new List<IncomeItemMonth>();
@@ -191,20 +193,27 @@ public static class BudgetEngine
                 items.Add(im);
                 budgeted += bud;
 
-                // A positive balance stays with the item next month. A negative one is cleared from the item (it starts
-                // the next month from zero) and instead comes off what is available to budget as overflow.
-                if (im.Remaining > 0) carryOut[item.Id] = im.Remaining;
+                // What is left on an item at the end of the month goes back into the pool available to budget in the next month,
+                // unless the user chose to keep it in the item (then it stays there, and is carried into the item next month).
+                // What is overspent is cleared from the item (it starts the next month from zero) and comes off the next month's pool.
+                if (keeps.Contains((monthId, item.Id))) keptHere.Add(item.Id);
+                if (im.Remaining > 0)
+                {
+                    if (keptHere.Contains(item.Id)) carryOut[item.Id] = im.Remaining;
+                    else returned += im.Remaining;
+                }
                 else deficit += im.Remaining;
             }
 
             var heldOut = s.Holds.Where(h => h.MonthId == monthId).Sum(h => h.Amount);
             var overflow = previousDeficit;
             var carried = previousAvailable;
-            var available = income - heldOut + previousHeldOut + overflow + carried - budgeted;
+            var available = income - heldOut + previousHeldOut + overflow + previousReturned + carried - budgeted;
 
-            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems, planned, opening));
+            results.Add(new MonthSummary(monthId, label, income, heldOut, previousHeldOut, overflow, carried, budgeted, available, items, incomeItems, planned, opening, previousReturned, keptHere));
             previousHeldOut = heldOut;
             previousDeficit = deficit;
+            previousReturned = returned;
             carriedIntoMonth = carryOut;
             previousAvailable = available;
         }

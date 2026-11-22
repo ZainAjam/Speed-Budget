@@ -128,7 +128,8 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
             await GetStoredFirstMonthLabelAsync(ct) ?? "",
             await GetSettingAsync(FirstMonthRenamedKey, ct) == "1",
             await GetBudgetStartSettingAsync(ct),
-            await GetBudgetStartMonthSettingAsync(ct));
+            await GetBudgetStartMonthSettingAsync(ct),
+            await LoadKeepsAsync(ct));
     }
 
     private static MonthMarker ToCore(MonthMarkerEntity m) => new(m.Id, m.Date, m.DayOrder, m.Label);
@@ -717,6 +718,7 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
     {
         foreach (var a in await db.Allocations.Where(a => a.MonthId == from).ToListAsync(ct)) a.MonthId = to;
         foreach (var h in await db.Holds.Where(h => h.MonthId == from).ToListAsync(ct)) h.MonthId = to;
+        await MoveKeepsAsync(from, to, ct);
     }
 
     /// <summary>
@@ -792,6 +794,7 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
             else { target.Amount += h.Amount; db.Holds.Remove(h); }
         }
 
+        await MoveKeepsAsync(marker.Id, previousMonth, ct);   // the merged month ends where the later one did
         db.Markers.Remove(marker);
         await db.SaveChangesAsync(ct);
     }
@@ -1248,6 +1251,41 @@ public sealed partial class BudgetStore(SpeedBudgetDb db)
             else row.Amount = amount;
         }
         await db.SaveChangesAsync(ct);
+    }
+
+    // ---- Leftovers kept in their budget item ----
+
+    private static string KeepKey(Guid monthId, Guid itemId) => $"keep:{monthId}:{itemId}";
+
+    /// <summary>The items whose leftover, at the end of a month, the user chose to keep in the item for the next month.</summary>
+    private async Task<List<CarryKeep>> LoadKeepsAsync(CancellationToken ct)
+    {
+        var keeps = new List<CarryKeep>();
+        foreach (var key in await db.Settings.AsNoTracking().Where(s => s.Key.StartsWith("keep:") && s.Value == "1").Select(s => s.Key).ToListAsync(ct))
+        {
+            var parts = key.Split(':');
+            if (parts.Length == 3 && Guid.TryParse(parts[1], out var month) && Guid.TryParse(parts[2], out var item)) keeps.Add(new CarryKeep(month, item));
+        }
+        return keeps;
+    }
+
+    /// <summary>Keeps (or stops keeping) what is left on an item at the end of a month in that item for the next month.</summary>
+    public Task SetKeepAsync(Guid monthId, Guid itemId, bool keep, CancellationToken ct = default) =>
+        SetSettingAsync(KeepKey(monthId, itemId), keep ? "1" : null, ct);
+
+    /// <summary>Moves the keep choices of one month id to another (saved by the caller).</summary>
+    private async Task MoveKeepsAsync(Guid from, Guid to, CancellationToken ct)
+    {
+        var prefix = $"keep:{from}:";
+        foreach (var row in await db.Settings.Where(s => s.Key.StartsWith(prefix)).ToListAsync(ct))
+        {
+            var key = $"keep:{to}:{row.Key[prefix.Length..]}";
+            var value = row.Value;
+            db.Settings.Remove(row);
+            var existing = await db.Settings.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Key == key, ct);
+            if (existing is null) db.Settings.Add(new SettingEntity { Id = SettingEntity.IdFor(key), Key = key, Value = value });
+            else { existing.Value = value; existing.IsDeleted = false; }
+        }
     }
 
     /// <summary>Sets how much of a month's income is held for next month. Zero removes the hold.</summary>

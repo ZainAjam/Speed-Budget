@@ -136,17 +136,23 @@ public sealed partial class OutflowCell : LineCell
     /// <summary>Explains where part of the Left figure came from, when some was carried forward. Null when nothing was.</summary>
     [ObservableProperty] public partial string? LeftTip { get; set; }
 
-    public void Apply(long budgeted, long activity, long carriedIn)
+    /// <summary>The user chose to keep what is left here for next month (shown as an arrow after the Left figure; only while something is left).</summary>
+    [ObservableProperty] public partial bool KeptForNext { get; set; }
+    public bool IsKept => KeptForNext && LeftCents > 0;
+
+    public void Apply(long budgeted, long activity, long carriedIn, bool kept = false)
     {
         _budgeted = budgeted;
         OnPropertyChanged(nameof(Budgeted));
         var left = carriedIn + budgeted + activity;
+        KeptForNext = kept;
         LeftCents = left;
         LeftTip = carriedIn > 0 ? $"Includes {Format.Money(carriedIn)} carried forward from last month" : null;
         BudgetedText = Format.Money(budgeted);
         SpentText = Format.Money(-activity);
         LeftText = Format.Money(left);
         LeftBrush = Format.Signed(left);
+        OnPropertyChanged(nameof(IsKept));
     }
 }
 
@@ -230,7 +236,7 @@ public sealed partial class MonthColumn : ObservableObject
     public IReadOnlyList<SummaryCell> Summary { get; }
 
     /// <summary>The "Available to budget" cell, which stays in view under the month heading while the other figures are hidden.</summary>
-    public SummaryCell AvailableCell => Summary[6];
+    public SummaryCell AvailableCell => Summary[7];
 
     /// <summary>Whether the summary block (all of its figures) is showing in the scrolling part of the page.</summary>
     [ObservableProperty] public partial bool SummaryOpen { get; set; } = SummaryView.Expanded;
@@ -242,7 +248,7 @@ public sealed partial class MonthColumn : ObservableObject
         MonthId = monthId;
         HasPrevious = hasPrevious;
         Width = width;
-        Summary = Enumerable.Range(0, 7).Select(i => new SummaryCell(isStrong: i == 6) { MonthId = monthId }).ToList();
+        Summary = Enumerable.Range(0, 8).Select(i => new SummaryCell(isStrong: i == 7) { MonthId = monthId }).ToList();
         foreach (var line in incomeLines) Income.Add(new IncomeCell(line, monthId));
         foreach (var line in outflowLines) Outflow.Add(new OutflowCell(line, monthId, owner));
     }
@@ -265,17 +271,17 @@ public sealed partial class MonthColumn : ObservableObject
             : overBudget ? "More is budgeted than is available to budget"
             : "Some items are overspent";
 
-        var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.CarriedOver, -m.Budgeted, m.Available };
+        var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.Returned, m.CarriedOver, -m.Budgeted, m.Available };
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
-        Summary[6].Brush = Format.Signed(m.Available);
-        Summary[6].Cents = m.Available;
-        Summary[6].HeldOutCents = m.HeldOut;
-        Summary[6].HasHold = m.HeldOut != 0 || m.HeldIn != 0;
+        Summary[7].Brush = Format.Signed(m.Available);
+        Summary[7].Cents = m.Available;
+        Summary[7].HeldOutCents = m.HeldOut;
+        Summary[7].HasHold = m.HeldOut != 0 || m.HeldIn != 0;
         var note = new List<string>();
         if (m.HeldOut != 0) note.Add($"Held for next month: {Format.Money(m.HeldOut)}");
         if (m.HeldIn != 0) note.Add($"Released from last month: {Format.Money(m.HeldIn)}");
         if (m.HeldOut != 0) note.Add("Right-click the figure to release it.");
-        Summary[6].HoldNote = string.Join("\n", note);
+        Summary[7].HoldNote = string.Join("\n", note);
 
         var income = m.IncomeItems.ToDictionary(i => i.ItemId);
         foreach (var cell in Income)
@@ -290,7 +296,7 @@ public sealed partial class MonthColumn : ObservableObject
             if (cell.Line.IsHeader) continue;   // group headings carry no figures
 
             var item = items.GetValueOrDefault(cell.Line.ItemId!.Value);
-            cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0, item?.CarriedIn ?? 0);
+            cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0, item?.CarriedIn ?? 0, m.KeptItems?.Contains(cell.Line.ItemId!.Value) == true);
         }
     }
 }
@@ -298,12 +304,12 @@ public sealed partial class MonthColumn : ObservableObject
 public sealed partial class BudgetViewModel : ObservableObject
 {
     /// <summary>The labels down the left of the summary block, in the order of each month's summary cells.</summary>
-    public static SummaryLabel AvailableLabel => SummaryLabels[6];
+    public static SummaryLabel AvailableLabel => SummaryLabels[7];
 
     public static readonly IReadOnlyList<SummaryLabel> SummaryLabels = new[]
     {
         new SummaryLabel("Income this month"), new SummaryLabel("Held for next month"), new SummaryLabel("Released from last month"),
-        new SummaryLabel("Overflow from last month"), new SummaryLabel("Carried over"), new SummaryLabel("Budgeted"),
+        new SummaryLabel("Overspent last month"), new SummaryLabel("Left over from last month"), new SummaryLabel("Carried over"), new SummaryLabel("Budgeted"),
         new SummaryLabel("Available to budget", isStrong: true),
     };
 
@@ -920,6 +926,20 @@ public sealed partial class BudgetViewModel : ObservableObject
     /// <summary>Sets each expense item's budget to what was spent on it in the previous month.</summary>
     public Task BudgetLastMonthsSpendingAsync(MonthColumn column) => SetBudgetsAsync(column.MonthId, (month, previous) =>
         previous is null ? [] : previous.Items.Where(i => i.Activity < 0).Select(i => (i.ItemId, -i.Activity)));
+
+    /// <summary>Keeps what is left on an item at the end of this month in the item for next month, or sends it back to the pool again.</summary>
+    public async Task SetKeepAsync(Guid monthId, Guid itemId, bool keep)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            await _store.SetKeepAsync(monthId, itemId, keep);
+            Message = "";
+            await RecalculateAsync();
+        }
+        catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
+        finally { _gate.Release(); }
+    }
 
     /// <summary>Takes every budgeted amount of the month back to nothing.</summary>
     public Task ResetBudgetAsync(MonthColumn column) => SetBudgetsAsync(column.MonthId, (month, _) =>

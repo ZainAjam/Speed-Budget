@@ -53,9 +53,10 @@ public class BudgetEngineTests
         IEnumerable<Transaction> txs,
         IEnumerable<MonthMarker>? markers = null,
         IEnumerable<Allocation>? allocations = null,
-        IEnumerable<IncomeHold>? holds = null) =>
+        IEnumerable<IncomeHold>? holds = null,
+        IEnumerable<CarryKeep>? keeps = null) =>
         new(Accounts, Items, (markers ?? Array.Empty<MonthMarker>()).ToList(), txs.ToList(),
-            (allocations ?? Array.Empty<Allocation>()).ToList(), (holds ?? Array.Empty<IncomeHold>()).ToList());
+            (allocations ?? Array.Empty<Allocation>()).ToList(), (holds ?? Array.Empty<IncomeHold>()).ToList(), Keeps: keeps?.ToList());
 
     [Fact]
     public void Single_month_available_is_income_minus_budgeted()
@@ -137,11 +138,10 @@ public class BudgetEngineTests
         Assert.Equal(marker.Id, BudgetEngine.MonthOf(markers, D(1, 25), 6));
     }
 
-    [Fact]
-    public void A_positive_item_balance_carries_into_the_same_item_next_month_and_not_into_the_pool()
+    private static BudgetSnapshot LeftoverCase(bool keep, out MonthMarker marker)
     {
-        var marker = new MonthMarker(Guid.NewGuid(), D(2, 1), 0, "Feb");
-        var snap = Snapshot(
+        marker = new MonthMarker(Guid.NewGuid(), D(2, 1), 0, "Feb");
+        return Snapshot(
             new[]
             {
                 Tx(Cheque, D(1, 1), 0, 1_000_00, Salary),
@@ -153,15 +153,33 @@ public class BudgetEngineTests
             {
                 new Allocation(BudgetEngine.FirstMonthId, Food, 1_000_00),
                 new Allocation(marker.Id, Food, 600_00),
-            });
+            },
+            keeps: keep ? new[] { new CarryKeep(BudgetEngine.FirstMonthId, Food) } : null);
+    }
 
-        var months = BudgetEngine.Calculate(snap);
+    [Fact]
+    public void What_is_left_on_an_item_goes_back_into_the_pool_next_month()
+    {
+        var months = BudgetEngine.Calculate(LeftoverCase(keep: false, out _));
+
+        var food = months[1].Items.Single(i => i.ItemId == Food);
+        Assert.Equal(0, food.CarriedIn);
+        Assert.Equal(600_00, food.Remaining);             // only its new budget
+        Assert.Equal(400_00, months[1].Returned);         // the 400 left in January is back in the pool
+        Assert.Equal(800_00, months[1].Available);        // 1,000 income + 400 returned - 600 budgeted
+    }
+
+    [Fact]
+    public void A_leftover_the_user_keeps_stays_in_the_same_item_and_not_in_the_pool()
+    {
+        var months = BudgetEngine.Calculate(LeftoverCase(keep: true, out _));
 
         var food = months[1].Items.Single(i => i.ItemId == Food);
         Assert.Equal(400_00, food.CarriedIn);
-        Assert.Equal(1_000_00, food.Remaining);          // 400 carried + 600 budgeted
-        Assert.Equal(0, months[1].Overflow);             // a positive balance is not returned to the pool
-        Assert.Equal(400_00, months[1].Available);       // 1,000 income less 600 budgeted
+        Assert.Equal(1_000_00, food.Remaining);           // 400 kept + 600 budgeted
+        Assert.Equal(0, months[1].Returned);
+        Assert.Equal(400_00, months[1].Available);        // 1,000 income less 600 budgeted
+        Assert.Contains(Food, months[0].KeptItems!);
     }
 
     [Fact]
@@ -193,7 +211,7 @@ public class BudgetEngineTests
     }
 
     [Fact]
-    public void Overflow_counts_only_overspent_items_while_other_items_keep_their_balances()
+    public void Overflow_counts_only_overspent_items_while_other_items_return_what_is_left()
     {
         var marker = new MonthMarker(Guid.NewGuid(), D(2, 1), 0, "Feb");
         var snap = Snapshot(
@@ -208,19 +226,21 @@ public class BudgetEngineTests
         var feb = BudgetEngine.Calculate(snap)[1];
 
         Assert.Equal(-150_00, feb.Overflow);
-        Assert.Equal(400_00, feb.Items.Single(i => i.ItemId == Food).CarriedIn);
+        Assert.Equal(0, feb.Items.Single(i => i.ItemId == Food).CarriedIn);
+        Assert.Equal(400_00, feb.Returned);
         Assert.Equal(0, feb.Items.Single(i => i.ItemId == Petrol).CarriedIn);
     }
 
     [Fact]
-    public void A_balance_keeps_carrying_forward_through_several_months_until_it_is_spent()
+    public void A_kept_balance_keeps_carrying_forward_through_several_months_until_it_is_spent()
     {
         var feb = new MonthMarker(Guid.NewGuid(), D(2, 1), 0, "Feb");
         var mar = new MonthMarker(Guid.NewGuid(), D(3, 1), 0, "Mar");
         var snap = Snapshot(
             new[] { Tx(Cheque, D(3, 5), 0, -50_00, Food) },
             new[] { feb, mar },
-            new[] { new Allocation(BudgetEngine.FirstMonthId, Food, 100_00) });
+            new[] { new Allocation(BudgetEngine.FirstMonthId, Food, 100_00) },
+            keeps: new[] { new CarryKeep(BudgetEngine.FirstMonthId, Food), new CarryKeep(feb.Id, Food) });
 
         var months = BudgetEngine.Calculate(snap);
 
@@ -325,12 +345,12 @@ public class BudgetEngineTests
 
         // January: income 10,000 less 4,000 held, less 1,000 budgeted. Unbudgeted 5,000 carries on.
         Assert.Equal(5_000_00, months[0].Available);
-        // Next month has 4,000 released and the 5,000 carried, less its 800 budget. The 700 left on Food stays on Food.
+        // Next month has 4,000 released, the 5,000 carried and the 700 left on Food returned, less its 800 budget.
         Assert.Equal(4_000_00, months[1].HeldIn);
         Assert.Equal(0, months[1].Overflow);
-        Assert.Equal(4_000_00 + 5_000_00 - 800_00, months[1].Available);
+        Assert.Equal(4_000_00 + 5_000_00 + 700_00 - 800_00, months[1].Available);
         Assert.Equal(800_00, months[1].Items.Single(i => i.ItemId == Food).Budgeted);
-        Assert.Equal(1_500_00, months[1].Items.Single(i => i.ItemId == Food).Remaining);
+        Assert.Equal(800_00, months[1].Items.Single(i => i.ItemId == Food).Remaining);
         Assert.Equal(900_00, months[2].Items.Single(i => i.ItemId == Food).Budgeted);
     }
 
@@ -356,12 +376,13 @@ public class BudgetEngineTests
         var september = new MonthMarker(Guid.NewGuid(), new DateOnly(2027, 9, 1), 0, "September 2027");
         var july = BudgetEngine.VirtualMonthId(new DateOnly(2027, 7, 1));
         var snap = Snapshot(new[] { Tx(Cheque, new DateOnly(2027, 5, 20), 0, -50_00, Food) }, new[] { june, september },
-            allocations: new[] { new Allocation(july, Food, 400_00) });
+            allocations: new[] { new Allocation(july, Food, 400_00) },
+            keeps: new[] { new CarryKeep(july, Food), new CarryKeep(BudgetEngine.VirtualMonthId(new DateOnly(2027, 8, 1)), Food) });
 
         var months = BudgetEngine.Calculate(snap);
 
         Assert.Equal(400_00, Month(months, july).Budgeted);
-        // The 400 is untouched in July and August, so it is still on Food in September.
+        // The 400 is untouched in July and August and kept in Food both times, so it is still on Food in September.
         Assert.Equal(400_00, months[^1].Items.Single(i => i.ItemId == Food).CarriedIn);
     }
 

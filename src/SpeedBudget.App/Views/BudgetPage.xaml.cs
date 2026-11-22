@@ -657,6 +657,15 @@ public sealed partial class BudgetPage : Page, IReloadable
             var move = new MenuFlyoutItem { Text = "Move some of this to another budget item…", Icon = new FontIcon { Glyph = "\uE8AB" } };
             move.Click += async (_, _) => await MoveLeftAsync(cell);
             menu.Items.Add(move);
+
+            // What is left goes back to the pool at month end, unless it is kept in this item for next month.
+            var keep = new MenuFlyoutItem
+            {
+                Text = cell.KeptForNext ? "Return to the budget pool at month end" : "Keep in this budget item for next month",
+                Icon = new FontIcon { Glyph = cell.KeptForNext ? "" : "" },
+            };
+            keep.Click += async (_, _) => await ViewModel.SetKeepAsync(cell.MonthId, cell.Line.ItemId!.Value, !cell.KeptForNext);
+            menu.Items.Add(keep);
         }
         else
         {

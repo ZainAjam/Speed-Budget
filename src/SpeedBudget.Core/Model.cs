@@ -41,9 +41,13 @@ public sealed record BudgetSnapshot(
     string FirstMonthLabel = "",
     bool FirstMonthRenamed = false,
     DateOnly? BudgetStart = null,
-    DateOnly? BudgetStartMonth = null);
+    DateOnly? BudgetStartMonth = null,
+    IReadOnlyList<CarryKeep>? Keeps = null);
 
-/// <param name="CarriedIn">The positive balance this item brought in from the month before. Overspending is not carried: it is overflow.</param>
+/// <summary>The user chose to keep what is left on an item at the end of a month in that item for the next month (otherwise it returns to the pool available to budget).</summary>
+public sealed record CarryKeep(Guid MonthId, Guid BudgetItemId);
+
+/// <param name="CarriedIn">The positive balance this item brought in from the month before, which only happens when the user chose to keep it in the item. Otherwise what is left goes back to the pool available to budget, and overspending reduces that pool.</param>
 public sealed record ItemMonth(Guid ItemId, long Budgeted, long Activity, long CarriedIn = 0)
 {
     /// <summary>What is left: what was carried in, plus budgeted, plus activity (outflows are negative).</summary>
@@ -66,4 +70,6 @@ public sealed record MonthSummary(
     IReadOnlyList<ItemMonth> Items,
     IReadOnlyList<IncomeItemMonth> IncomeItems,
     bool IsPlanned = false,
-    long OpeningBalances = 0);
+    long OpeningBalances = 0,
+    long Returned = 0,
+    IReadOnlySet<Guid>? KeptItems = null);   // Returned: what items had left last month, back in the pool. KeptItems: items whose leftover this month is kept in the item for next month
