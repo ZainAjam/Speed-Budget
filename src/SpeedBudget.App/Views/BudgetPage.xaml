@@ -173,7 +173,11 @@
                 </Border>
                 <Border Height="16" />
                 <!-- Cash received -->
-                <Grid Height="48" Padding="8,0,8,4">
+                <Grid Height="76" Padding="8,0,8,4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.15*" />
                         <ColumnDefinition Width="1*" />
@@ -183,13 +187,20 @@
                                Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Grid.Column="2" Text="Available now" HorizontalTextAlignment="Right" VerticalAlignment="Bottom"
                                Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <!-- The totals of the columns below -->
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ReceivedTotal, Mode=OneWay}" HorizontalTextAlignment="Right" Margin="0,2,8,0" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind AvailableNowTotal, Mode=OneWay}" HorizontalTextAlignment="Right" Margin="0,2,0,0" FontWeight="SemiBold" />
                 </Grid>
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
                     <ItemsControl ItemsSource="{x:Bind Income}" ItemTemplate="{StaticResource IncomeCellTemplate}" />
                 </Border>
                 <Border Height="16" />
                 <!-- Cash spend planning -->
-                <Grid Height="48" Padding="8,0,8,4">
+                <Grid Height="76" Padding="8,0,8,4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.15*" />
                         <ColumnDefinition Width="1*" />
@@ -201,6 +212,10 @@
                                Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <TextBlock Grid.Column="2" Text="Left" HorizontalTextAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,18,0"
                                Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <!-- The totals of the columns below -->
+                    <TextBlock Grid.Row="1" Text="{x:Bind BudgetedTotal, Mode=OneWay}" HorizontalTextAlignment="Right" Margin="0,2,8,0" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind SpentTotal, Mode=OneWay}" HorizontalTextAlignment="Right" Margin="0,2,8,0" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{x:Bind LeftTotal, Mode=OneWay}" Foreground="{x:Bind LeftTotalBrush, Mode=OneWay}" HorizontalTextAlignment="Right" Margin="0,2,18,0" FontWeight="SemiBold" />
                 </Grid>
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="0,6">
                     <ItemsControl ItemsSource="{x:Bind Outflow}" ItemTemplate="{StaticResource OutflowCellTemplate}" />
@@ -409,7 +424,7 @@
                             </Border>
                             <Border Height="16" />
                             <!-- Right-click the title to add a budget group (or, for income, an item) -->
-                            <Grid x:Name="InflowTitleRow" Height="48" Padding="12,0,0,2" Background="Transparent" ContextRequested="InflowTitle_ContextRequested">
+                            <Grid x:Name="InflowTitleRow" Height="76" Padding="12,0,0,28" Background="Transparent" ContextRequested="InflowTitle_ContextRequested">
                                 <TextBlock Text="Cash Received" Style="{StaticResource TitleTextBlockStyle}" FontSize="{x:Bind ViewModel.SectionFontSize, Mode=OneWay}" VerticalAlignment="Bottom"
                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
                             </Grid>
@@ -417,7 +432,7 @@
                                 <ItemsControl ItemsSource="{x:Bind ViewModel.IncomeLines}" ItemTemplate="{StaticResource IncomeNameTemplate}" />
                             </Border>
                             <Border Height="16" />
-                            <Grid x:Name="OutflowTitleRow" Height="48" Padding="12,0,0,2" Background="Transparent" ContextRequested="OutflowTitle_ContextRequested">
+                            <Grid x:Name="OutflowTitleRow" Height="76" Padding="12,0,0,28" Background="Transparent" ContextRequested="OutflowTitle_ContextRequested">
                                 <TextBlock Text="Cash Spend Planning" Style="{StaticResource TitleTextBlockStyle}" FontSize="{x:Bind ViewModel.SectionFontSize, Mode=OneWay}" VerticalAlignment="Bottom"
                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
                             </Grid>

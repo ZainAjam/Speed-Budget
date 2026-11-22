@@ -103,6 +103,7 @@ public sealed partial class OutflowCell : LineCell
     public Guid MonthId { get; }
 
     public long BudgetedCents => _budgeted;
+    public long SpentCents { get; private set; }
 
     /// <summary>What is left on the item this month, including anything carried forward. Green when above zero, red below.</summary>
     public long LeftCents { get; private set; }
@@ -150,6 +151,7 @@ public sealed partial class OutflowCell : LineCell
         LeftTip = carriedIn > 0 ? $"Includes {Format.Money(carriedIn)} carried forward from last month" : null;
         BudgetedText = Format.Money(budgeted);
         SpentText = Format.Money(-activity);
+        SpentCents = -activity;
         LeftText = Format.Money(left);
         LeftBrush = Format.Signed(left);
         OnPropertyChanged(nameof(IsKept));
@@ -246,6 +248,27 @@ public sealed partial class MonthColumn : ObservableObject
     public ObservableCollection<IncomeCell> Income { get; } = new();
     public ObservableCollection<OutflowCell> Outflow { get; } = new();
 
+    /// <summary>The totals shown under each column heading: the sum of that column's figures over all the rows of its section.</summary>
+    [ObservableProperty] public partial string ReceivedTotal { get; set; } = "";
+    [ObservableProperty] public partial string AvailableNowTotal { get; set; } = "";
+    [ObservableProperty] public partial string BudgetedTotal { get; set; } = "";
+    [ObservableProperty] public partial string SpentTotal { get; set; } = "";
+    [ObservableProperty] public partial string LeftTotal { get; set; } = "";
+    [ObservableProperty] public partial Brush LeftTotalBrush { get; set; } = Format.Theme("TextFillColorPrimaryBrush");
+
+    private void ApplyTotals()
+    {
+        var income = Income.Where(c => c.Line.IsItem).ToList();
+        var outflow = Outflow.Where(c => c.Line.IsItem).ToList();
+        ReceivedTotal = Format.Money(income.Sum(c => c.ReceivedCents));
+        AvailableNowTotal = Format.Money(income.Sum(c => Math.Max(0, c.AvailableCents)));
+        BudgetedTotal = Format.Money(outflow.Sum(c => c.BudgetedCents));
+        SpentTotal = Format.Money(outflow.Sum(c => c.SpentCents));
+        var left = outflow.Sum(c => c.LeftCents);
+        LeftTotal = Format.Money(left);
+        LeftTotalBrush = Format.Signed(left);
+    }
+
     public MonthColumn(Guid monthId, bool hasPrevious, IReadOnlyList<BudgetLine> incomeLines, IReadOnlyList<BudgetLine> outflowLines, BudgetViewModel owner, double width)
     {
         MonthId = monthId;
@@ -301,6 +324,7 @@ public sealed partial class MonthColumn : ObservableObject
             var item = items.GetValueOrDefault(cell.Line.ItemId!.Value);
             cell.Apply(item?.Budgeted ?? 0, item?.Activity ?? 0, item?.CarriedIn ?? 0, m.KeptItems?.Contains(cell.Line.ItemId!.Value) == true);
         }
+        ApplyTotals();
     }
 }
 

@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.40
+
+- **Totals under the column headings.** Each month now shows the total directly under Received and Available now (added up from the Cash Received rows) and under Budgeted, Spent and Left (added up from the Cash Spend Planning rows). They update as you change a budget.
+
 ## 0.9.39
 
 - **The budget summary is in time order.** It now reads from last month into this month: carried over, released from last month, left over from last month, overspent last month, then income this month, held for next month, budgeted, and available to budget.
