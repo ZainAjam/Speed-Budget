@@ -4,6 +4,10 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.37
+
+- **Each budget month shows how it is doing.** Next to the month's title: a green circle with a tick when nothing is overspent or overbudgeted, a red circle with an exclamation mark when something is, and a yellow triangle with an exclamation mark when a coming month is overbudgeted. Hover over it for the reason.
+
 ## 0.9.36
 
 - **Copy last month's budget works again.** The "…" menu at the top of each month fills in the items that have no budget yet from the month before.

@@ -196,7 +196,21 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Grid.ColumnSpan="2">
-                    <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalTextAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" ToolTipService.ToolTip="{x:Bind StatusTip, Mode=OneWay}">
+                        <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalTextAlignment="Center" />
+                        <Grid Width="20" Height="20" VerticalAlignment="Center" Visibility="{x:Bind StatusOk, Mode=OneWay}">
+                            <Ellipse Fill="#2EA043" />
+                            <FontIcon Glyph="&#xE73E;" FontSize="11" Foreground="White" />
+                        </Grid>
+                        <Grid Width="20" Height="20" VerticalAlignment="Center" Visibility="{x:Bind StatusBad, Mode=OneWay}">
+                            <Ellipse Fill="#E5484D" />
+                            <TextBlock Text="!" FontSize="13" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
+                        </Grid>
+                        <Grid Width="22" Height="20" VerticalAlignment="Center" Visibility="{x:Bind StatusWarn, Mode=OneWay}">
+                            <Polygon Points="11,1 21,19 1,19" Fill="#F5C518" StrokeLineJoin="Round" Stroke="#F5C518" StrokeThickness="2" />
+                            <TextBlock Text="!" FontSize="12" FontWeight="Bold" Foreground="Black" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,0" />
+                        </Grid>
+                    </StackPanel>
                     <TextBlock Text="Planned: no transactions yet" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" HorizontalTextAlignment="Center"
                                Visibility="{x:Bind IsPlanned, Mode=OneWay}" />
                 </StackPanel>

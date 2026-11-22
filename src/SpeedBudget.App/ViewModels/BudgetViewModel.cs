@@ -208,6 +208,15 @@ public sealed partial class MonthColumn : ObservableObject
     public bool IsPlanned { get; private set; }
     public bool HasPrevious { get; }
 
+    /// <summary>
+    /// The mark beside the month's title: a green tick when nothing is overspent or overbudgeted, a red exclamation mark when something is
+    /// (in a month that has started), and a yellow warning triangle when it is a coming month that is overbudgeted.
+    /// </summary>
+    [ObservableProperty] public partial bool StatusOk { get; set; }
+    [ObservableProperty] public partial bool StatusBad { get; set; }
+    [ObservableProperty] public partial bool StatusWarn { get; set; }
+    [ObservableProperty] public partial string StatusTip { get; set; } = "";
+
     /// <summary>How wide this month is drawn: wider when it is the only month on show.</summary>
     public double Width { get; private set; }
 
@@ -244,6 +253,17 @@ public sealed partial class MonthColumn : ObservableObject
         IsPlanned = m.IsPlanned;
         OnPropertyChanged(nameof(Label));
         OnPropertyChanged(nameof(IsPlanned));
+
+        var overBudget = m.Available < 0;
+        var overSpent = m.Items.Any(i => i.Remaining < 0);
+        var problem = overBudget || overSpent;
+        StatusOk = !problem;
+        StatusBad = problem && !m.IsPlanned;
+        StatusWarn = problem && m.IsPlanned;
+        StatusTip = !problem ? "Nothing is overspent or overbudgeted this month"
+            : overBudget && overSpent ? "More is budgeted than is available, and some items are overspent"
+            : overBudget ? "More is budgeted than is available to budget"
+            : "Some items are overspent";
 
         var values = new[] { m.Income, -m.HeldOut, m.HeldIn, m.Overflow, m.CarriedOver, -m.Budgeted, m.Available };
         for (var i = 0; i < values.Length; i++) Summary[i].Text = Format.Money(values[i]);
