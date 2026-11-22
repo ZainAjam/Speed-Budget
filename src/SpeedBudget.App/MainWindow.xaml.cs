@@ -130,12 +130,14 @@ public sealed partial class MainWindow : Window
         AppServices.BalancesChanged += () => DispatcherQueue.TryEnqueue(() => _ = RefreshBalancesAsync());
         Nav.SelectedItem = budget;
 
-        // Look when the app opens, then every few hours, for people who leave it running.
+        // Look when the app opens, then every few hours, for people who leave it running. The timer is kept in a field: a timer held only
+        // by a local variable is collected after a while and never ticks again, which is why a copy left open for days never looked.
         _ = CheckForUpdateAsync();
-        var timer = DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromHours(6);
-        timer.Tick += (_, _) => _ = CheckForUpdateAsync();
-        timer.Start();
+        _updateTimer = DispatcherQueue.CreateTimer();
+        _updateTimer.Interval = TimeSpan.FromHours(6);
+        _updateTimer.IsRepeating = true;
+        _updateTimer.Tick += (_, _) => _ = CheckForUpdateAsync();
+        _updateTimer.Start();
     }
 
     private void ZoomOuter_Wheel(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -191,6 +193,7 @@ public sealed partial class MainWindow : Window
         finally { _undoGate.Release(); }
     }
 
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _updateTimer;
     private UpdateCheck? _pendingUpdate;
 
     /// <summary>Quietly looks for a newer version, and says so only if there is one.</summary>
@@ -528,22 +531,6 @@ public sealed partial class MainWindow : Window
 
     private bool _headingsOn;   // headings made later (when the account list is rebuilt) start as the others are, so none shows cut off in the strip
 
-    private readonly List<NavigationViewItem> _sectionHeads = [];
-
-    /// <summary>A smaller title inside the Transactions section ("Budget accounts", "Tracking accounts"). Hidden, like the others, in the strip.</summary>
-    private NavigationViewItem SubHeading(string text)
-    {
-        var label = new TextBlock
-        {
-            Text = text, FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center,
-            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-            Opacity = _headingsOn ? 1 : 0,
-            OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(110) },
-        };
-        _headingLabels.Add(label);
-        return new NavigationViewItem { Content = label, Tag = "heading", SelectsOnInvoked = false, IsHitTestVisible = false, IsTabStop = false, MinHeight = 32 };
-    }
-
     /// <summary>"All Bank Accounts", with a + at its right end that adds a bank account.</summary>
     private Grid AllAccountsRow()
     {
@@ -857,26 +844,15 @@ public sealed partial class MainWindow : Window
         foreach (var kept in accounts.Where(a => a.TrackBalances)) _balanceAccounts.Add(kept.Id);
         UpdateWatcherStrip();
 
-        // The accounts are rows of their own under Transactions (not nested in it), so their icons line up with the others. They come in two
-        // sections, each with a small heading of its own (a section is left out when it has no accounts).
+        // The accounts are rows of their own under Transactions (not nested in it), so their icons line up with the others.
         foreach (var old in _accountItems) Nav.MenuItems.Remove(old);
-        foreach (var old in _sectionHeads) { Nav.MenuItems.Remove(old); if (old.Content is TextBlock oldLabel) _headingLabels.Remove(oldLabel); }
-        _sectionHeads.Clear();
         _accountItems.Clear();
         _balanceBlocks.Clear();
         _accountOrder.Clear();
         _accountOrder.AddRange(accounts.Select(a => a.Id));
         var at = Nav.MenuItems.IndexOf(_allAccountsItem) + 1;   // the accounts follow "All Bank Accounts"
-        bool? lastBudgeted = null;
         foreach (var account in accounts)
         {
-            if (lastBudgeted != account.IsOnBudget)
-            {
-                lastBudgeted = account.IsOnBudget;
-                var head = SubHeading(account.IsOnBudget ? "Budget accounts" : "Tracking accounts");
-                _sectionHeads.Add(head);
-                Nav.MenuItems.Insert(at++, head);
-            }
             var item = AccountItem(account, balances.GetValueOrDefault(account.Id));
             _accountItems.Add(item);
             Nav.MenuItems.Insert(at++, item);

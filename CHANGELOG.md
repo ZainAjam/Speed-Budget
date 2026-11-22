@@ -4,6 +4,26 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.36
+
+- **Copy last month's budget works again.** The "…" menu at the top of each month fills in the items that have no budget yet from the month before.
+
+- **Reset budget.** The same "…" menu has a new Reset budget, which sets every item of that month back to nothing.
+
+- **Right-click a budget cell.** It offers "Use last month's budget" and "Use last month's spending as the budget" for just that item.
+
+- **Budget cells select the whole amount.** Clicking into a budget cell highlights its value, so you can type over it straight away, instead of putting the cursor at the end.
+
+- **New budget items line up.** An item added from a transactions page now shows up on the Budget page with its budget cells in every month, instead of leaving the rows misaligned.
+
+- **Side panel is back to one list.** The "Budget accounts" and "Tracking accounts" headings are gone; all accounts sit under Transactions as before (the account icons stay).
+
+- **The eye button says what it will do.** It now offers "Show cleared transactions" or "Hide cleared transactions" (and the same for reconciled) depending on what is showing.
+
+- **Duplicate on balance-tracking accounts.** Right-click a line to start a new one with the same amounts and comment.
+
+- **Updates are checked while the app stays open.** A copy left running for days now looks for a new version every few hours; before, the timer could stop working after a while.
+
 ## 0.9.35
 
 - **Multi-select now tells you what it is.** While a table is in multi-select mode, a banner appears between the buttons saying so, that you can edit or delete several transactions at a time, and to press X to close multi-select mode.

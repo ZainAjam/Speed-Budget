@@ -661,6 +661,10 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>The button above the table: it turns multi-select on, and when on it is the cross that turns it off.</summary>
     private void SelectToggle_Click(object sender, RoutedEventArgs e) => ViewModel.IsSelecting = !ViewModel.IsSelecting;
 
+    /// <summary>The eye menu: show or hide the cleared transactions, and the reconciled ones.</summary>
+    private void ToggleCleared_Click(object sender, RoutedEventArgs e) => ViewModel.HideCleared = !ViewModel.HideCleared;
+    private void ToggleReconciled_Click(object sender, RoutedEventArgs e) => ViewModel.HideReconciled = !ViewModel.HideReconciled;
+
     /// <summary>The pencil: opens the ticked transactions for editing together, as Edit in the right-click menu does.</summary>
     private void EditMany_Click(object sender, RoutedEventArgs e)
     {

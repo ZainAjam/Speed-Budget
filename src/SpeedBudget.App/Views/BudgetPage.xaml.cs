@@ -200,17 +200,16 @@ public sealed partial class BudgetPage : Page, IReloadable
 
     // ---- Editing budgeted amounts from the keyboard ----
 
-    /// <summary>On entering a cell: remember its value for Esc. A click leaves the cursor at the end of the amount; the keyboard selects it.</summary>
+    /// <summary>On entering a cell: remember its value for Esc. The whole amount is selected so typing replaces it.</summary>
     private void Budgeted_GotFocus(object sender, RoutedEventArgs e)
     {
         if (sender is not NumberBox box) return;
         box.Tag = box.Value;
         if (Money.FindTextBox(box) is not { } input) return;
 
-        // Clicking a cell puts the cursor at the end of the amount; arriving by keyboard selects it so typing replaces it.
-        if (box.FocusState != FocusState.Keyboard)
-            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => { input.SelectionStart = input.Text.Length; input.SelectionLength = 0; });
-        else input.SelectAll();
+        // Entering a cell (by click or keyboard) selects the whole amount, so typing replaces it at once.
+        input.SelectAll();
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => { if (box.FocusState != FocusState.Unfocused) input.SelectAll(); });
     }
 
     /// <summary>
@@ -515,8 +514,12 @@ public sealed partial class BudgetPage : Page, IReloadable
         copy.Click += async (_, _) => await ViewModel.CopyLastMonthAsync(column);
         var spent = new MenuFlyoutItem { Text = "Budget what was spent last month" };
         spent.Click += async (_, _) => await ViewModel.BudgetLastMonthsSpendingAsync(column);
+        var reset = new MenuFlyoutItem { Text = "Reset budget (set every item to nothing)", Icon = new FontIcon { Glyph = "" } };
+        reset.Click += async (_, _) => await ViewModel.ResetBudgetAsync(column);
         menu.Items.Add(copy);
         menu.Items.Add(spent);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(reset);
         menu.ShowAt(button);
     }
 
@@ -557,6 +560,38 @@ public sealed partial class BudgetPage : Page, IReloadable
             menu.Items.Add(release);
         }
         ShowMenu(menu, target, args);
+    }
+
+    /// <summary>
+    /// A budget cell's right-click menu: use last month's budget for this item, or what was spent on it last month. It replaces the
+    /// text box's own menu (cut, copy, paste), which would otherwise take the right-click.
+    /// </summary>
+    private void Budgeted_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not NumberBox box) return;
+        void Attach(TextBox input)
+        {
+            var menu = new MenuFlyout();
+            var copy = new MenuFlyoutItem { Text = "Use last month's budget", Icon = new FontIcon { Glyph = "" } };
+            var spent = new MenuFlyoutItem { Text = "Use last month's spending as the budget", Icon = new FontIcon { Glyph = "" } };
+            copy.Click += async (_, _) => await UseLastMonth(box, useSpending: false);
+            spent.Click += async (_, _) => await UseLastMonth(box, useSpending: true);
+            menu.Items.Add(copy);
+            menu.Items.Add(spent);
+            menu.Opening += (_, _) =>
+            {
+                var has = box.DataContext is OutflowCell c && ViewModel.Columns.FirstOrDefault(m => m.MonthId == c.MonthId)?.HasPrevious == true;
+                copy.IsEnabled = spent.IsEnabled = has;
+            };
+            input.ContextFlyout = menu;
+        }
+        if (Money.FindTextBox(box) is { } found) Attach(found);
+        else box.Loaded += (_, _) => { if (Money.FindTextBox(box) is { } late) Attach(late); };
+    }
+
+    private async Task UseLastMonth(NumberBox box, bool useSpending)
+    {
+        if (box.DataContext is OutflowCell { Line.ItemId: { } item } cell) await ViewModel.BudgetItemFromLastMonthAsync(cell.MonthId, item, useSpending);
     }
 
     /// <summary>Right-click on a "Left" figure: move some of what is left to another item (green), or cover the shortfall from one (red).</summary>

@@ -409,6 +409,7 @@ public sealed partial class BudgetViewModel : ObservableObject
                 return;
             }
             _structureKey = structure;
+            Columns.Clear();   // the rows have changed, so every month is built again with a cell for each (kept columns would no longer line up with the names)
 
             _incomeLines.Clear();
             _outflowLines.Clear();
@@ -870,34 +871,45 @@ public sealed partial class BudgetViewModel : ObservableObject
         return index > 0 ? _months[index - 1].MonthId : null;
     }
 
-    /// <summary>Copies the previous month's budgeted amounts into items that have none in this month yet.</summary>
-    public async Task CopyLastMonthAsync(MonthColumn column)
+    /// <summary>Runs a change to a month's budgeted amounts (item, new amount) worked out from the figures on show, then redraws.</summary>
+    private async Task SetBudgetsAsync(Guid monthId, Func<MonthSummary, MonthSummary?, IEnumerable<(Guid ItemId, long Amount)>> work)
     {
-        if (PreviousMonthId(column.MonthId) is not { } previous) return;
+        var index = _months.ToList().FindIndex(m => m.MonthId == monthId);
+        if (index < 0) return;
+        var month = _months[index];
+        var previous = index > 0 ? _months[index - 1] : null;
         await _gate.WaitAsync();
         try
         {
-            await _store.CopyBudgetAsync(previous, column.MonthId);
-            Message = "";
-            await RecalculateAsync();
-        }
-        catch (Exception ex) { Message = $"Could not copy: {ex.Message}"; }
-        finally { _gate.Release(); }
-    }
-
-    /// <summary>Sets each expense item's budget to what was spent on it in the previous month.</summary>
-    public async Task BudgetLastMonthsSpendingAsync(MonthColumn column)
-    {
-        if (PreviousMonthId(column.MonthId) is not { } previous) return;
-        await _gate.WaitAsync();
-        try
-        {
-            var amounts = _months.First(m => m.MonthId == previous).Items.Where(i => i.Activity < 0).Select(i => (i.ItemId, -i.Activity));
-            await _store.SetAllocationsAsync(column.MonthId, amounts);
+            await _store.SetAllocationsAsync(monthId, work(month, previous).ToList());
             Message = "";
             await RecalculateAsync();
         }
         catch (Exception ex) { Message = $"Could not save: {ex.Message}"; }
         finally { _gate.Release(); }
     }
+
+    /// <summary>Copies the previous month's budgeted amounts into items that have none in this month yet.</summary>
+    public Task CopyLastMonthAsync(MonthColumn column) => SetBudgetsAsync(column.MonthId, (month, previous) =>
+    {
+        if (previous is null) return [];
+        var set = month.Items.Where(i => i.Budgeted != 0).Select(i => i.ItemId).ToHashSet();
+        return previous.Items.Where(i => i.Budgeted != 0 && !set.Contains(i.ItemId)).Select(i => (i.ItemId, i.Budgeted));
+    });
+
+    /// <summary>Sets each expense item's budget to what was spent on it in the previous month.</summary>
+    public Task BudgetLastMonthsSpendingAsync(MonthColumn column) => SetBudgetsAsync(column.MonthId, (month, previous) =>
+        previous is null ? [] : previous.Items.Where(i => i.Activity < 0).Select(i => (i.ItemId, -i.Activity)));
+
+    /// <summary>Takes every budgeted amount of the month back to nothing.</summary>
+    public Task ResetBudgetAsync(MonthColumn column) => SetBudgetsAsync(column.MonthId, (month, _) =>
+        month.Items.Where(i => i.Budgeted != 0).Select(i => (i.ItemId, 0L)));
+
+    /// <summary>One item's budget for a month: the same as last month's budget, or last month's spending on it.</summary>
+    public Task BudgetItemFromLastMonthAsync(Guid monthId, Guid itemId, bool useSpending) => SetBudgetsAsync(monthId, (month, previous) =>
+    {
+        var last = previous?.Items.FirstOrDefault(i => i.ItemId == itemId);
+        long amount = last is null ? 0 : useSpending ? Math.Max(0, -last.Activity) : last.Budgeted;
+        return [(itemId, amount)];
+    });
 }

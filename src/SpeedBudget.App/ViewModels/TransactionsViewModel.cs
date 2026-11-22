@@ -685,12 +685,17 @@ public sealed partial class TransactionsViewModel : ObservableObject
         _ => "Showing every transaction. Click to choose what to hide",
     };
 
+    /// <summary>What the eye menu offers: to show what is hidden, or to hide what is showing.</summary>
+    public string ClearedItemText => HideCleared ? "Show cleared transactions" : "Hide cleared transactions";
+    public string ReconciledItemText => HideReconciled ? "Show reconciled transactions" : "Hide reconciled transactions";
+
     /// <summary>The eye is coloured while anything is hidden.</summary>
     public Microsoft.UI.Xaml.Media.Brush HideBrush => Format.Theme(HideCleared || HideReconciled ? "AccentTextFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
 
     partial void OnHideReconciledChanged(bool value)
     {
         s_hideReconciled = value;
+        OnPropertyChanged(nameof(ReconciledItemText));
         OnPropertyChanged(nameof(HideTip));
         OnPropertyChanged(nameof(HideBrush));
         if (_loaded) _ = ReloadAsync();
@@ -789,6 +794,7 @@ public sealed partial class TransactionsViewModel : ObservableObject
     partial void OnHideClearedChanged(bool value)
     {
         s_hideCleared = value;
+        OnPropertyChanged(nameof(ClearedItemText));
         OnPropertyChanged(nameof(HideTip));
         OnPropertyChanged(nameof(HideBrush));
         if (_loaded) _ = ReloadAsync();

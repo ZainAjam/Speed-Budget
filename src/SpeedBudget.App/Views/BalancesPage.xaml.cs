@@ -136,9 +136,11 @@ public sealed partial class BalancesPage : Page, IReloadable
     }
 
     /// <summary>Add Entry: a new line opens at the latest end of the list and is brought into view, ready to be filled in.</summary>
-    private async void AddEntry_Click(object sender, RoutedEventArgs e)
+    private void AddEntry_Click(object sender, RoutedEventArgs e) => ShowNewLineAsync(null);
+
+    private async void ShowNewLineAsync(BalanceLine? copyOf)
     {
-        if (ViewModel.BeginAdd() is not { } line) return;
+        if (ViewModel.BeginAdd(copyOf) is not { } line) return;
         try
         {
             for (var pass = 0; pass < 8; pass++)
@@ -361,6 +363,9 @@ public sealed partial class BalancesPage : Page, IReloadable
                 edit.Click += (_, _) => ViewModel.BeginChange(line);
                 menu.Items.Add(edit);
             }
+            var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
+            duplicate.Click += (_, _) => ShowNewLineAsync(line);
+            menu.Items.Add(duplicate);
             var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
             delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());
             menu.Items.Add(delete);

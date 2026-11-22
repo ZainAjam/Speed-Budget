@@ -320,8 +320,8 @@
                     <FontIcon Glyph="&#xE7B3;" FontSize="16" Foreground="{x:Bind ViewModel.HideBrush, Mode=OneWay}" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
-                            <ToggleMenuFlyoutItem Text="Hide cleared transactions" IsChecked="{x:Bind ViewModel.HideCleared, Mode=TwoWay}" />
-                            <ToggleMenuFlyoutItem Text="Hide reconciled transactions" IsChecked="{x:Bind ViewModel.HideReconciled, Mode=TwoWay}" />
+                            <MenuFlyoutItem Text="{x:Bind ViewModel.ClearedItemText, Mode=OneWay}" Click="ToggleCleared_Click" />
+                            <MenuFlyoutItem Text="{x:Bind ViewModel.ReconciledItemText, Mode=OneWay}" Click="ToggleReconciled_Click" />
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>

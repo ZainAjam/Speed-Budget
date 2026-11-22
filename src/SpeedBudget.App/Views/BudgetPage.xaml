@@ -93,7 +93,7 @@
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
-                <NumberBox app:Money.Format="True" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden"
+                <NumberBox app:Money.Format="True" Loaded="Budgeted_Loaded" PreviewKeyDown="Budgeted_PreviewKeyDown" GotFocus="Budgeted_GotFocus" Value="{x:Bind Budgeted, Mode=TwoWay}" SpinButtonPlacementMode="Hidden"
                            Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="Budgeted" LostFocus="Budgeted_LostFocus" Visibility="{x:Bind Line.IsItem}" />
                 <!-- A group's heading row shows no figures: only the items under it do -->
                 <local:HandGrid Grid.Column="1" Background="Transparent" Margin="0,0,8,0" Visibility="{x:Bind Line.IsItem}" Tapped="Spent_Tapped"
