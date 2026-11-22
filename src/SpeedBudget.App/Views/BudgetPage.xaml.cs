@@ -563,27 +563,77 @@ public sealed partial class BudgetPage : Page, IReloadable
     }
 
     /// <summary>
-    /// A budget cell's right-click menu: use last month's budget for this item, or what was spent on it last month. It replaces the
-    /// text box's own menu (cut, copy, paste), which would otherwise take the right-click.
+    /// A budget cell's right-click menu: Cut, Copy and Paste as three labelled icons, a divider, then the budget actions (use last month's
+    /// budget, or last month's spending, for this item). It replaces the text box's own menu, which would otherwise take the right-click.
     /// </summary>
     private void Budgeted_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is not NumberBox box) return;
         void Attach(TextBox input)
         {
-            var menu = new MenuFlyout();
-            var copy = new MenuFlyoutItem { Text = "Use last month's budget", Icon = new FontIcon { Glyph = "" } };
-            var spent = new MenuFlyoutItem { Text = "Use last month's spending as the budget", Icon = new FontIcon { Glyph = "" } };
-            copy.Click += async (_, _) => await UseLastMonth(box, useSpending: false);
-            spent.Click += async (_, _) => await UseLastMonth(box, useSpending: true);
-            menu.Items.Add(copy);
-            menu.Items.Add(spent);
-            menu.Opening += (_, _) =>
+            var flyout = new Flyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.RightEdgeAlignedTop };
+            flyout.FlyoutPresenterStyle = new Style(typeof(FlyoutPresenter))
+            {
+                Setters = { new Setter(Control.PaddingProperty, new Thickness(4)), new Setter(Control.MinWidthProperty, 0d) },
+            };
+
+            Button Tool(string glyph, string label, Action act)
+            {
+                var b = new Button
+                {
+                    Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+                    Width = 72, Padding = new Thickness(0, 8, 0, 8), HorizontalContentAlignment = HorizontalAlignment.Center,
+                    Content = new StackPanel
+                    {
+                        Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center,
+                        Children =
+                        {
+                            new FontIcon { Glyph = glyph, FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center },
+                            new TextBlock { Text = label, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center },
+                        },
+                    },
+                };
+                b.Click += (_, _) => { flyout.Hide(); act(); };
+                return b;
+            }
+            Button Line(string glyph, string label, Action act)
+            {
+                var b = new Button
+                {
+                    Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent), BorderThickness = new Thickness(0),
+                    HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Padding = new Thickness(12, 8, 12, 8),
+                    Content = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal, Spacing = 12,
+                        Children = { new FontIcon { Glyph = glyph, FontSize = 16 }, new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center } },
+                    },
+                };
+                b.Click += (_, _) => { flyout.Hide(); act(); };
+                return b;
+            }
+            void Edit(Action<TextBox> act)
+            {
+                input.Focus(FocusState.Programmatic);
+                if (input.SelectionLength == 0) input.SelectAll();   // nothing picked: the whole amount
+                act(input);
+            }
+
+            var cut = Tool("\uE8C6", "Cut", () => Edit(t => t.CutSelectionToClipboard()));
+            var copy = Tool("\uE8C8", "Copy", () => Edit(t => t.CopySelectionToClipboard()));
+            var paste = Tool("\uE77F", "Paste", () => { input.Focus(FocusState.Programmatic); input.PasteFromClipboard(); });
+            var last = Line("\uE8C8", "Use last month's budget", async () => await UseLastMonth(box, useSpending: false));
+            var spent = Line("\uE8EF", "Use last month's spending as the budget", async () => await UseLastMonth(box, useSpending: true));
+
+            var tools = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Children = { cut, copy, paste } };
+            var divider = new Border { Height = 1, Margin = new Thickness(4, 4, 4, 4), Opacity = 0.4, Background = Format.Theme("TextFillColorSecondaryBrush") };
+            flyout.Content = new StackPanel { Children = { tools, divider, last, spent } };
+            flyout.Opening += (_, _) =>
             {
                 var has = box.DataContext is OutflowCell c && ViewModel.Columns.FirstOrDefault(m => m.MonthId == c.MonthId)?.HasPrevious == true;
-                copy.IsEnabled = spent.IsEnabled = has;
+                last.IsEnabled = spent.IsEnabled = has;
+                paste.IsEnabled = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent().Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text);
             };
-            input.ContextFlyout = menu;
+            input.ContextFlyout = flyout;
         }
         if (Money.FindTextBox(box) is { } found) Attach(found);
         else box.Loaded += (_, _) => { if (Money.FindTextBox(box) is { } late) Attach(late); };

@@ -10,7 +10,7 @@ into the release.
 
 - **Reset budget.** The same "…" menu has a new Reset budget, which sets every item of that month back to nothing.
 
-- **Right-click a budget cell.** It offers "Use last month's budget" and "Use last month's spending as the budget" for just that item.
+- **Right-click a budget cell.** The menu has Cut, Copy and Paste as three labelled icons at the top, then a divider, then "Use last month's budget" and "Use last month's spending as the budget" for just that item.
 
 - **Budget cells select the whole amount.** Clicking into a budget cell highlights its value, so you can type over it straight away, instead of putting the cursor at the end.
 
