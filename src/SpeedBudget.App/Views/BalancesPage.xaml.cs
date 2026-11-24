@@ -343,7 +343,7 @@ public sealed partial class BalancesPage : Page, IReloadable
             // In multi-select mode the menu only deletes the ticked lines (or this one, when none is ticked yet) or leaves the mode.
             var chosen = Ticked();
             if (chosen.Count == 0) chosen = [line];
-            var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} balances" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} balances" : "Delete line", Icon = new FontIcon { Glyph = "\uE74D" } };
             deleteChosen.Click += (_, _) =>
             {
                 if (chosen.Count > 1) DeleteSelected_Click(this, new RoutedEventArgs());
@@ -359,14 +359,14 @@ public sealed partial class BalancesPage : Page, IReloadable
         {
             if (!line.IsEditing)
             {
-                var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
+                var edit = new MenuFlyoutItem { Text = "Edit line", Icon = new FontIcon { Glyph = "\uE70F" } };
                 edit.Click += (_, _) => ViewModel.BeginChange(line);
                 menu.Items.Add(edit);
             }
-            var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "" } };
+            var duplicate = new MenuFlyoutItem { Text = "Duplicate line", Icon = new FontIcon { Glyph = "" } };
             duplicate.Click += (_, _) => ShowNewLineAsync(line);
             menu.Items.Add(duplicate);
-            var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            var delete = new MenuFlyoutItem { Text = "Delete line", Icon = new FontIcon { Glyph = "\uE74D" } };
             delete.Click += (_, _) => Delete_Click(new Button { Tag = line }, new RoutedEventArgs());
             menu.Items.Add(delete);
 

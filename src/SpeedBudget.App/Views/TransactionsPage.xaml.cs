@@ -54,6 +54,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
         SizeChanged += (_, e) => ApplyPageSize(e.NewSize.Width);
         // A round button at the bottom centre of a long table jumps to the end where the latest row is.
         JumpButton.Attach(EntryList, () => ViewModel.SortIndex == 0, () => ViewModel.Rows.Count);
+        EntryList.SizeChanged += (_, _) => UpdateEndRoom();
+        (ViewModel.RangeIndex switch { 1 => RangeWeek, 2 => RangeMonth, 3 => RangeQuarter, _ => RangeAll }).IsChecked = true;   // the stretch chosen earlier
         ViewModel.Rows.CollectionChanged += (_, _) => JumpButton.Refresh();
         // Changing the sort order shows the end of the table that is now "latest" (the top for newest first, the bottom for oldest first),
         // already in place: the rows stay out of sight while they re-order, so no scrolling shows.
@@ -64,7 +66,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
         });
         ViewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(TransactionsViewModel.SortIndex)) EntryList.Opacity = 0;
+            if (e.PropertyName is nameof(TransactionsViewModel.SortIndex)) { EntryList.Opacity = 0; UpdateEndRoom(); }
             if (e.PropertyName is nameof(TransactionsViewModel.HasMarkerSelected)) UpdateDetailPanel();
             if (e.PropertyName is nameof(TransactionsViewModel.SelectedMarker))
             {
@@ -489,7 +491,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
             // In multi-select mode the menu only edits or deletes the ticked rows (or this row, when none is ticked yet) or leaves the mode.
             var chosen = ViewModel.TickedRows();
             if (chosen.Count == 0) chosen = [row];
-            var editChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Edit {chosen.Count} transactions" : "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
+            var editChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Edit {chosen.Count} transactions" : "Edit line", Icon = new FontIcon { Glyph = "\uE70F" } };
             editChosen.Click += (_, _) =>
             {
                 // The ticked rows all open for editing together, and multi-select mode is left (each row has its own tick to save it).
@@ -498,7 +500,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 ViewModel.BeginEditMany(rows);
             };
             menu.Items.Add(editChosen);
-            var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} transactions" : "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            var deleteChosen = new MenuFlyoutItem { Text = chosen.Count > 1 ? $"Delete {chosen.Count} transactions" : "Delete line", Icon = new FontIcon { Glyph = "\uE74D" } };
             deleteChosen.Click += async (_, _) => await DeleteManyAsync(chosen);
             menu.Items.Add(deleteChosen);
             menu.Items.Add(new MenuFlyoutSeparator());
@@ -540,11 +542,11 @@ public sealed partial class TransactionsPage : Page, IReloadable
             }
             else
             {
-                var edit = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" } };
+                var edit = new MenuFlyoutItem { Text = "Edit line", Icon = new FontIcon { Glyph = "\uE70F" } };
                 edit.Click += (_, _) => ViewModel.BeginEdit(row);
                 menu.Items.Add(edit);
 
-                var duplicate = new MenuFlyoutItem { Text = "Duplicate", Icon = new FontIcon { Glyph = "\uE8C8" } };
+                var duplicate = new MenuFlyoutItem { Text = "Duplicate line", Icon = new FontIcon { Glyph = "\uE8C8" } };
                 duplicate.Click += async (_, _) =>
                 {
                     await ViewModel.BeginDuplicateAsync(row);
@@ -553,7 +555,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 menu.Items.Add(duplicate);
             }
 
-            var delete = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" } };
+            var delete = new MenuFlyoutItem { Text = "Delete line", Icon = new FontIcon { Glyph = "\uE74D" } };
             delete.Click += async (_, _) => await DeleteRowAsync(row);
             menu.Items.Add(delete);
 
@@ -664,6 +666,31 @@ public sealed partial class TransactionsPage : Page, IReloadable
     /// <summary>The eye menu: show or hide the cleared transactions, and the reconciled ones.</summary>
     private void ToggleCleared_Click(object sender, RoutedEventArgs e) => ViewModel.HideCleared = !ViewModel.HideCleared;
     private void ToggleReconciled_Click(object sender, RoutedEventArgs e) => ViewModel.HideReconciled = !ViewModel.HideReconciled;
+
+    /// <summary>The eye menu's lower part: show every transaction, or only those of the last week, month or quarter.</summary>
+    private void Range_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string tag } && int.TryParse(tag, out var index)) ViewModel.RangeIndex = index;
+    }
+
+    // ---- Room under the last row ----
+
+    /// <summary>
+    /// With the oldest first, the newest row is at the bottom of the table. Room is left below it, half the height of the table, so scrolling to
+    /// the end stops with that row in the middle of the screen, and what is typed into a new or edited row is not squeezed against the bottom edge of the app.
+    /// </summary>
+    private void UpdateEndRoom()
+    {
+        var room = ViewModel.SortIndex == 1 ? Math.Max(0, Math.Floor(EntryList.ActualHeight / 2)) : 0;
+        if (EntryList.Footer is Border { } existing && Math.Abs(existing.Height - room) < 1) return;
+        EntryList.Footer = new Border { Height = room, IsHitTestVisible = false };
+    }
+
+    /// <summary>Scrolls to the very end of the list, so the last row sits in the middle of the screen above the room left under it.</summary>
+    private void ScrollToEnd()
+    {
+        if (FindScrollViewer(EntryList) is { } viewer) viewer.ChangeView(null, viewer.ScrollableHeight, null, disableAnimation: true);
+    }
 
     /// <summary>The pencil: opens the ticked transactions for editing together, as Edit in the right-click menu does.</summary>
     private void EditMany_Click(object sender, RoutedEventArgs e)
@@ -899,6 +926,7 @@ public sealed partial class TransactionsPage : Page, IReloadable
     private async Task ScrollToLatestAsync()
     {
         if (ViewModel.SortIndex != 1) return;
+        UpdateEndRoom();
         for (var pass = 0; pass < 12 && ViewModel.Rows.Count > 0; pass++)
         {
             var last = ViewModel.Rows[^1];
@@ -906,7 +934,13 @@ public sealed partial class TransactionsPage : Page, IReloadable
             await Task.Delay(30);
             if (EntryList.ContainerFromItem(last) is FrameworkElement row
                 && row.TransformToVisual(EntryList).TransformPoint(new Windows.Foundation.Point(0, row.ActualHeight)).Y <= EntryList.ActualHeight + 1)
+            {
+                // The last row is in view: go on to the very end, where it stops in the middle of the screen above the room under it.
+                ScrollToEnd();
+                await Task.Delay(30);
+                ScrollToEnd();
                 return;
+            }
         }
     }
 
@@ -977,6 +1011,8 @@ public sealed partial class TransactionsPage : Page, IReloadable
                 await Task.Delay(pass == 0 ? 120 : 50);   // the row's boxes exist once the list has laid it out
                 if (EntryList.ContainerFromItem(row) is DependencyObject container)
                 {
+                    // A new row at the end of an oldest-first table is lifted to the middle of the screen, away from the bottom edge.
+                    if (ViewModel.SortIndex == 1 && ReferenceEquals(row, ViewModel.Rows[^1])) { UpdateEndRoom(); ScrollToEnd(); }
                     if (transfer) { if (FindFirst<ComboBox>(container) is { } other) other.Focus(FocusState.Programmatic); }
                     else if (FindFirst<PayeePicker>(container) is { } picker) picker.FocusPicker();
                     return;

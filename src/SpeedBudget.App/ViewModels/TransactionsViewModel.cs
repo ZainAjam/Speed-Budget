@@ -674,23 +674,49 @@ public sealed partial class TransactionsViewModel : ObservableObject
     /// <summary>Hide the transactions that agree with the bank's file (they are cleared too, so this matters when cleared ones are shown).</summary>
     [ObservableProperty] public partial bool HideReconciled { get; set; } = s_hideReconciled;
 
-    private bool Hidden(TransactionEntity t) => (HideCleared && t.IsCleared) || (HideReconciled && t.IsReconciled);
+    /// <summary>How far back the table goes: 0 = everything, 1 = the last week, 2 = the last month, 3 = the last quarter (as on the balance tables).</summary>
+    [ObservableProperty] public partial int RangeIndex { get; set; } = s_range;
+    private static int s_range;
+
+    /// <summary>The first date shown, or null when everything is.</summary>
+    private DateOnly? RangeStart()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        return RangeIndex switch { 1 => today.AddDays(-7), 2 => today.AddMonths(-1), 3 => today.AddMonths(-3), _ => null };
+    }
+
+    private bool Hidden(TransactionEntity t) =>
+        (HideCleared && t.IsCleared) || (HideReconciled && t.IsReconciled) || (RangeStart() is { } start && t.Date < start);
 
     /// <summary>The eye's tip: what is hidden now.</summary>
-    public string HideTip => (HideCleared, HideReconciled) switch
+    public string HideTip
     {
-        (true, true) => "Hiding cleared and reconciled transactions",
-        (true, false) => "Hiding cleared transactions",
-        (false, true) => "Hiding reconciled transactions",
-        _ => "Showing every transaction. Click to choose what to hide",
-    };
+        get
+        {
+            var parts = new List<string>();
+            if (HideCleared) parts.Add("hiding cleared transactions");
+            if (HideReconciled) parts.Add("hiding reconciled transactions");
+            if (RangeIndex != 0) parts.Add(RangeIndex switch { 1 => "showing only the last week", 2 => "showing only the last month", _ => "showing only the last quarter" });
+            if (parts.Count == 0) return "Showing every transaction. Click to choose what to hide";
+            var text = string.Join(" and ", parts);
+            return char.ToUpper(text[0]) + text[1..];
+        }
+    }
+
+    partial void OnRangeIndexChanged(int value)
+    {
+        s_range = value;
+        OnPropertyChanged(nameof(HideTip));
+        OnPropertyChanged(nameof(HideBrush));
+        if (_loaded) _ = ReloadAsync();
+    }
 
     /// <summary>What the eye menu offers: to show what is hidden, or to hide what is showing.</summary>
     public string ClearedItemText => HideCleared ? "Show cleared transactions" : "Hide cleared transactions";
     public string ReconciledItemText => HideReconciled ? "Show reconciled transactions" : "Hide reconciled transactions";
 
     /// <summary>The eye is coloured while anything is hidden.</summary>
-    public Microsoft.UI.Xaml.Media.Brush HideBrush => Format.Theme(HideCleared || HideReconciled ? "AccentTextFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
+    public Microsoft.UI.Xaml.Media.Brush HideBrush => Format.Theme(HideCleared || HideReconciled || RangeIndex != 0 ? "AccentTextFillColorPrimaryBrush" : "TextFillColorPrimaryBrush");
 
     partial void OnHideReconciledChanged(bool value)
     {
@@ -1047,9 +1073,9 @@ public sealed partial class TransactionsViewModel : ObservableObject
             if (!Filters.Passes(row)) continue;
             entries.Add((new SortKey(d.Transaction.Date, d.Transaction.DayOrder), 1, d.Transaction.Id, row));
         }
-        // With cleared transactions hidden, a month whose transactions are all cleared has nothing left under its line, so the line goes too.
+        // With transactions hidden (cleared or reconciled ones, or the ones older than the stretch chosen), a month whose transactions are all hidden has nothing left under its line, so the line goes too.
         // (A month with no transactions at all keeps its line: nothing was hidden from it.)
-        if ((HideCleared || HideReconciled) && showLines)
+        if ((HideCleared || HideReconciled || RangeIndex != 0) && showLines)
         {
             var lines = entries.Where(e => e.Row is MarkerRow).OrderBy(e => e.Key).ToList();
             var total = new int[lines.Count];

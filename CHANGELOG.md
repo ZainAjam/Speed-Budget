@@ -4,6 +4,16 @@ Each version's notes are shown to people in the app before they update, so write
 not for a developer. Add a `## <version>` section here before tagging a release; the packaging script puts that section
 into the release.
 
+## 0.9.42
+
+- **The right-click menu says "line".** On the transaction tables the menu now reads Edit line, Duplicate line and Delete line (the balance tables too).
+
+- **Room under the last row.** With the oldest first, scrolling to the bottom of a transaction table now stops with the last row in the middle of the screen, with room under it, instead of at the very bottom edge. A new row added at the end opens there too, away from the edge of the app.
+
+- **The eye can limit the table to a recent period.** Under Hide cleared and Hide reconciled, and a divider, it offers Show all transactions, the last week, the last month or the last quarter, the same as on the balance tables.
+
+- **A month line goes when everything under it is hidden.** If the eye hides all the transactions of a month (cleared or reconciled ones, or ones older than the period chosen), its "budget month starts here" line is hidden too.
+
 ## 0.9.41
 
 - **The totals under the column headings are gone.** Received, Available now, Budgeted, Spent and Left no longer show a total underneath; the headings and the section titles are back as they were before 0.9.40.

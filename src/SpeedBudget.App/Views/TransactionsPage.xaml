@@ -322,6 +322,11 @@
                         <MenuFlyout Placement="BottomEdgeAlignedRight">
                             <MenuFlyoutItem Text="{x:Bind ViewModel.ClearedItemText, Mode=OneWay}" Click="ToggleCleared_Click" />
                             <MenuFlyoutItem Text="{x:Bind ViewModel.ReconciledItemText, Mode=OneWay}" Click="ToggleReconciled_Click" />
+                            <MenuFlyoutSeparator />
+                            <RadioMenuFlyoutItem x:Name="RangeAll" GroupName="Range" Tag="0" Text="Show all transactions" IsChecked="True" Click="Range_Click" />
+                            <RadioMenuFlyoutItem x:Name="RangeWeek" GroupName="Range" Tag="1" Text="Show the last week" Click="Range_Click" />
+                            <RadioMenuFlyoutItem x:Name="RangeMonth" GroupName="Range" Tag="2" Text="Show the last month" Click="Range_Click" />
+                            <RadioMenuFlyoutItem x:Name="RangeQuarter" GroupName="Range" Tag="3" Text="Show the last quarter" Click="Range_Click" />
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>
